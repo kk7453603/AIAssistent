@@ -160,6 +160,10 @@ Context:
 	return g.client.generateText(ctx, prompt)
 }
 
+func (g *Generator) GenerateFromPrompt(ctx context.Context, prompt string) (string, error) {
+	return g.client.generateText(ctx, prompt)
+}
+
 func (c *Client) generateJSON(ctx context.Context, prompt string) (string, error) {
 	reqBody := map[string]any{
 		"model":  c.genModel,

@@ -25,6 +25,12 @@ type Config struct {
 	ChunkSize    int
 	ChunkOverlap int
 	RAGTopK      int
+
+	OpenAICompatAPIKey              string
+	OpenAICompatModelID             string
+	OpenAICompatContextMessages     int
+	OpenAICompatStreamChunkChars    int
+	OpenAICompatToolTriggerKeywords string
 }
 
 func Load() Config {
@@ -48,6 +54,12 @@ func Load() Config {
 		ChunkSize:    mustEnvInt("CHUNK_SIZE", 900),
 		ChunkOverlap: mustEnvInt("CHUNK_OVERLAP", 150),
 		RAGTopK:      mustEnvInt("RAG_TOP_K", 5),
+
+		OpenAICompatAPIKey:              mustEnv("OPENAI_COMPAT_API_KEY", ""),
+		OpenAICompatModelID:             mustEnv("OPENAI_COMPAT_MODEL_ID", "paa-rag-v1"),
+		OpenAICompatContextMessages:     mustEnvInt("OPENAI_COMPAT_CONTEXT_MESSAGES", 5),
+		OpenAICompatStreamChunkChars:    mustEnvInt("OPENAI_COMPAT_STREAM_CHUNK_CHARS", 120),
+		OpenAICompatToolTriggerKeywords: mustEnv("OPENAI_COMPAT_TOOL_TRIGGER_KEYWORDS", "file,document,upload,attach,документ,файл,загрузи,вложение"),
 	}
 }
 

@@ -56,3 +56,11 @@ func (uc *QueryUseCase) Answer(
 		Sources: chunks,
 	}, nil
 }
+
+func (uc *QueryUseCase) GenerateFromPrompt(ctx context.Context, prompt string) (string, error) {
+	answerText, err := uc.generator.GenerateFromPrompt(ctx, prompt)
+	if err != nil {
+		return "", fmt.Errorf("generate from prompt: %w", err)
+	}
+	return answerText, nil
+}
