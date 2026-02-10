@@ -12,6 +12,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"mime/multipart"
 	"net/http"
 	"net/url"
@@ -25,6 +26,14 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for ChatMessageRole.
+const (
+	Assistant ChatMessageRole = "assistant"
+	System    ChatMessageRole = "system"
+	Tool      ChatMessageRole = "tool"
+	User      ChatMessageRole = "user"
+)
+
 // Defines values for DocumentStatus.
 const (
 	Failed     DocumentStatus = "failed"
@@ -32,6 +41,97 @@ const (
 	Ready      DocumentStatus = "ready"
 	Uploaded   DocumentStatus = "uploaded"
 )
+
+// Defines values for ToolCallType.
+const (
+	ToolCallTypeFunction ToolCallType = "function"
+)
+
+// Defines values for ToolDefinitionType.
+const (
+	ToolDefinitionTypeFunction ToolDefinitionType = "function"
+)
+
+// ChatCompletionChoice defines model for ChatCompletionChoice.
+type ChatCompletionChoice struct {
+	FinishReason *string     `json:"finish_reason"`
+	Index        int         `json:"index"`
+	Message      ChatMessage `json:"message"`
+}
+
+// ChatCompletionChunk defines model for ChatCompletionChunk.
+type ChatCompletionChunk struct {
+	Choices []ChatCompletionChunkChoice `json:"choices"`
+	Created int64                       `json:"created"`
+	Id      string                      `json:"id"`
+	Model   string                      `json:"model"`
+	Object  string                      `json:"object"`
+}
+
+// ChatCompletionChunkChoice defines model for ChatCompletionChunkChoice.
+type ChatCompletionChunkChoice struct {
+	Delta        ChatMessageDelta `json:"delta"`
+	FinishReason *string          `json:"finish_reason"`
+	Index        int              `json:"index"`
+}
+
+// ChatCompletionRequest defines model for ChatCompletionRequest.
+type ChatCompletionRequest struct {
+	MaxTokens   *int          `json:"max_tokens,omitempty"`
+	Messages    []ChatMessage `json:"messages"`
+	Model       string        `json:"model"`
+	Stream      *bool         `json:"stream,omitempty"`
+	Temperature *float32      `json:"temperature,omitempty"`
+
+	// ToolChoice OpenAI-compatible tool choice field.
+	ToolChoice *interface{}      `json:"tool_choice"`
+	Tools      *[]ToolDefinition `json:"tools,omitempty"`
+}
+
+// ChatCompletionResponse defines model for ChatCompletionResponse.
+type ChatCompletionResponse struct {
+	Choices []ChatCompletionChoice `json:"choices"`
+	Created int64                  `json:"created"`
+	Debug   *DebugInfo             `json:"debug,omitempty"`
+	Id      string                 `json:"id"`
+	Model   string                 `json:"model"`
+	Object  string                 `json:"object"`
+	Usage   *Usage                 `json:"usage,omitempty"`
+}
+
+// ChatMessage defines model for ChatMessage.
+type ChatMessage struct {
+	// Content Message content. Can be string or structured content.
+	Content    *interface{}    `json:"content"`
+	Name       *string         `json:"name,omitempty"`
+	Role       ChatMessageRole `json:"role"`
+	ToolCallId *string         `json:"tool_call_id,omitempty"`
+	ToolCalls  *[]ToolCall     `json:"tool_calls,omitempty"`
+}
+
+// ChatMessageRole defines model for ChatMessage.Role.
+type ChatMessageRole string
+
+// ChatMessageDelta defines model for ChatMessageDelta.
+type ChatMessageDelta struct {
+	Content   *string     `json:"content,omitempty"`
+	Role      *string     `json:"role,omitempty"`
+	ToolCalls *[]ToolCall `json:"tool_calls,omitempty"`
+}
+
+// DebugInfo defines model for DebugInfo.
+type DebugInfo struct {
+	Mode    *string        `json:"mode,omitempty"`
+	Sources *[]DebugSource `json:"sources,omitempty"`
+}
+
+// DebugSource defines model for DebugSource.
+type DebugSource struct {
+	Category   *string  `json:"category,omitempty"`
+	DocumentId *string  `json:"document_id,omitempty"`
+	Filename   *string  `json:"filename,omitempty"`
+	Score      *float32 `json:"score,omitempty"`
+}
 
 // Document defines model for Document.
 type Document struct {
@@ -58,9 +158,29 @@ type ErrorResponse struct {
 	Error string `json:"error"`
 }
 
+// FunctionCall defines model for FunctionCall.
+type FunctionCall struct {
+	Arguments string `json:"arguments"`
+	Name      string `json:"name"`
+}
+
 // HealthResponse defines model for HealthResponse.
 type HealthResponse struct {
 	Status string `json:"status"`
+}
+
+// ModelListResponse defines model for ModelListResponse.
+type ModelListResponse struct {
+	Data   []ModelObject `json:"data"`
+	Object string        `json:"object"`
+}
+
+// ModelObject defines model for ModelObject.
+type ModelObject struct {
+	Created *int64 `json:"created,omitempty"`
+	Id      string `json:"id"`
+	Object  string `json:"object"`
+	OwnedBy string `json:"owned_by"`
 }
 
 // RagAnswerResponse defines model for RagAnswerResponse.
@@ -85,10 +205,46 @@ type RetrievedChunk struct {
 	Text       string  `json:"text"`
 }
 
+// ToolCall defines model for ToolCall.
+type ToolCall struct {
+	Function FunctionCall `json:"function"`
+	Id       string       `json:"id"`
+	Type     ToolCallType `json:"type"`
+}
+
+// ToolCallType defines model for ToolCall.Type.
+type ToolCallType string
+
+// ToolDefinition defines model for ToolDefinition.
+type ToolDefinition struct {
+	Function ToolFunctionDefinition `json:"function"`
+	Type     ToolDefinitionType     `json:"type"`
+}
+
+// ToolDefinitionType defines model for ToolDefinition.Type.
+type ToolDefinitionType string
+
+// ToolFunctionDefinition defines model for ToolFunctionDefinition.
+type ToolFunctionDefinition struct {
+	Description *string                 `json:"description,omitempty"`
+	Name        string                  `json:"name"`
+	Parameters  *map[string]interface{} `json:"parameters,omitempty"`
+}
+
+// Usage defines model for Usage.
+type Usage struct {
+	CompletionTokens int `json:"completion_tokens"`
+	PromptTokens     int `json:"prompt_tokens"`
+	TotalTokens      int `json:"total_tokens"`
+}
+
 // UploadDocumentMultipartBody defines parameters for UploadDocument.
 type UploadDocumentMultipartBody struct {
 	File openapi_types.File `json:"file"`
 }
+
+// ChatCompletionsJSONRequestBody defines body for ChatCompletions for application/json ContentType.
+type ChatCompletionsJSONRequestBody = ChatCompletionRequest
 
 // UploadDocumentMultipartRequestBody defines body for UploadDocument for multipart/form-data ContentType.
 type UploadDocumentMultipartRequestBody UploadDocumentMultipartBody
@@ -101,12 +257,18 @@ type ServerInterface interface {
 	// Liveness probe
 	// (GET /healthz)
 	Healthz(w http.ResponseWriter, r *http.Request)
+	// OpenAI-compatible chat completions endpoint
+	// (POST /v1/chat/completions)
+	ChatCompletions(w http.ResponseWriter, r *http.Request)
 	// Upload a document for asynchronous processing
 	// (POST /v1/documents)
 	UploadDocument(w http.ResponseWriter, r *http.Request)
 	// Get document status and metadata
 	// (GET /v1/documents/{document_id})
 	GetDocumentById(w http.ResponseWriter, r *http.Request, documentId string)
+	// List available OpenAI-compatible chat models
+	// (GET /v1/models)
+	ListModels(w http.ResponseWriter, r *http.Request)
 	// RAG query against indexed chunks
 	// (POST /v1/rag/query)
 	QueryRag(w http.ResponseWriter, r *http.Request)
@@ -126,6 +288,20 @@ func (siw *ServerInterfaceWrapper) Healthz(w http.ResponseWriter, r *http.Reques
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.Healthz(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ChatCompletions operation middleware
+func (siw *ServerInterfaceWrapper) ChatCompletions(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ChatCompletions(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -165,6 +341,20 @@ func (siw *ServerInterfaceWrapper) GetDocumentById(w http.ResponseWriter, r *htt
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetDocumentById(w, r, documentId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListModels operation middleware
+func (siw *ServerInterfaceWrapper) ListModels(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListModels(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -309,8 +499,10 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	}
 
 	m.HandleFunc("GET "+options.BaseURL+"/healthz", wrapper.Healthz)
+	m.HandleFunc("POST "+options.BaseURL+"/v1/chat/completions", wrapper.ChatCompletions)
 	m.HandleFunc("POST "+options.BaseURL+"/v1/documents", wrapper.UploadDocument)
 	m.HandleFunc("GET "+options.BaseURL+"/v1/documents/{document_id}", wrapper.GetDocumentById)
+	m.HandleFunc("GET "+options.BaseURL+"/v1/models", wrapper.ListModels)
 	m.HandleFunc("POST "+options.BaseURL+"/v1/rag/query", wrapper.QueryRag)
 
 	return m
@@ -328,6 +520,69 @@ type Healthz200JSONResponse HealthResponse
 func (response Healthz200JSONResponse) VisitHealthzResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ChatCompletionsRequestObject struct {
+	Body *ChatCompletionsJSONRequestBody
+}
+
+type ChatCompletionsResponseObject interface {
+	VisitChatCompletionsResponse(w http.ResponseWriter) error
+}
+
+type ChatCompletions200JSONResponse ChatCompletionResponse
+
+func (response ChatCompletions200JSONResponse) VisitChatCompletionsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ChatCompletions200TexteventStreamResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
+
+func (response ChatCompletions200TexteventStreamResponse) VisitChatCompletionsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "text/event-stream")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type ChatCompletions400JSONResponse ErrorResponse
+
+func (response ChatCompletions400JSONResponse) VisitChatCompletionsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ChatCompletions401JSONResponse ErrorResponse
+
+func (response ChatCompletions401JSONResponse) VisitChatCompletionsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ChatCompletions500JSONResponse ErrorResponse
+
+func (response ChatCompletions500JSONResponse) VisitChatCompletionsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -393,6 +648,31 @@ func (response GetDocumentById404JSONResponse) VisitGetDocumentByIdResponse(w ht
 	return json.NewEncoder(w).Encode(response)
 }
 
+type ListModelsRequestObject struct {
+}
+
+type ListModelsResponseObject interface {
+	VisitListModelsResponse(w http.ResponseWriter) error
+}
+
+type ListModels200JSONResponse ModelListResponse
+
+func (response ListModels200JSONResponse) VisitListModelsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListModels401JSONResponse ErrorResponse
+
+func (response ListModels401JSONResponse) VisitListModelsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type QueryRagRequestObject struct {
 	Body *QueryRagJSONRequestBody
 }
@@ -433,12 +713,18 @@ type StrictServerInterface interface {
 	// Liveness probe
 	// (GET /healthz)
 	Healthz(ctx context.Context, request HealthzRequestObject) (HealthzResponseObject, error)
+	// OpenAI-compatible chat completions endpoint
+	// (POST /v1/chat/completions)
+	ChatCompletions(ctx context.Context, request ChatCompletionsRequestObject) (ChatCompletionsResponseObject, error)
 	// Upload a document for asynchronous processing
 	// (POST /v1/documents)
 	UploadDocument(ctx context.Context, request UploadDocumentRequestObject) (UploadDocumentResponseObject, error)
 	// Get document status and metadata
 	// (GET /v1/documents/{document_id})
 	GetDocumentById(ctx context.Context, request GetDocumentByIdRequestObject) (GetDocumentByIdResponseObject, error)
+	// List available OpenAI-compatible chat models
+	// (GET /v1/models)
+	ListModels(ctx context.Context, request ListModelsRequestObject) (ListModelsResponseObject, error)
 	// RAG query against indexed chunks
 	// (POST /v1/rag/query)
 	QueryRag(ctx context.Context, request QueryRagRequestObject) (QueryRagResponseObject, error)
@@ -490,6 +776,37 @@ func (sh *strictHandler) Healthz(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(HealthzResponseObject); ok {
 		if err := validResponse.VisitHealthzResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ChatCompletions operation middleware
+func (sh *strictHandler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
+	var request ChatCompletionsRequestObject
+
+	var body ChatCompletionsJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ChatCompletions(ctx, request.(ChatCompletionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ChatCompletions")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ChatCompletionsResponseObject); ok {
+		if err := validResponse.VisitChatCompletionsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -554,6 +871,30 @@ func (sh *strictHandler) GetDocumentById(w http.ResponseWriter, r *http.Request,
 	}
 }
 
+// ListModels operation middleware
+func (sh *strictHandler) ListModels(w http.ResponseWriter, r *http.Request) {
+	var request ListModelsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListModels(ctx, request.(ListModelsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListModels")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListModelsResponseObject); ok {
+		if err := validResponse.VisitListModelsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // QueryRag operation middleware
 func (sh *strictHandler) QueryRag(w http.ResponseWriter, r *http.Request) {
 	var request QueryRagRequestObject
@@ -588,23 +929,36 @@ func (sh *strictHandler) QueryRag(w http.ResponseWriter, r *http.Request) {
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/+xWTW8bNxD9KwTb48YrJykQ7E1uC1dAUaQqekoNY0SOVkyWHyZnVSuG/ntBUlpp1yvZ",
-	"LtyceluJHM7Me28e+cCF1c4aNBR49cCDWKGG9PmTFa1GQ/HbeevQk8K0IoCwtn4Tv2njkFc8kFem5tuC",
-	"C2uWSqIRGJeX1msgXnFp20WDvNgHmFYv0KcAj0Aob4H6AUD4hpQ+ijkkQe+tH02/VA0a0Di6qOTo31pp",
-	"vM3/jqwGAmpT32hazatPvHWNBYmSFxEYgSHErQX3CHLDC74E1aDkN8XYYdZDjbcOaDWerV2chTe0WsOJ",
-	"NYI61akIdRjfkf8A72ETf7dOvhD7bWzzrlUeZYRCRRA6zI+hHPTa4dgjvFfBAS+7+IyCYoE/R6LnGJw1",
-	"AR8r8ZQOBlXmbWPn/4LQ0Op0giPy70G7JkV/eRKWXdhYxjnUUxP+xjNdBdt6gX0qv/e45BX/rjzMa7kb",
-	"1nKO5BWuUf64as2XMZ4J7+lpmNKuokt/ovrfW/SbOd61GF7qDY3SKsVoZZSOw3TZ5VCGsM6OkI5W1jxd",
-	"cbdztNY+LC8rVe7c7/aEZ5z1mSCsf679PY+a43J6A9c1UXT0peSPAYlHKrO0MZnEILxyGWT+h0PxZql8",
-	"IDb9OGPCGvIgiC2tZ8rUGeKC7WtgWd0FAyPZfHrN7qIiLv4ysQZFaUY+og/WQMOmMzYNQQUCk07nBV+j",
-	"Dznx5OLyYhJBsA4NOMUr/u5icvEuGivQKrFUrtKIfo3fNSaoIokQa5pJXu1G+Gvy3zxRKe7tZJJItoZ2",
-	"lxg41yiRAsvPIcsrj9BTAzZwiQRlH8KImwos17pJ9HVOzX9VazQYAnPeLjAtluvLco9nKtfZMNLbn+mm",
-	"6W7irAkMdGXlZtCdbhtSDjyVUXRvJBD0G+yLP0qop9CFMpBldFaIKW5cXIdt5FvcPuLj7avx0QEywsR+",
-	"jYEQ6AhlkvHRPb0t+PtX1Eb/hhop6Aok29EWc//wLXPPDKGPYxjQr9GzfBH21Zk1xuAw3xEwCBsjVt4a",
-	"24YeekPxlg9H3rQ9OaXXSHtmrjaz9HQCDxoJfeDVpweuYr27p0I21oHp9eVVHEE0VOzNf2gFz5KeRoI0",
-	"gElr778d37/ZyF5r5IDja6ShfSf3PhS6o9VDXSY7P+1J+f6H+qwb/fsehy+MZ1nL5DXTD55nIzDHSw/S",
-	"roTi/sH0v7P0Vde9DRjUoEwgpozEe5RMxBdZyOfmA7IJtL7hFV8RuaosGyugWdlA1YfJhwnf3mz/CQAA",
-	"///3XSqdrg4AAA==",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

@@ -18,6 +18,62 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthResponse"
+  /v1/models:
+    get:
+      operationId: listModels
+      summary: List available OpenAI-compatible chat models
+      responses:
+        "200":
+          description: List of available models
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModelListResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /v1/chat/completions:
+    post:
+      operationId: chatCompletions
+      summary: OpenAI-compatible chat completions endpoint
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatCompletionRequest"
+      responses:
+        "200":
+          description: Chat completion result or SSE stream
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatCompletionResponse"
+            text/event-stream:
+              schema:
+                type: string
+                description: Server-sent events stream with OpenAI-compatible chunks.
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/documents:
     post:
       operationId: uploadDocument
@@ -116,6 +172,7 @@ components:
         status:
           type: string
           example: ok
+
     ErrorResponse:
       type: object
       required:
@@ -123,6 +180,272 @@ components:
       properties:
         error:
           type: string
+
+    ModelObject:
+      type: object
+      required:
+        - id
+        - object
+        - owned_by
+      properties:
+        id:
+          type: string
+        object:
+          type: string
+          example: model
+        owned_by:
+          type: string
+        created:
+          type: integer
+          format: int64
+
+    ModelListResponse:
+      type: object
+      required:
+        - object
+        - data
+      properties:
+        object:
+          type: string
+          example: list
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ModelObject"
+
+    ToolFunctionDefinition:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        parameters:
+          type: object
+          additionalProperties: true
+
+    ToolDefinition:
+      type: object
+      required:
+        - type
+        - function
+      properties:
+        type:
+          type: string
+          enum:
+            - function
+        function:
+          $ref: "#/components/schemas/ToolFunctionDefinition"
+
+    FunctionCall:
+      type: object
+      required:
+        - name
+        - arguments
+      properties:
+        name:
+          type: string
+        arguments:
+          type: string
+
+    ToolCall:
+      type: object
+      required:
+        - id
+        - type
+        - function
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum:
+            - function
+        function:
+          $ref: "#/components/schemas/FunctionCall"
+
+    ChatMessage:
+      type: object
+      required:
+        - role
+      properties:
+        role:
+          type: string
+          enum:
+            - system
+            - user
+            - assistant
+            - tool
+        content:
+          description: Message content. Can be string or structured content.
+          nullable: true
+        name:
+          type: string
+        tool_call_id:
+          type: string
+        tool_calls:
+          type: array
+          items:
+            $ref: "#/components/schemas/ToolCall"
+
+    ChatCompletionRequest:
+      type: object
+      required:
+        - model
+        - messages
+      properties:
+        model:
+          type: string
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatMessage"
+        stream:
+          type: boolean
+        temperature:
+          type: number
+          format: float
+        max_tokens:
+          type: integer
+        tools:
+          type: array
+          items:
+            $ref: "#/components/schemas/ToolDefinition"
+        tool_choice:
+          description: OpenAI-compatible tool choice field.
+          nullable: true
+
+    ChatMessageDelta:
+      type: object
+      properties:
+        role:
+          type: string
+        content:
+          type: string
+        tool_calls:
+          type: array
+          items:
+            $ref: "#/components/schemas/ToolCall"
+
+    ChatCompletionChoice:
+      type: object
+      required:
+        - index
+        - message
+      properties:
+        index:
+          type: integer
+        message:
+          $ref: "#/components/schemas/ChatMessage"
+        finish_reason:
+          type: string
+          nullable: true
+
+    ChatCompletionChunkChoice:
+      type: object
+      required:
+        - index
+        - delta
+      properties:
+        index:
+          type: integer
+        delta:
+          $ref: "#/components/schemas/ChatMessageDelta"
+        finish_reason:
+          type: string
+          nullable: true
+
+    Usage:
+      type: object
+      required:
+        - prompt_tokens
+        - completion_tokens
+        - total_tokens
+      properties:
+        prompt_tokens:
+          type: integer
+        completion_tokens:
+          type: integer
+        total_tokens:
+          type: integer
+
+    DebugSource:
+      type: object
+      properties:
+        document_id:
+          type: string
+        filename:
+          type: string
+        category:
+          type: string
+        score:
+          type: number
+          format: float
+
+    DebugInfo:
+      type: object
+      properties:
+        mode:
+          type: string
+        sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/DebugSource"
+
+    ChatCompletionResponse:
+      type: object
+      required:
+        - id
+        - object
+        - created
+        - model
+        - choices
+      properties:
+        id:
+          type: string
+        object:
+          type: string
+          example: chat.completion
+        created:
+          type: integer
+          format: int64
+        model:
+          type: string
+        choices:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatCompletionChoice"
+        usage:
+          $ref: "#/components/schemas/Usage"
+        debug:
+          $ref: "#/components/schemas/DebugInfo"
+
+    ChatCompletionChunk:
+      type: object
+      required:
+        - id
+        - object
+        - created
+        - model
+        - choices
+      properties:
+        id:
+          type: string
+        object:
+          type: string
+          example: chat.completion.chunk
+        created:
+          type: integer
+          format: int64
+        model:
+          type: string
+        choices:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatCompletionChunkChoice"
+
     Document:
       type: object
       required:
@@ -170,6 +493,7 @@ components:
         updated_at:
           type: string
           format: date-time
+
     RagQueryRequest:
       type: object
       required:
@@ -182,6 +506,7 @@ components:
           minimum: 1
         category:
           type: string
+
     RetrievedChunk:
       type: object
       required:
@@ -202,6 +527,7 @@ components:
         score:
           type: number
           format: double
+
     RagAnswerResponse:
       type: object
       required:
