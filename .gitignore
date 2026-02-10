@@ -1,0 +1,6 @@
+postgres_data
+qdrant_data
+ollama_data
+minio_data
+storage_data
+*.txt
