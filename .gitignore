@@ -4,3 +4,5 @@ ollama_data
 minio_data
 storage_data
 *.txt
+__pycache__/
+*.pyc
