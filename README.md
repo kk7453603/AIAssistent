@@ -27,6 +27,9 @@ MVP-сервис для:
 
 ## API
 
+OpenAPI JSON:
+- `GET /openapi.json`
+
 ### 1) Загрузка документа
 `POST /v1/documents` (multipart form-data, поле `file`)
 
@@ -51,6 +54,18 @@ curl -X POST http://localhost:8080/v1/rag/query \
     "limit": 5
   }'
 ```
+
+## Spec-first workflow
+Контракт API описывается в спецификации, затем из нее генерируется серверный код:
+
+1. Обновить спецификацию:
+   - `api/openapi/openapi.yaml`
+2. Сгенерировать код:
+   - `make generate-openapi`
+3. Реализовать бизнес-логику сгенерированных методов в:
+   - `internal/adapters/http/router.go` (`StrictServerInterface`)
+4. Проверить:
+   - `make test`
 
 ## Ограничения MVP
 - Извлечение текста реализовано для UTF-8 текстовых файлов.
