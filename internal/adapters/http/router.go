@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	apigen "github.com/kirillkom/personal-ai-assistant/internal/adapters/http/openapi"
+	"github.com/kirillkom/personal-ai-assistant/internal/config"
 	"github.com/kirillkom/personal-ai-assistant/internal/core/domain"
 	"github.com/kirillkom/personal-ai-assistant/internal/core/ports"
 	"github.com/kirillkom/personal-ai-assistant/internal/core/usecase"
@@ -20,17 +21,53 @@ type Router struct {
 	ingestUC *usecase.IngestDocumentUseCase
 	queryUC  *usecase.QueryUseCase
 	repo     ports.DocumentRepository
+
+	openAICompatAPIKey           string
+	openAICompatModelID          string
+	openAICompatContextMessages  int
+	openAICompatStreamChunkChars int
+	toolTriggerKeywords          []string
+	ragTopK                      int
 }
 
 func NewRouter(
+	cfg config.Config,
 	ingestUC *usecase.IngestDocumentUseCase,
 	queryUC *usecase.QueryUseCase,
 	repo ports.DocumentRepository,
 ) *Router {
+	contextMessages := cfg.OpenAICompatContextMessages
+	if contextMessages <= 0 {
+		contextMessages = 5
+	}
+	streamChunkChars := cfg.OpenAICompatStreamChunkChars
+	if streamChunkChars <= 0 {
+		streamChunkChars = 120
+	}
+	ragTopK := cfg.RAGTopK
+	if ragTopK <= 0 {
+		ragTopK = 5
+	}
+	toolKeywords := make([]string, 0)
+	for _, keyword := range strings.Split(cfg.OpenAICompatToolTriggerKeywords, ",") {
+		keyword = strings.TrimSpace(strings.ToLower(keyword))
+		if keyword == "" {
+			continue
+		}
+		toolKeywords = append(toolKeywords, keyword)
+	}
+
 	return &Router{
 		ingestUC: ingestUC,
 		queryUC:  queryUC,
 		repo:     repo,
+
+		openAICompatAPIKey:           cfg.OpenAICompatAPIKey,
+		openAICompatModelID:          cfg.OpenAICompatModelID,
+		openAICompatContextMessages:  contextMessages,
+		openAICompatStreamChunkChars: streamChunkChars,
+		toolTriggerKeywords:          toolKeywords,
+		ragTopK:                      ragTopK,
 	}
 }
 
@@ -38,7 +75,9 @@ func (rt *Router) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /openapi.json", serveOpenAPISpecJSON)
 
-	strict := apigen.NewStrictHandlerWithOptions(rt, nil, apigen.StrictHTTPServerOptions{
+	strict := apigen.NewStrictHandlerWithOptions(rt, []apigen.StrictMiddlewareFunc{
+		rt.openAICompatAuthMiddleware,
+	}, apigen.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc: func(w http.ResponseWriter, _ *http.Request, err error) {
 			writeError(w, http.StatusBadRequest, err)
 		},
