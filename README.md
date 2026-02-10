@@ -23,6 +23,8 @@ MVP-сервис для:
    - `docker compose exec ollama ollama pull llama3.1:8b`
    - `docker compose exec ollama ollama pull nomic-embed-text`
 
+Примечание: хостовый порт Ollama в compose по умолчанию `11435`, чтобы не конфликтовать с локальным Ollama на `11434`.
+
 ## API
 
 ### 1) Загрузка документа
@@ -53,3 +55,11 @@ curl -X POST http://localhost:8080/v1/rag/query \
 ## Ограничения MVP
 - Извлечение текста реализовано для UTF-8 текстовых файлов.
 - Для PDF/DOCX/OCR нужен отдельный extractor-адаптер.
+
+## Troubleshooting
+- Если документ получает статус `failed` с ошибкой вида `ollama generate status: 404 Not Found`, это обычно значит, что модель не загружена в контейнер `ollama`.
+- Проверить модели:
+  - `docker compose exec ollama ollama list`
+- Подгрузить модели:
+  - `docker compose exec ollama ollama pull llama3.1:8b`
+  - `docker compose exec ollama ollama pull nomic-embed-text`

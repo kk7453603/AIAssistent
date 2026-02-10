@@ -37,6 +37,19 @@ func OpenDB(dsn string) (*sql.DB, error) {
 }
 
 func (r *DocumentRepository) EnsureSchema(ctx context.Context) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin schema tx: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback()
+	}()
+
+	// Serialize bootstrap DDL across api/worker startups.
+	if _, err := tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock($1)`, int64(2026021001)); err != nil {
+		return fmt.Errorf("acquire schema lock: %w", err)
+	}
+
 	const query = `
 CREATE TABLE IF NOT EXISTS documents (
 	id TEXT PRIMARY KEY,
@@ -57,8 +70,14 @@ CREATE TABLE IF NOT EXISTS documents (
 CREATE INDEX IF NOT EXISTS idx_documents_status ON documents(status);
 CREATE INDEX IF NOT EXISTS idx_documents_created_at ON documents(created_at DESC);
 `
-	_, err := r.db.ExecContext(ctx, query)
-	return err
+	if _, err := tx.ExecContext(ctx, query); err != nil {
+		return fmt.Errorf("execute schema ddl: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit schema tx: %w", err)
+	}
+	return nil
 }
 
 func (r *DocumentRepository) Create(ctx context.Context, doc *domain.Document) error {

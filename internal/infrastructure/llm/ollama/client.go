@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -102,7 +103,7 @@ func (e *Embedder) Embed(ctx context.Context, texts []string) ([][]float32, erro
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("ollama embed status: %s", resp.Status)
+		return nil, formatOllamaHTTPError("embed", resp)
 	}
 
 	var embedResp struct {
@@ -197,7 +198,7 @@ func (c *Client) generate(ctx context.Context, reqBody map[string]any) (string, 
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 300 {
-		return "", fmt.Errorf("ollama generate status: %s", resp.Status)
+		return "", formatOllamaHTTPError("generate", resp)
 	}
 
 	var generateResp struct {
@@ -216,4 +217,13 @@ func extractJSONObject(raw string) string {
 		return raw[start : end+1]
 	}
 	return raw
+}
+
+func formatOllamaHTTPError(operation string, resp *http.Response) error {
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
+	msg := strings.TrimSpace(string(body))
+	if msg == "" {
+		return fmt.Errorf("ollama %s status: %s", operation, resp.Status)
+	}
+	return fmt.Errorf("ollama %s status: %s: %s", operation, resp.Status, msg)
 }
