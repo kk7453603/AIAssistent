@@ -1,0 +1,15 @@
+services:
+  ollama:
+    image: nginx:1.27-alpine
+    environment:
+      HOST_OLLAMA_HOST: "${HOST_OLLAMA_HOST:-host.docker.internal}"
+      HOST_OLLAMA_PORT: "${HOST_OLLAMA_PORT:-11434}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./deploy/ollama-host-proxy/nginx.conf.template:/etc/nginx/templates/nginx.conf.template:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1:11434/api/version >/dev/null 2>&1 || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
