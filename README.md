@@ -29,6 +29,22 @@ MVP-сервис для:
 
 Примечание: хостовый порт Ollama в compose по умолчанию `11435`, чтобы не конфликтовать с локальным Ollama на `11434`.
 
+### Ollama с AMD GPU (ROCm)
+Для Linux-хоста с AMD GPU и нативным Docker Engine запускайте стек с override-файлом:
+- `docker compose -f docker-compose.yml -f docker-compose.amd-gpu.yml up -d --build`
+
+Что делает override:
+- переключает образ на `ollama/ollama:rocm` (или `OLLAMA_IMAGE` из `.env`);
+- пробрасывает `/dev/kfd` и `/dev/dri`;
+- добавляет группы `video` и `render`.
+
+Проверка:
+- `docker compose -f docker-compose.yml -f docker-compose.amd-gpu.yml logs ollama | grep -Ei "rocm|amd|gpu"`
+
+Важно:
+- На Docker Desktop (macOS/Windows) проброс `/dev/kfd` обычно недоступен, и запуск ROCm-контейнера завершится ошибкой `no such file or directory`.
+- Для Docker Desktop используйте Ollama на хосте (с AMD GPU) и укажите в `.env`: `OLLAMA_URL=http://host.docker.internal:11434`.
+
 ## OpenWebUI usage
 - OpenWebUI поднимается всегда вместе со стеком.
 - OpenWebUI собирается из `deploy/openwebui/Dockerfile` (база `ghcr.io/open-webui/open-webui:latest`) с патчем auth-fallback для cookie.
