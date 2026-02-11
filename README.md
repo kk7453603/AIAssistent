@@ -31,6 +31,7 @@ MVP-сервис для:
 
 ## OpenWebUI usage
 - OpenWebUI поднимается всегда вместе со стеком.
+- OpenWebUI собирается из `deploy/openwebui/Dockerfile` (база `ghcr.io/open-webui/open-webui:latest`) с патчем auth-fallback для cookie.
 - Модель вашего backend доступна через OpenAI-compatible API (`/v1/models`, `/v1/chat/completions`).
 - Дополнительно в UI доступны прямые Ollama-модели (`OLLAMA_BASE_URLS=http://ollama:11434`).
 - При старте сервис `openwebui-tool-bootstrap` автоматически создаёт/обновляет custom tool `assistant_ingest_and_query`.
@@ -141,6 +142,7 @@ curl -X POST http://localhost:8080/v1/rag/query \
 - `OPENWEBUI_ADMIN_EMAIL`
 - `OPENWEBUI_ADMIN_PASSWORD`
 - `OPENWEBUI_ADMIN_NAME`
+- `OPENWEBUI_SECRET_KEY` (зафиксируйте и не меняйте между рестартами)
 
 ## Spec-first workflow
 Контракт API описывается в спецификации, затем из нее генерируется серверный код:
@@ -172,6 +174,10 @@ curl -X POST http://localhost:8080/v1/rag/query \
 - Если `openwebui-tool-bootstrap` не создает tool:
   - убедитесь, что корректны `OPENWEBUI_ADMIN_*` в `.env`
   - посмотрите логи `docker compose logs openwebui-tool-bootstrap`
+- Если после успешного логина в OpenWebUI чаты/папки/модели не грузятся и в логах много `401` на `/api/v1/...`:
+  - очистите данные сайта для `localhost:3000` (cookies + localStorage) и войдите заново;
+  - убедитесь, что в `.env` задан стабильный `OPENWEBUI_SECRET_KEY` (иначе старые токены становятся невалидными);
+  - пересоберите и поднимите сервис заново: `docker compose up -d --build openwebui`.
 - Если `401 Unauthorized` на `/v1/chat/completions`:
   - либо задайте `Authorization: Bearer <OPENAI_COMPAT_API_KEY>`,
   - либо очистите `OPENAI_COMPAT_API_KEY` для отключения auth.
