@@ -29,21 +29,25 @@ MVP-сервис для:
 
 Примечание: хостовый порт Ollama в compose по умолчанию `11435`, чтобы не конфликтовать с локальным Ollama на `11434`.
 
-### Ollama с AMD GPU (ROCm)
-Для Linux-хоста с AMD GPU и нативным Docker Engine запускайте стек с override-файлом:
-- `docker compose -f docker-compose.yml -f docker-compose.amd-gpu.yml up -d --build`
+### Отдельный вариант: GPU на хосте (Ollama вне Docker)
+Базовый `docker-compose.yml` оставляет `ollama` в Docker (CPU).
+
+Для режима, где Ollama работает на хосте с GPU, используйте отдельный override:
+- `docker compose -f docker-compose.yml -f docker-compose.host-gpu.yml up -d --build`
 
 Что делает override:
-- переключает образ на `ollama/ollama:rocm` (или `OLLAMA_IMAGE` из `.env`);
-- пробрасывает `/dev/kfd` и `/dev/dri`;
-- добавляет группы `video` и `render`.
+- заменяет сервис `ollama` в compose на lightweight HTTP reverse-proxy (`nginx`);
+- проксирует `ollama:11434` в хостовый Ollama (`HOST_OLLAMA_HOST:HOST_OLLAMA_PORT`);
+- переписывает `Host` header в `localhost:11434`, чтобы избежать `403 Forbidden` от host Ollama;
+- остальные сервисы (`api`, `worker`, `openwebui`) продолжают работать без изменений по `http://ollama:11434`.
+
+Параметры в `.env`:
+- `HOST_OLLAMA_HOST` (default `host.docker.internal`)
+- `HOST_OLLAMA_PORT` (default `11434`)
 
 Проверка:
-- `docker compose -f docker-compose.yml -f docker-compose.amd-gpu.yml logs ollama | grep -Ei "rocm|amd|gpu"`
-
-Важно:
-- На Docker Desktop (macOS/Windows) проброс `/dev/kfd` обычно недоступен, и запуск ROCm-контейнера завершится ошибкой `no such file or directory`.
-- Для Docker Desktop используйте Ollama на хосте (с AMD GPU) и укажите в `.env`: `OLLAMA_URL=http://host.docker.internal:11434`.
+- `docker compose -f docker-compose.yml -f docker-compose.host-gpu.yml logs ollama`
+- `curl http://localhost:11435/api/version`
 
 ## OpenWebUI usage
 - OpenWebUI поднимается всегда вместе со стеком.
