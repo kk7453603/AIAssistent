@@ -88,7 +88,9 @@ services:
       - storage_data:/data/storage
 
   openwebui:
-    image: ghcr.io/open-webui/open-webui:latest
+    build:
+      context: .
+      dockerfile: deploy/openwebui/Dockerfile
     ports:
       - "3000:8080"
     environment:
@@ -100,6 +102,9 @@ services:
       WEBUI_ADMIN_EMAIL: "${OPENWEBUI_ADMIN_EMAIL:-admin@example.com}"
       WEBUI_ADMIN_PASSWORD: "${OPENWEBUI_ADMIN_PASSWORD:-ChangeMeStrongPass123!}"
       WEBUI_ADMIN_NAME: "${OPENWEBUI_ADMIN_NAME:-Admin}"
+      WEBUI_SECRET_KEY: "${OPENWEBUI_SECRET_KEY:-replace-with-long-random-secret}"
+      WEBUI_AUTH_COOKIE_SECURE: "false"
+      WEBUI_AUTH_COOKIE_SAME_SITE: "lax"
       TOOL_SERVER_CONNECTIONS: '[{"url":"http://api:8080","path":"/openapi.json","type":"openapi","auth_type":"none","config":{"enable":true,"function_name_filter_list":"queryRag,getDocumentById"},"info":{"id":"assistant-api","name":"Assistant API","description":"Personal AI Assistant tools"}}]'
     depends_on:
       api:
