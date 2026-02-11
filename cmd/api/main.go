@@ -27,11 +27,14 @@ func main() {
 
 	router := httpadapter.NewRouter(cfg, app.IngestUC, app.QueryUC, app.Repo).Handler()
 	server := &http.Server{
-		Addr:         ":" + cfg.APIPort,
-		Handler:      router,
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 60 * time.Second,
-		IdleTimeout:  60 * time.Second,
+		Addr:              ":" + cfg.APIPort,
+		Handler:           router,
+		ReadTimeout:       30 * time.Second,
+		ReadHeaderTimeout: 10 * time.Second,
+		// Keep write timeout disabled: /v1/chat/completions may hold SSE responses
+		// longer than a minute before final tokens are emitted.
+		WriteTimeout: 0,
+		IdleTimeout:  120 * time.Second,
 	}
 
 	go func() {

@@ -16,6 +16,9 @@ MVP-сервис для:
 - NATS
 - MinIO (подготовлен в compose; в MVP storage через общий volume)
 
+## Архитектура
+- Подробная карта бизнес-логики и пайплайнов: `docs/architecture.md`
+
 ## Быстрый старт
 1. Скопировать переменные:
    - `cp .env.example .env`
@@ -32,34 +35,34 @@ MVP-сервис для:
 ### Отдельный вариант: GPU на хосте (Ollama вне Docker)
 Базовый `docker-compose.yml` оставляет `ollama` в Docker (CPU).
 
-Для режима, где Ollama работает на хосте с GPU, используйте отдельный override:
+Для режима, где Ollama работает на хосте с GPU, используйте отдельный файл переопределения:
 - `docker compose -f docker-compose.yml -f docker-compose.host-gpu.yml up -d --build`
 
-Что делает override:
-- заменяет сервис `ollama` в compose на lightweight HTTP reverse-proxy (`nginx`);
+Что делает переопределение:
+- заменяет сервис `ollama` в compose на легкий HTTP reverse-proxy (`nginx`);
 - проксирует `ollama:11434` в хостовый Ollama (`HOST_OLLAMA_HOST:HOST_OLLAMA_PORT`);
 - переписывает `Host` header в `localhost:11434`, чтобы избежать `403 Forbidden` от host Ollama;
 - остальные сервисы (`api`, `worker`, `openwebui`) продолжают работать без изменений по `http://ollama:11434`.
 
 Параметры в `.env`:
-- `HOST_OLLAMA_HOST` (default `host.docker.internal`)
-- `HOST_OLLAMA_PORT` (default `11434`)
+- `HOST_OLLAMA_HOST` (по умолчанию `host.docker.internal`)
+- `HOST_OLLAMA_PORT` (по умолчанию `11434`)
 
 Проверка:
 - `docker compose -f docker-compose.yml -f docker-compose.host-gpu.yml logs ollama`
 - `curl http://localhost:11435/api/version`
 
-## OpenWebUI usage
+## Использование OpenWebUI
 - OpenWebUI поднимается всегда вместе со стеком.
 - OpenWebUI собирается из `deploy/openwebui/Dockerfile` (база `ghcr.io/open-webui/open-webui:latest`) с патчем auth-fallback для cookie.
-- Модель вашего backend доступна через OpenAI-compatible API (`/v1/models`, `/v1/chat/completions`).
+- Модель вашего backend-сервиса доступна через OpenAI-compatible API (`/v1/models`, `/v1/chat/completions`).
 - Дополнительно в UI доступны прямые Ollama-модели (`OLLAMA_BASE_URLS=http://ollama:11434`).
-- При старте сервис `openwebui-tool-bootstrap` автоматически создаёт/обновляет custom tool `assistant_ingest_and_query`.
+- При старте сервис `openwebui-tool-bootstrap` автоматически создаёт/обновляет кастомный инструмент `assistant_ingest_and_query`.
 
-### Как использовать tool для документов
+### Как использовать инструмент для документов
 1. В чате OpenWebUI прикрепите файлы.
-2. Сформулируйте запрос с явным intent про загрузку/документ (например: `upload this file and summarize`).
-3. Backend может вернуть `tool_calls`, после чего tool:
+2. Сформулируйте запрос с явным намерением про загрузку/документ (например: `upload this file and summarize`).
+3. Backend-сервис может вернуть `tool_calls`, после чего инструмент:
    - скачает вложения из OpenWebUI,
    - загрузит их в `POST /v1/documents`,
    - дождется `ready` по `GET /v1/documents/{id}`,
@@ -70,19 +73,19 @@ MVP-сервис для:
 OpenAPI JSON:
 - `GET /openapi.json`
 
-### 1) OpenAI-compatible модели
+### 1) Модели OpenAI-compatible API
 `GET /v1/models`
 
-Пример (с optional auth):
+Пример (с опциональной авторизацией):
 ```bash
 curl http://localhost:8080/v1/models \
   -H "Authorization: Bearer ${OPENAI_COMPAT_API_KEY}"
 ```
 
-### 2) OpenAI-compatible чат
+### 2) Чат OpenAI-compatible API
 `POST /v1/chat/completions`
 
-Пример JSON (non-stream):
+Пример JSON (без стриминга):
 ```bash
 curl -X POST http://localhost:8080/v1/chat/completions \
   -H "Content-Type: application/json" \
@@ -95,7 +98,7 @@ curl -X POST http://localhost:8080/v1/chat/completions \
   }'
 ```
 
-Пример stream:
+Пример со стримингом:
 ```bash
 curl -N -X POST http://localhost:8080/v1/chat/completions \
   -H "Content-Type: application/json" \
@@ -134,9 +137,34 @@ curl -X POST http://localhost:8080/v1/rag/query \
   }'
 ```
 
+## Генерация тестовых данных для RAG
+Скрипт: `scripts/rag/generate_test_data.sh`
+
+Что создаёт:
+- `documents/*.txt` (синтетические документы)
+- `manifest.csv` (атрибуты документов)
+- `sample_queries.txt` (общий набор тестовых вопросов, часть может не совпасть с конкретной случайной выборкой)
+- `sample_queries_grounded.txt` (вопросы, гарантированно соответствующие данным из `manifest.csv`)
+- `eval_cases.csv` (эталон: `question -> expected_answer` для grounded-вопросов)
+- `upload_results.csv` (если включён `--upload`)
+
+Примеры:
+```bash
+# 1) Сгенерировать 1000 документов локально
+scripts/rag/generate_test_data.sh --count 1000 --out-dir ./tmp/rag-1k
+
+# 2) Сгенерировать и загрузить в API, дождаться статусов ready/failed
+scripts/rag/generate_test_data.sh \
+  --count 300 \
+  --out-dir ./tmp/rag-300-upload \
+  --upload \
+  --wait-ready \
+  --api-url http://localhost:8080
+```
+
 ## Переменные окружения
 
-### Core
+### Базовые
 - `API_PORT`
 - `POSTGRES_DSN`
 - `NATS_URL`
@@ -151,20 +179,20 @@ curl -X POST http://localhost:8080/v1/rag/query \
 - `CHUNK_OVERLAP`
 - `RAG_TOP_K`
 
-### OpenAI-compatible слой
-- `OPENAI_COMPAT_API_KEY` (optional; если пусто, `/v1/models` и `/v1/chat/completions` без auth)
-- `OPENAI_COMPAT_MODEL_ID` (default: `paa-rag-v1`)
-- `OPENAI_COMPAT_CONTEXT_MESSAGES` (default: `5`)
-- `OPENAI_COMPAT_STREAM_CHUNK_CHARS` (default: `120`)
+### Слой OpenAI-compatible API
+- `OPENAI_COMPAT_API_KEY` (опционально; если пусто, `/v1/models` и `/v1/chat/completions` работают без авторизации)
+- `OPENAI_COMPAT_MODEL_ID` (по умолчанию: `paa-rag-v1`)
+- `OPENAI_COMPAT_CONTEXT_MESSAGES` (по умолчанию: `5`)
+- `OPENAI_COMPAT_STREAM_CHUNK_CHARS` (по умолчанию: `120`)
 - `OPENAI_COMPAT_TOOL_TRIGGER_KEYWORDS` (CSV-список триггер-слов для ветки `tool_calls`)
 
-### OpenWebUI bootstrap
+### Инициализация OpenWebUI
 - `OPENWEBUI_ADMIN_EMAIL`
 - `OPENWEBUI_ADMIN_PASSWORD`
 - `OPENWEBUI_ADMIN_NAME`
 - `OPENWEBUI_SECRET_KEY` (зафиксируйте и не меняйте между рестартами)
 
-## Spec-first workflow
+## Процесс spec-first
 Контракт API описывается в спецификации, затем из нее генерируется серверный код:
 
 1. Обновить спецификацию:
@@ -178,10 +206,10 @@ curl -X POST http://localhost:8080/v1/rag/query \
 
 ## Ограничения MVP
 - Извлечение текста реализовано для UTF-8 текстовых файлов.
-- Для PDF/DOCX/OCR нужен отдельный extractor-адаптер.
+- Для PDF/DOCX/OCR нужен отдельный адаптер извлечения текста.
 - `debug` в OpenAI-compatible ответе технический и может не рендериться в UI.
 
-## Troubleshooting
+## Диагностика проблем
 - Если документ получает статус `failed` с ошибкой вида `ollama generate status: 404 Not Found`, обычно не загружена модель в контейнер `ollama`.
 - Проверить модели:
   - `docker compose exec ollama ollama list`
@@ -191,7 +219,7 @@ curl -X POST http://localhost:8080/v1/rag/query \
 - Если OpenWebUI не видит backend-модель, проверьте:
   - `OPENAI_API_BASE_URLS=http://api:8080/v1` в сервисе `openwebui`
   - `GET http://localhost:8080/v1/models` локально
-- Если `openwebui-tool-bootstrap` не создает tool:
+- Если `openwebui-tool-bootstrap` не создает инструмент:
   - убедитесь, что корректны `OPENWEBUI_ADMIN_*` в `.env`
   - посмотрите логи `docker compose logs openwebui-tool-bootstrap`
 - Если после успешного логина в OpenWebUI чаты/папки/модели не грузятся и в логах много `401` на `/api/v1/...`:

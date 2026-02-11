@@ -7,8 +7,10 @@ import (
 	"io"
 	"log"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"strings"
+	"syscall"
 
 	apigen "github.com/kirillkom/personal-ai-assistant/internal/adapters/http/openapi"
 	"github.com/kirillkom/personal-ai-assistant/internal/config"
@@ -82,6 +84,9 @@ func (rt *Router) Handler() http.Handler {
 			writeError(w, http.StatusBadRequest, err)
 		},
 		ResponseErrorHandlerFunc: func(w http.ResponseWriter, _ *http.Request, err error) {
+			if isClientDisconnectError(err) {
+				return
+			}
 			writeError(w, http.StatusInternalServerError, err)
 		},
 	})
@@ -264,6 +269,23 @@ func writeError(w http.ResponseWriter, status int, err error) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(resp)
+}
+
+func isClientDisconnectError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, context.Canceled) ||
+		errors.Is(err, net.ErrClosed) ||
+		errors.Is(err, syscall.EPIPE) ||
+		errors.Is(err, syscall.ECONNRESET) {
+		return true
+	}
+
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "broken pipe") ||
+		strings.Contains(msg, "connection reset by peer") ||
+		strings.Contains(msg, "use of closed network connection")
 }
 
 func serveOpenAPISpecJSON(w http.ResponseWriter, _ *http.Request) {
