@@ -1,0 +1,38 @@
+# HELP paa_worker_document_process_duration_seconds Document processing duration in seconds by status.
+# TYPE paa_worker_document_process_duration_seconds histogram
+paa_worker_document_process_duration_seconds_bucket{service="worker",status="success",le="0.005"} 0
+paa_worker_document_process_duration_seconds_bucket{service="worker",status="success",le="0.01"} 0
+paa_worker_document_process_duration_seconds_bucket{service="worker",status="success",le="0.025"} 0
+paa_worker_document_process_duration_seconds_bucket{service="worker",status="success",le="0.05"} 0
+paa_worker_document_process_duration_seconds_bucket{service="worker",status="success",le="0.1"} 0
+paa_worker_document_process_duration_seconds_bucket{service="worker",status="success",le="0.25"} 0
+paa_worker_document_process_duration_seconds_bucket{service="worker",status="success",le="0.5"} 0
+paa_worker_document_process_duration_seconds_bucket{service="worker",status="success",le="1"} 0
+paa_worker_document_process_duration_seconds_bucket{service="worker",status="success",le="2.5"} 0
+paa_worker_document_process_duration_seconds_bucket{service="worker",status="success",le="5"} 0
+paa_worker_document_process_duration_seconds_bucket{service="worker",status="success",le="10"} 5
+paa_worker_document_process_duration_seconds_bucket{service="worker",status="success",le="+Inf"} 21
+paa_worker_document_process_duration_seconds_sum{service="worker",status="success"} 250.38834803100008
+paa_worker_document_process_duration_seconds_count{service="worker",status="success"} 21
+# HELP paa_worker_document_process_in_flight Number of in-flight document processing tasks.
+# TYPE paa_worker_document_process_in_flight gauge
+paa_worker_document_process_in_flight{service="worker"} 0
+# HELP paa_worker_document_process_total Total processed documents by status.
+# TYPE paa_worker_document_process_total counter
+paa_worker_document_process_total{service="worker",status="success"} 21
+# HELP paa_worker_queue_lag_seconds Delay between document creation and processing start.
+# TYPE paa_worker_queue_lag_seconds histogram
+paa_worker_queue_lag_seconds_bucket{service="worker",le="0.1"} 18
+paa_worker_queue_lag_seconds_bucket{service="worker",le="0.5"} 21
+paa_worker_queue_lag_seconds_bucket{service="worker",le="1"} 21
+paa_worker_queue_lag_seconds_bucket{service="worker",le="2"} 21
+paa_worker_queue_lag_seconds_bucket{service="worker",le="5"} 21
+paa_worker_queue_lag_seconds_bucket{service="worker",le="10"} 21
+paa_worker_queue_lag_seconds_bucket{service="worker",le="30"} 21
+paa_worker_queue_lag_seconds_bucket{service="worker",le="60"} 21
+paa_worker_queue_lag_seconds_bucket{service="worker",le="120"} 21
+paa_worker_queue_lag_seconds_bucket{service="worker",le="300"} 21
+paa_worker_queue_lag_seconds_bucket{service="worker",le="600"} 21
+paa_worker_queue_lag_seconds_bucket{service="worker",le="+Inf"} 21
+paa_worker_queue_lag_seconds_sum{service="worker"} 0.45901729999999996
+paa_worker_queue_lag_seconds_count{service="worker"} 21

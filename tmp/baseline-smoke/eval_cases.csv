@@ -1,0 +1,5 @@
+id,question,expected_answer
+Q001,"Какой SLA Percent у продукта Atlas в регионе latam?","97"
+Q002,"Какой Incident Type встречается у Atlas в latam?","cost-overrun"
+Q003,"Какой Risk Level у документа doc_0001_finance_latam.txt?","low"
+Q004,"Какой Gross Margin USD у документа doc_0001_finance_latam.txt за 2023-Q3?","69968"

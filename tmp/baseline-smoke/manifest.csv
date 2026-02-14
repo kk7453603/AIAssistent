@@ -1,0 +1,2 @@
+filename,company,domain,region,product,incident,risk,revenue_usd,cost_usd,sla_pct,ticket_backlog,quarter
+doc_0001_finance_latam.txt,Blue Delta Logistics,finance,latam,Atlas,cost-overrun,low,147888,77920,97,61,2023-Q3

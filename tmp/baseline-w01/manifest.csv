@@ -1,0 +1,21 @@
+filename,company,domain,region,product,incident,risk,revenue_usd,cost_usd,sla_pct,ticket_backlog,quarter
+doc_0001_sales_eu-central.txt,Vertex Retail,sales,eu-central,Sierra,cost-overrun,critical,123817,90652,87,3,2023-Q3
+doc_0002_finance_latam.txt,Granite Finance Hub,finance,latam,Zenith,none,low,135134,81200,97,252,2024-Q1
+doc_0003_hr_us-east.txt,Nova Security Systems,hr,us-east,Atlas,security-alert,medium,133971,91369,90,139,2024-Q3
+doc_0004_hr_latam.txt,Northstar Analytics,hr,latam,Pulse,cost-overrun,medium,127855,96234,91,193,2023-Q4
+doc_0005_risk_eu-central.txt,Northstar Analytics,risk,eu-central,Orion,vendor-delay,critical,142873,83232,96,303,2025-Q2
+doc_0006_sales_latam.txt,Granite Finance Hub,sales,latam,Pulse,quota-miss,critical,132185,86877,95,320,2025-Q3
+doc_0007_finance_ap-south.txt,Helios Media Group,finance,ap-south,Cobalt,security-alert,low,145057,70766,91,308,2025-Q2
+doc_0008_risk_latam.txt,Nova Security Systems,risk,latam,Atlas,cost-overrun,high,124292,88841,99,257,2024-Q4
+doc_0009_engineering_us-west.txt,Apex Bio Labs,engineering,us-west,Pulse,none,low,152331,76907,98,23,2025-Q1
+doc_0010_support_latam.txt,Apex Bio Labs,support,latam,Orion,cost-overrun,medium,145513,72381,94,183,2024-Q3
+doc_0011_engineering_us-east.txt,Granite Finance Hub,engineering,us-east,Orion,vendor-delay,medium,145179,70481,96,138,2024-Q2
+doc_0012_hr_eu-central.txt,Helios Media Group,hr,eu-central,Sierra,policy-violation,medium,137633,101135,96,74,2024-Q4
+doc_0013_sales_eu-north.txt,Northstar Analytics,sales,eu-north,Zenith,security-alert,high,135697,101462,90,123,2024-Q1
+doc_0014_hr_latam.txt,Vertex Retail,hr,latam,Zenith,security-alert,low,137089,86281,93,264,2024-Q1
+doc_0015_engineering_eu-central.txt,Vertex Retail,engineering,eu-central,Nimbus,quota-miss,low,138074,95157,89,321,2024-Q3
+doc_0016_finance_us-west.txt,Northstar Analytics,finance,us-west,Atlas,api-latency,high,138502,99455,94,390,2024-Q4
+doc_0017_compliance_eu-central.txt,Northstar Analytics,compliance,eu-central,Sierra,api-latency,high,150121,84660,94,78,2025-Q1
+doc_0018_sales_eu-central.txt,Granite Finance Hub,sales,eu-central,Nimbus,renewal-risk,high,122365,91150,95,207,2024-Q2
+doc_0019_compliance_eu-north.txt,Arctic Mobility,compliance,eu-north,Atlas,policy-violation,critical,147001,78881,97,324,2023-Q4
+doc_0020_ops_us-west.txt,Helios Media Group,ops,us-west,Atlas,api-latency,critical,128967,79720,98,39,2024-Q3
