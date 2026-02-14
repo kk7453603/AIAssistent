@@ -119,7 +119,8 @@ flowchart TB
 - `scripts/openwebui/bootstrap-tool.sh`
 - `deploy/openwebui/tools/assistant_ingest_and_query.py`
 - `internal/adapters/http/router.go`
-- `internal/adapters/http/openai_compat.go`
+- `internal/adapters/http/openai_chat.go`
+- `internal/adapters/http/openai_tooling.go`
 
 ## 3) Sequence: Ingestion Pipeline (асинхронный)
 
@@ -227,7 +228,9 @@ sequenceDiagram
 
 ### Якоря исходного кода
 - `internal/adapters/http/router.go`
-- `internal/adapters/http/openai_compat.go`
+- `internal/adapters/http/openai_chat.go`
+- `internal/adapters/http/openai_sse.go`
+- `internal/adapters/http/openai_tooling.go`
 - `internal/core/usecase/query.go`
 - `deploy/openwebui/tools/assistant_ingest_and_query.py`
 
@@ -366,3 +369,49 @@ flowchart LR
   - понятно, где происходят `embed` и `search`;
   - понятно, чем отличаются `CPU in Docker` и `host-GPU` runtime.
 - No behavior change: изменение только документации.
+
+## 7) Refactor 2026-02-14: слой ответственности и ошибки
+
+### Слои и зависимости
+- Inbound ports:
+  - `internal/core/ports/inbound.go`
+- Outbound ports:
+  - `internal/core/ports/outbound.go`
+- HTTP adapter зависит от inbound-портов:
+  - `internal/adapters/http/router.go`
+- Composition root связывает реализации:
+  - `internal/bootstrap/bootstrap.go`
+
+### Доменные ошибки и HTTP mapping
+- Доменные типизированные ошибки:
+  - `internal/core/domain/errors.go`
+- Централизованный mapping в transport слое:
+  - `internal/adapters/http/error_mapping.go`
+
+Базовая политика:
+- `ErrInvalidInput -> 400`
+- `ErrUnauthorized -> 401`
+- `ErrDocumentNotFound -> 404`
+- `ErrTemporary -> 503`
+- прочие -> `500`
+
+### Декомпозиция OpenAI-compatible адаптера
+- auth middleware: `internal/adapters/http/openai_auth.go`
+- chat orchestration: `internal/adapters/http/openai_chat.go`
+- tool/post-tool ветки: `internal/adapters/http/openai_tooling.go`
+- SSE writer/chunks: `internal/adapters/http/openai_sse.go`
+- parsing/response helpers:
+  - `internal/adapters/http/openai_message_parsing.go`
+  - `internal/adapters/http/openai_response.go`
+
+### Декомпозиция worker use case
+- Оркестрация разбита на шаги:
+  - `loadDocument`
+  - `extractText`
+  - `classify`
+  - `chunk`
+  - `embed`
+  - `index`
+  - `persistClassification`
+  - `markStatus`
+- Реализация: `internal/core/usecase/process.go`

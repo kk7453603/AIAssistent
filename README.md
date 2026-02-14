@@ -204,6 +204,29 @@ scripts/rag/generate_test_data.sh \
 4. Проверить:
    - `make test`
 
+## Architecture decisions
+- Inbound/outbound порты разделены:
+  - inbound: `internal/core/ports/inbound.go`
+  - outbound: `internal/core/ports/outbound.go`
+- HTTP-адаптер зависит от inbound-контрактов (`DocumentIngestor`, `DocumentQueryService`, `DocumentReader`), а не от concrete use case типов.
+- Use case слой не содержит transport-логики и прямого логирования.
+- OpenAI-compatible слой разнесен по ответственности:
+  - auth: `internal/adapters/http/openai_auth.go`
+  - orchestration: `internal/adapters/http/openai_chat.go`
+  - tool branch: `internal/adapters/http/openai_tooling.go`
+  - SSE: `internal/adapters/http/openai_sse.go`
+  - parsing/helpers: `internal/adapters/http/openai_message_parsing.go`, `internal/adapters/http/openai_response.go`
+- Маппинг доменных ошибок в HTTP:
+  - `internal/core/domain/errors.go`
+  - `internal/adapters/http/error_mapping.go`
+
+### Как добавлять новый use case
+1. Определите inbound-интерфейс в `internal/core/ports/inbound.go` (если текущих недостаточно).
+2. Реализуйте use case в `internal/core/usecase/*` через outbound-порты.
+3. Подключите реализацию в `internal/bootstrap/bootstrap.go`.
+4. Используйте inbound-интерфейс в адаптере (`internal/adapters/http/*`).
+5. Добавьте unit-тесты use case и adapter-тесты на маппинг/контракты.
+
 ## Ограничения MVP
 - Извлечение текста реализовано для UTF-8 текстовых файлов.
 - Для PDF/DOCX/OCR нужен отдельный адаптер извлечения текста.
