@@ -1,0 +1,301 @@
+filename,company,domain,region,product,incident,risk,revenue_usd,cost_usd,sla_pct,ticket_backlog,quarter
+doc_0001_support_ap-south.txt,Nova Security Systems,support,ap-south,Atlas,cost-overrun,medium,132192,72148,95,225,2023-Q3
+doc_0002_support_us-west.txt,Nova Security Systems,support,us-west,Sierra,api-latency,critical,121579,87214,87,133,2024-Q1
+doc_0003_risk_us-west.txt,Granite Finance Hub,risk,us-west,Atlas,vendor-delay,low,131600,73251,95,390,2024-Q3
+doc_0004_compliance_us-west.txt,Granite Finance Hub,compliance,us-west,Pulse,vendor-delay,medium,141216,91274,90,352,2023-Q4
+doc_0005_hr_us-west.txt,Nova Security Systems,hr,us-west,Pulse,policy-violation,medium,123549,83518,87,120,2025-Q2
+doc_0006_ops_us-west.txt,Nova Security Systems,ops,us-west,Sierra,vendor-delay,high,126162,74920,89,414,2025-Q3
+doc_0007_risk_eu-north.txt,Granite Finance Hub,risk,eu-north,Orion,cost-overrun,critical,149756,77669,91,110,2025-Q2
+doc_0008_engineering_eu-central.txt,Northstar Analytics,engineering,eu-central,Quasar,none,high,152336,96144,91,118,2024-Q4
+doc_0009_sales_latam.txt,Arctic Mobility,sales,latam,Sierra,policy-violation,low,144815,82788,94,356,2025-Q1
+doc_0010_compliance_ap-south.txt,Vertex Retail,compliance,ap-south,Orion,policy-violation,critical,133382,72051,89,170,2024-Q3
+doc_0011_support_us-east.txt,Nova Security Systems,support,us-east,Atlas,renewal-risk,medium,137141,82640,88,110,2024-Q2
+doc_0012_sales_us-west.txt,Apex Bio Labs,sales,us-west,Sierra,security-alert,low,152676,93997,88,80,2024-Q4
+doc_0013_support_latam.txt,Vertex Retail,support,latam,Orion,cost-overrun,critical,151809,95194,93,269,2024-Q1
+doc_0014_ops_us-east.txt,Granite Finance Hub,ops,us-east,Orion,none,medium,139700,98759,88,43,2024-Q1
+doc_0015_ops_eu-north.txt,Arctic Mobility,ops,eu-north,Pulse,quota-miss,medium,146490,74671,92,80,2024-Q3
+doc_0016_compliance_eu-central.txt,Arctic Mobility,compliance,eu-central,Quasar,renewal-risk,medium,131338,100817,91,374,2024-Q4
+doc_0017_compliance_ap-south.txt,Arctic Mobility,compliance,ap-south,Orion,policy-violation,critical,152134,85030,96,396,2025-Q1
+doc_0018_ops_ap-south.txt,Northstar Analytics,ops,ap-south,Quasar,cost-overrun,high,121743,92656,93,328,2024-Q2
+doc_0019_support_us-east.txt,Apex Bio Labs,support,us-east,Sierra,cost-overrun,critical,138645,94663,100,385,2023-Q4
+doc_0020_engineering_eu-north.txt,Northstar Analytics,engineering,eu-north,Zenith,policy-violation,critical,125228,100258,100,392,2024-Q3
+doc_0021_support_latam.txt,Arctic Mobility,support,latam,Orion,policy-violation,high,129896,99121,93,75,2023-Q2
+doc_0022_risk_ap-south.txt,Helios Media Group,risk,ap-south,Nimbus,none,low,136903,101363,91,165,2024-Q2
+doc_0023_support_latam.txt,Granite Finance Hub,support,latam,Sierra,policy-violation,low,143573,100922,93,41,2025-Q4
+doc_0024_support_ap-south.txt,Helios Media Group,support,ap-south,Orion,renewal-risk,low,145508,102157,89,345,2025-Q1
+doc_0025_ops_us-west.txt,Granite Finance Hub,ops,us-west,Sierra,renewal-risk,medium,122871,94048,93,183,2024-Q2
+doc_0026_ops_us-east.txt,Northstar Analytics,ops,us-east,Sierra,security-alert,critical,142513,83603,89,406,2024-Q4
+doc_0027_compliance_us-west.txt,Blue Delta Logistics,compliance,us-west,Orion,security-alert,low,133876,83602,90,137,2024-Q2
+doc_0028_hr_us-west.txt,Arctic Mobility,hr,us-west,Cobalt,policy-violation,medium,134861,80526,89,315,2023-Q3
+doc_0029_engineering_eu-north.txt,Granite Finance Hub,engineering,eu-north,Atlas,security-alert,low,128778,96714,100,124,2025-Q2
+doc_0030_support_ap-south.txt,Nova Security Systems,support,ap-south,Pulse,renewal-risk,critical,148014,97140,87,67,2025-Q1
+doc_0031_finance_us-west.txt,Vertex Retail,finance,us-west,Zenith,none,high,136888,88560,87,246,2024-Q2
+doc_0032_hr_us-west.txt,Apex Bio Labs,hr,us-west,Nimbus,api-latency,critical,129523,70128,87,219,2024-Q4
+doc_0033_sales_ap-south.txt,Blue Delta Logistics,sales,ap-south,Orion,policy-violation,critical,136891,96484,99,294,2025-Q1
+doc_0034_ops_latam.txt,Blue Delta Logistics,ops,latam,Quasar,policy-violation,critical,136399,99091,97,406,2025-Q1
+doc_0035_risk_latam.txt,Helios Media Group,risk,latam,Atlas,cost-overrun,high,136774,97738,90,51,2025-Q1
+doc_0036_support_latam.txt,Vertex Retail,support,latam,Atlas,api-latency,high,135717,90351,92,122,2025-Q4
+doc_0037_engineering_ap-south.txt,Helios Media Group,engineering,ap-south,Quasar,policy-violation,medium,137768,89391,97,358,2023-Q3
+doc_0038_sales_us-west.txt,Blue Delta Logistics,sales,us-west,Nimbus,quota-miss,critical,145109,81645,90,183,2023-Q4
+doc_0039_sales_ap-south.txt,Vertex Retail,sales,ap-south,Cobalt,policy-violation,critical,130531,86910,98,201,2023-Q3
+doc_0040_compliance_eu-north.txt,Northstar Analytics,compliance,eu-north,Nimbus,api-latency,low,127233,78592,91,4,2023-Q1
+doc_0041_hr_eu-north.txt,Nova Security Systems,hr,eu-north,Cobalt,none,critical,141156,88314,87,180,2023-Q4
+doc_0042_risk_eu-north.txt,Northstar Analytics,risk,eu-north,Orion,none,critical,147831,96167,91,343,2024-Q1
+doc_0043_sales_ap-south.txt,Vertex Retail,sales,ap-south,Quasar,api-latency,high,144848,74183,94,6,2024-Q1
+doc_0044_finance_latam.txt,Northstar Analytics,finance,latam,Orion,security-alert,high,146722,88699,96,275,2024-Q3
+doc_0045_support_latam.txt,Helios Media Group,support,latam,Quasar,security-alert,high,133609,88556,90,3,2024-Q4
+doc_0046_compliance_eu-central.txt,Granite Finance Hub,compliance,eu-central,Zenith,renewal-risk,critical,145085,94290,90,207,2023-Q4
+doc_0047_sales_us-west.txt,Blue Delta Logistics,sales,us-west,Pulse,security-alert,low,152209,80188,89,328,2024-Q2
+doc_0048_hr_latam.txt,Apex Bio Labs,hr,latam,Pulse,renewal-risk,high,147433,70003,94,156,2023-Q1
+doc_0049_engineering_eu-central.txt,Arctic Mobility,engineering,eu-central,Pulse,vendor-delay,critical,137601,76646,98,51,2025-Q4
+doc_0050_ops_us-east.txt,Arctic Mobility,ops,us-east,Quasar,vendor-delay,medium,151087,80239,87,44,2023-Q1
+doc_0051_hr_latam.txt,Nova Security Systems,hr,latam,Pulse,security-alert,high,126587,95556,96,183,2025-Q4
+doc_0052_risk_ap-south.txt,Arctic Mobility,risk,ap-south,Quasar,none,medium,140585,92474,100,342,2023-Q4
+doc_0053_hr_ap-south.txt,Vertex Retail,hr,ap-south,Orion,cost-overrun,medium,121332,94587,97,345,2024-Q4
+doc_0054_sales_ap-south.txt,Helios Media Group,sales,ap-south,Sierra,vendor-delay,medium,121222,74025,92,140,2024-Q2
+doc_0055_support_eu-central.txt,Nova Security Systems,support,eu-central,Nimbus,quota-miss,critical,136549,70018,92,27,2024-Q1
+doc_0056_risk_us-west.txt,Arctic Mobility,risk,us-west,Pulse,api-latency,critical,132980,73368,88,23,2024-Q4
+doc_0057_ops_us-west.txt,Granite Finance Hub,ops,us-west,Zenith,quota-miss,low,129215,90078,91,370,2024-Q2
+doc_0058_finance_us-east.txt,Helios Media Group,finance,us-east,Quasar,renewal-risk,high,146420,100474,87,79,2024-Q2
+doc_0059_risk_us-west.txt,Arctic Mobility,risk,us-west,Sierra,renewal-risk,low,125512,70874,99,399,2024-Q3
+doc_0060_support_latam.txt,Apex Bio Labs,support,latam,Cobalt,security-alert,medium,124916,71274,91,278,2024-Q1
+doc_0061_finance_eu-north.txt,Blue Delta Logistics,finance,eu-north,Nimbus,cost-overrun,high,149297,84016,100,357,2023-Q3
+doc_0062_finance_latam.txt,Vertex Retail,finance,latam,Sierra,vendor-delay,high,151129,99454,97,309,2024-Q1
+doc_0063_sales_eu-central.txt,Northstar Analytics,sales,eu-central,Pulse,policy-violation,low,131388,89323,94,4,2023-Q1
+doc_0064_engineering_us-west.txt,Vertex Retail,engineering,us-west,Zenith,security-alert,high,136785,70563,97,373,2023-Q1
+doc_0065_engineering_eu-north.txt,Nova Security Systems,engineering,eu-north,Quasar,quota-miss,high,142751,74802,96,332,2024-Q3
+doc_0066_hr_us-east.txt,Granite Finance Hub,hr,us-east,Pulse,vendor-delay,critical,132261,99686,99,356,2024-Q3
+doc_0067_compliance_us-east.txt,Apex Bio Labs,compliance,us-east,Sierra,none,low,149847,90049,92,2,2024-Q3
+doc_0068_compliance_ap-south.txt,Nova Security Systems,compliance,ap-south,Nimbus,quota-miss,low,132306,82119,88,167,2024-Q4
+doc_0069_sales_us-west.txt,Arctic Mobility,sales,us-west,Atlas,security-alert,low,149469,71503,90,318,2023-Q2
+doc_0070_sales_us-west.txt,Vertex Retail,sales,us-west,Pulse,api-latency,high,122816,93288,99,192,2024-Q2
+doc_0071_support_ap-south.txt,Apex Bio Labs,support,ap-south,Quasar,policy-violation,critical,143060,76311,88,264,2025-Q2
+doc_0072_support_us-west.txt,Northstar Analytics,support,us-west,Nimbus,api-latency,low,140597,83381,95,329,2025-Q3
+doc_0073_ops_eu-central.txt,Northstar Analytics,ops,eu-central,Atlas,policy-violation,low,149726,92405,92,210,2023-Q3
+doc_0074_ops_ap-south.txt,Helios Media Group,ops,ap-south,Sierra,vendor-delay,critical,150033,84222,99,192,2023-Q1
+doc_0075_ops_us-east.txt,Blue Delta Logistics,ops,us-east,Cobalt,none,low,139663,92317,90,373,2025-Q2
+doc_0076_engineering_us-west.txt,Apex Bio Labs,engineering,us-west,Orion,renewal-risk,low,147658,99472,91,37,2025-Q1
+doc_0077_engineering_us-east.txt,Vertex Retail,engineering,us-east,Cobalt,security-alert,medium,152428,85084,89,198,2024-Q4
+doc_0078_risk_ap-south.txt,Arctic Mobility,risk,ap-south,Orion,cost-overrun,low,136179,73380,87,331,2024-Q4
+doc_0079_risk_eu-central.txt,Granite Finance Hub,risk,eu-central,Sierra,renewal-risk,critical,127049,75840,98,348,2023-Q1
+doc_0080_risk_ap-south.txt,Apex Bio Labs,risk,ap-south,Zenith,quota-miss,low,131702,88420,94,176,2023-Q4
+doc_0081_finance_us-east.txt,Nova Security Systems,finance,us-east,Zenith,none,high,139676,77812,92,168,2024-Q1
+doc_0082_hr_us-west.txt,Arctic Mobility,hr,us-west,Sierra,policy-violation,low,128769,71175,98,72,2023-Q1
+doc_0083_finance_us-east.txt,Granite Finance Hub,finance,us-east,Zenith,policy-violation,medium,147385,77330,95,407,2023-Q1
+doc_0084_ops_us-east.txt,Northstar Analytics,ops,us-east,Pulse,quota-miss,high,124178,93428,89,305,2023-Q1
+doc_0085_engineering_latam.txt,Northstar Analytics,engineering,latam,Pulse,cost-overrun,high,152443,91112,92,62,2025-Q3
+doc_0086_compliance_ap-south.txt,Nova Security Systems,compliance,ap-south,Orion,quota-miss,critical,120914,71390,90,377,2023-Q4
+doc_0087_engineering_eu-north.txt,Vertex Retail,engineering,eu-north,Atlas,vendor-delay,low,125439,71610,87,342,2025-Q1
+doc_0088_engineering_us-east.txt,Nova Security Systems,engineering,us-east,Quasar,quota-miss,critical,137054,76905,88,214,2025-Q4
+doc_0089_sales_latam.txt,Nova Security Systems,sales,latam,Cobalt,quota-miss,low,123461,94667,89,261,2024-Q3
+doc_0090_hr_us-east.txt,Northstar Analytics,hr,us-east,Cobalt,api-latency,high,133999,96019,100,231,2023-Q3
+doc_0091_compliance_latam.txt,Apex Bio Labs,compliance,latam,Quasar,none,medium,121908,74956,95,110,2025-Q1
+doc_0092_hr_eu-north.txt,Arctic Mobility,hr,eu-north,Quasar,api-latency,low,145180,72518,95,51,2024-Q4
+doc_0093_hr_ap-south.txt,Apex Bio Labs,hr,ap-south,Cobalt,cost-overrun,critical,148409,101131,93,24,2025-Q4
+doc_0094_risk_eu-central.txt,Nova Security Systems,risk,eu-central,Nimbus,policy-violation,high,128161,86836,92,376,2023-Q2
+doc_0095_engineering_us-west.txt,Vertex Retail,engineering,us-west,Nimbus,renewal-risk,high,148445,87336,93,305,2023-Q4
+doc_0096_compliance_us-east.txt,Helios Media Group,compliance,us-east,Atlas,policy-violation,high,120334,101138,99,420,2025-Q2
+doc_0097_sales_ap-south.txt,Nova Security Systems,sales,ap-south,Pulse,policy-violation,low,120641,83194,88,234,2024-Q2
+doc_0098_support_us-east.txt,Blue Delta Logistics,support,us-east,Atlas,vendor-delay,low,152598,90056,90,360,2023-Q1
+doc_0099_sales_eu-central.txt,Vertex Retail,sales,eu-central,Pulse,api-latency,low,150620,91608,88,385,2024-Q3
+doc_0100_finance_us-east.txt,Northstar Analytics,finance,us-east,Zenith,vendor-delay,low,137645,72656,94,112,2023-Q1
+doc_0101_ops_eu-central.txt,Northstar Analytics,ops,eu-central,Orion,renewal-risk,high,122350,98701,100,257,2023-Q4
+doc_0102_compliance_eu-north.txt,Blue Delta Logistics,compliance,eu-north,Quasar,renewal-risk,critical,150525,101860,100,38,2024-Q4
+doc_0103_engineering_us-east.txt,Blue Delta Logistics,engineering,us-east,Quasar,quota-miss,medium,133350,70810,99,357,2024-Q4
+doc_0104_compliance_ap-south.txt,Blue Delta Logistics,compliance,ap-south,Nimbus,none,low,142288,89922,100,157,2025-Q3
+doc_0105_compliance_latam.txt,Vertex Retail,compliance,latam,Sierra,none,high,127348,98374,91,51,2023-Q3
+doc_0106_sales_eu-north.txt,Granite Finance Hub,sales,eu-north,Pulse,security-alert,low,146417,80580,98,135,2025-Q1
+doc_0107_engineering_latam.txt,Arctic Mobility,engineering,latam,Pulse,quota-miss,medium,145651,70474,91,165,2025-Q2
+doc_0108_sales_us-west.txt,Helios Media Group,sales,us-west,Nimbus,policy-violation,low,138031,80233,90,299,2025-Q4
+doc_0109_sales_us-west.txt,Vertex Retail,sales,us-west,Orion,api-latency,critical,137551,98802,92,250,2025-Q3
+doc_0110_engineering_ap-south.txt,Nova Security Systems,engineering,ap-south,Sierra,renewal-risk,medium,120950,97477,99,292,2023-Q3
+doc_0111_finance_eu-north.txt,Arctic Mobility,finance,eu-north,Nimbus,api-latency,medium,151439,82970,90,333,2023-Q4
+doc_0112_sales_eu-central.txt,Apex Bio Labs,sales,eu-central,Pulse,none,medium,120746,81856,89,148,2024-Q2
+doc_0113_compliance_eu-north.txt,Blue Delta Logistics,compliance,eu-north,Orion,quota-miss,critical,129605,76497,87,261,2023-Q1
+doc_0114_hr_ap-south.txt,Helios Media Group,hr,ap-south,Cobalt,cost-overrun,critical,121556,88415,91,240,2025-Q1
+doc_0115_support_us-east.txt,Helios Media Group,support,us-east,Pulse,api-latency,critical,130433,71754,88,167,2023-Q3
+doc_0116_ops_us-east.txt,Apex Bio Labs,ops,us-east,Atlas,cost-overrun,medium,127524,94271,100,6,2023-Q1
+doc_0117_finance_us-east.txt,Helios Media Group,finance,us-east,Zenith,cost-overrun,medium,133605,100148,90,295,2025-Q3
+doc_0118_compliance_latam.txt,Northstar Analytics,compliance,latam,Atlas,cost-overrun,critical,129878,82953,92,240,2023-Q4
+doc_0119_support_latam.txt,Blue Delta Logistics,support,latam,Quasar,none,low,151783,96059,94,32,2025-Q3
+doc_0120_sales_eu-central.txt,Granite Finance Hub,sales,eu-central,Nimbus,vendor-delay,medium,122209,73422,96,194,2025-Q1
+doc_0121_ops_latam.txt,Vertex Retail,ops,latam,Nimbus,security-alert,medium,140184,78581,99,250,2023-Q3
+doc_0122_sales_eu-north.txt,Helios Media Group,sales,eu-north,Nimbus,security-alert,low,136703,84157,93,159,2024-Q2
+doc_0123_compliance_ap-south.txt,Vertex Retail,compliance,ap-south,Pulse,policy-violation,critical,128496,86300,95,26,2023-Q1
+doc_0124_sales_eu-north.txt,Arctic Mobility,sales,eu-north,Orion,quota-miss,high,149062,75140,91,383,2023-Q2
+doc_0125_compliance_us-east.txt,Blue Delta Logistics,compliance,us-east,Sierra,vendor-delay,high,144726,80411,89,247,2024-Q1
+doc_0126_risk_us-east.txt,Arctic Mobility,risk,us-east,Atlas,renewal-risk,medium,148153,99229,91,163,2023-Q2
+doc_0127_sales_ap-south.txt,Northstar Analytics,sales,ap-south,Nimbus,api-latency,critical,132258,99495,98,67,2024-Q4
+doc_0128_ops_eu-north.txt,Blue Delta Logistics,ops,eu-north,Pulse,vendor-delay,medium,129886,83045,97,168,2024-Q2
+doc_0129_ops_eu-north.txt,Nova Security Systems,ops,eu-north,Sierra,none,low,146557,85438,96,318,2024-Q2
+doc_0130_sales_us-east.txt,Arctic Mobility,sales,us-east,Quasar,cost-overrun,medium,123501,76000,96,303,2025-Q1
+doc_0131_finance_us-east.txt,Vertex Retail,finance,us-east,Atlas,none,critical,131563,95708,96,392,2024-Q3
+doc_0132_hr_eu-north.txt,Nova Security Systems,hr,eu-north,Pulse,security-alert,medium,143258,100138,96,113,2024-Q1
+doc_0133_support_eu-central.txt,Apex Bio Labs,support,eu-central,Cobalt,none,medium,138162,77439,100,114,2023-Q1
+doc_0134_hr_us-east.txt,Apex Bio Labs,hr,us-east,Atlas,api-latency,high,147760,83179,99,58,2023-Q4
+doc_0135_risk_ap-south.txt,Nova Security Systems,risk,ap-south,Zenith,security-alert,medium,140905,89560,95,177,2023-Q3
+doc_0136_compliance_us-east.txt,Nova Security Systems,compliance,us-east,Zenith,security-alert,low,144879,97557,90,49,2025-Q2
+doc_0137_risk_eu-north.txt,Helios Media Group,risk,eu-north,Quasar,security-alert,high,122753,72711,92,222,2025-Q4
+doc_0138_ops_us-east.txt,Vertex Retail,ops,us-east,Pulse,vendor-delay,low,147510,78809,91,412,2025-Q2
+doc_0139_engineering_us-west.txt,Apex Bio Labs,engineering,us-west,Zenith,none,medium,131302,92133,99,53,2025-Q4
+doc_0140_engineering_us-west.txt,Blue Delta Logistics,engineering,us-west,Nimbus,security-alert,medium,125518,77955,95,20,2024-Q2
+doc_0141_hr_latam.txt,Helios Media Group,hr,latam,Zenith,quota-miss,critical,128947,102438,93,192,2025-Q3
+doc_0142_risk_us-west.txt,Blue Delta Logistics,risk,us-west,Sierra,vendor-delay,low,139259,79298,92,183,2024-Q4
+doc_0143_finance_eu-north.txt,Arctic Mobility,finance,eu-north,Quasar,cost-overrun,high,129023,72960,94,169,2024-Q1
+doc_0144_risk_ap-south.txt,Nova Security Systems,risk,ap-south,Zenith,api-latency,medium,136841,88641,99,116,2023-Q2
+doc_0145_engineering_ap-south.txt,Granite Finance Hub,engineering,ap-south,Sierra,api-latency,medium,134178,79040,97,387,2023-Q2
+doc_0146_hr_us-west.txt,Helios Media Group,hr,us-west,Pulse,vendor-delay,critical,144870,101017,91,62,2025-Q3
+doc_0147_hr_eu-north.txt,Northstar Analytics,hr,eu-north,Quasar,cost-overrun,critical,124363,99895,91,80,2023-Q2
+doc_0148_hr_us-east.txt,Vertex Retail,hr,us-east,Zenith,cost-overrun,high,122948,82240,96,329,2023-Q2
+doc_0149_ops_us-west.txt,Granite Finance Hub,ops,us-west,Cobalt,quota-miss,high,151403,95423,87,35,2023-Q4
+doc_0150_support_eu-north.txt,Apex Bio Labs,support,eu-north,Sierra,renewal-risk,low,138192,83977,97,107,2023-Q4
+doc_0151_engineering_eu-central.txt,Nova Security Systems,engineering,eu-central,Orion,cost-overrun,medium,148914,96386,94,397,2024-Q2
+doc_0152_finance_ap-south.txt,Northstar Analytics,finance,ap-south,Atlas,security-alert,high,140859,89151,95,13,2025-Q4
+doc_0153_support_latam.txt,Granite Finance Hub,support,latam,Sierra,security-alert,low,131827,95726,96,173,2025-Q3
+doc_0154_engineering_ap-south.txt,Blue Delta Logistics,engineering,ap-south,Nimbus,cost-overrun,medium,121707,94772,89,247,2025-Q1
+doc_0155_sales_eu-central.txt,Vertex Retail,sales,eu-central,Quasar,renewal-risk,low,142149,101775,99,300,2024-Q4
+doc_0156_support_latam.txt,Nova Security Systems,support,latam,Quasar,vendor-delay,medium,127487,99437,95,97,2023-Q1
+doc_0157_finance_ap-south.txt,Arctic Mobility,finance,ap-south,Cobalt,renewal-risk,low,129854,78066,87,297,2023-Q4
+doc_0158_engineering_latam.txt,Helios Media Group,engineering,latam,Orion,api-latency,high,148696,71194,88,148,2024-Q1
+doc_0159_sales_us-west.txt,Granite Finance Hub,sales,us-west,Nimbus,security-alert,low,132750,74809,89,97,2025-Q4
+doc_0160_sales_us-east.txt,Northstar Analytics,sales,us-east,Pulse,cost-overrun,medium,132365,81946,94,124,2023-Q3
+doc_0161_finance_ap-south.txt,Northstar Analytics,finance,ap-south,Nimbus,security-alert,high,123154,77114,96,310,2024-Q2
+doc_0162_finance_latam.txt,Arctic Mobility,finance,latam,Quasar,none,critical,137123,100783,91,357,2025-Q2
+doc_0163_finance_us-east.txt,Granite Finance Hub,finance,us-east,Pulse,vendor-delay,critical,126336,70712,98,45,2024-Q4
+doc_0164_support_ap-south.txt,Apex Bio Labs,support,ap-south,Zenith,vendor-delay,low,140886,91898,97,268,2023-Q1
+doc_0165_engineering_us-west.txt,Granite Finance Hub,engineering,us-west,Quasar,vendor-delay,critical,152039,93836,96,257,2023-Q3
+doc_0166_engineering_latam.txt,Arctic Mobility,engineering,latam,Cobalt,vendor-delay,high,149286,86880,98,204,2023-Q4
+doc_0167_sales_us-west.txt,Vertex Retail,sales,us-west,Orion,security-alert,critical,137944,79179,89,348,2025-Q4
+doc_0168_hr_latam.txt,Nova Security Systems,hr,latam,Atlas,renewal-risk,medium,134466,96925,96,162,2023-Q4
+doc_0169_sales_us-west.txt,Vertex Retail,sales,us-west,Nimbus,security-alert,medium,147736,91924,88,405,2023-Q2
+doc_0170_compliance_latam.txt,Vertex Retail,compliance,latam,Cobalt,api-latency,medium,130636,85729,93,414,2024-Q3
+doc_0171_ops_latam.txt,Nova Security Systems,ops,latam,Pulse,quota-miss,medium,135890,83658,100,331,2023-Q4
+doc_0172_risk_latam.txt,Nova Security Systems,risk,latam,Atlas,none,medium,143198,83901,90,293,2023-Q2
+doc_0173_engineering_eu-central.txt,Nova Security Systems,engineering,eu-central,Sierra,policy-violation,low,152045,70854,88,321,2024-Q3
+doc_0174_ops_us-east.txt,Helios Media Group,ops,us-east,Atlas,quota-miss,low,141829,77581,93,280,2024-Q3
+doc_0175_risk_eu-central.txt,Blue Delta Logistics,risk,eu-central,Cobalt,renewal-risk,low,131526,70012,97,161,2023-Q3
+doc_0176_hr_eu-north.txt,Vertex Retail,hr,eu-north,Sierra,renewal-risk,critical,142344,99393,93,325,2023-Q2
+doc_0177_sales_eu-north.txt,Granite Finance Hub,sales,eu-north,Orion,api-latency,medium,127987,102280,100,336,2025-Q3
+doc_0178_sales_eu-north.txt,Apex Bio Labs,sales,eu-north,Pulse,quota-miss,medium,144431,78372,94,78,2023-Q3
+doc_0179_engineering_eu-central.txt,Helios Media Group,engineering,eu-central,Pulse,cost-overrun,low,148194,98921,93,284,2023-Q1
+doc_0180_hr_latam.txt,Northstar Analytics,hr,latam,Quasar,vendor-delay,medium,128302,100915,89,102,2024-Q3
+doc_0181_finance_us-west.txt,Granite Finance Hub,finance,us-west,Cobalt,quota-miss,medium,135224,101076,96,12,2025-Q4
+doc_0182_hr_eu-central.txt,Blue Delta Logistics,hr,eu-central,Zenith,none,low,145199,80211,95,328,2025-Q3
+doc_0183_hr_us-east.txt,Helios Media Group,hr,us-east,Quasar,security-alert,medium,150396,93649,88,13,2025-Q2
+doc_0184_compliance_us-west.txt,Apex Bio Labs,compliance,us-west,Orion,policy-violation,high,120865,79720,100,205,2024-Q2
+doc_0185_sales_eu-north.txt,Vertex Retail,sales,eu-north,Quasar,vendor-delay,critical,135717,77478,98,255,2024-Q4
+doc_0186_hr_us-west.txt,Nova Security Systems,hr,us-west,Pulse,cost-overrun,high,148373,75816,88,219,2025-Q4
+doc_0187_hr_eu-north.txt,Helios Media Group,hr,eu-north,Nimbus,renewal-risk,low,133928,71542,91,275,2024-Q3
+doc_0188_hr_latam.txt,Granite Finance Hub,hr,latam,Zenith,security-alert,high,132520,78115,99,221,2024-Q4
+doc_0189_compliance_eu-central.txt,Helios Media Group,compliance,eu-central,Zenith,cost-overrun,low,126353,72648,88,394,2023-Q1
+doc_0190_risk_us-east.txt,Helios Media Group,risk,us-east,Sierra,quota-miss,medium,144417,85228,91,333,2025-Q3
+doc_0191_sales_latam.txt,Nova Security Systems,sales,latam,Orion,vendor-delay,high,146122,91147,90,234,2024-Q4
+doc_0192_sales_us-east.txt,Helios Media Group,sales,us-east,Atlas,cost-overrun,medium,131852,85281,100,250,2024-Q4
+doc_0193_engineering_eu-north.txt,Nova Security Systems,engineering,eu-north,Orion,renewal-risk,critical,136620,89268,87,367,2024-Q1
+doc_0194_sales_latam.txt,Arctic Mobility,sales,latam,Pulse,none,medium,120377,95404,94,87,2023-Q4
+doc_0195_risk_us-east.txt,Northstar Analytics,risk,us-east,Zenith,policy-violation,low,151077,86533,87,14,2023-Q1
+doc_0196_compliance_eu-central.txt,Arctic Mobility,compliance,eu-central,Nimbus,none,medium,140763,74112,98,200,2024-Q3
+doc_0197_sales_ap-south.txt,Vertex Retail,sales,ap-south,Zenith,cost-overrun,high,131296,84091,90,219,2024-Q4
+doc_0198_support_latam.txt,Helios Media Group,support,latam,Nimbus,quota-miss,low,129369,74713,98,383,2023-Q3
+doc_0199_finance_latam.txt,Vertex Retail,finance,latam,Quasar,renewal-risk,critical,120751,91649,91,264,2025-Q3
+doc_0200_finance_latam.txt,Apex Bio Labs,finance,latam,Pulse,cost-overrun,critical,150855,89519,87,134,2024-Q3
+doc_0201_finance_us-west.txt,Helios Media Group,finance,us-west,Orion,policy-violation,medium,123372,76597,99,370,2025-Q4
+doc_0202_sales_us-east.txt,Northstar Analytics,sales,us-east,Atlas,none,high,122425,77707,97,70,2023-Q3
+doc_0203_finance_us-west.txt,Northstar Analytics,finance,us-west,Cobalt,vendor-delay,medium,147343,100509,94,239,2025-Q1
+doc_0204_engineering_ap-south.txt,Vertex Retail,engineering,ap-south,Cobalt,cost-overrun,critical,121508,83619,87,216,2023-Q2
+doc_0205_support_us-east.txt,Vertex Retail,support,us-east,Atlas,api-latency,critical,133984,79254,88,36,2025-Q1
+doc_0206_sales_us-west.txt,Nova Security Systems,sales,us-west,Nimbus,cost-overrun,low,123500,101802,94,414,2025-Q2
+doc_0207_finance_eu-central.txt,Vertex Retail,finance,eu-central,Pulse,vendor-delay,low,121423,96181,90,267,2024-Q2
+doc_0208_ops_ap-south.txt,Blue Delta Logistics,ops,ap-south,Zenith,policy-violation,critical,135047,87853,100,58,2023-Q2
+doc_0209_finance_eu-central.txt,Northstar Analytics,finance,eu-central,Pulse,api-latency,low,141446,85914,99,375,2025-Q2
+doc_0210_hr_us-west.txt,Northstar Analytics,hr,us-west,Nimbus,api-latency,medium,121110,82668,88,278,2024-Q3
+doc_0211_engineering_eu-central.txt,Nova Security Systems,engineering,eu-central,Pulse,vendor-delay,medium,135017,99320,95,361,2023-Q2
+doc_0212_finance_ap-south.txt,Nova Security Systems,finance,ap-south,Orion,renewal-risk,high,136934,98787,88,414,2023-Q3
+doc_0213_risk_latam.txt,Blue Delta Logistics,risk,latam,Quasar,policy-violation,high,127710,82689,87,125,2024-Q2
+doc_0214_finance_us-west.txt,Helios Media Group,finance,us-west,Sierra,vendor-delay,low,146706,88504,96,169,2025-Q2
+doc_0215_risk_eu-central.txt,Nova Security Systems,risk,eu-central,Atlas,security-alert,medium,150012,87685,98,29,2023-Q2
+doc_0216_engineering_eu-central.txt,Nova Security Systems,engineering,eu-central,Nimbus,quota-miss,critical,146262,99402,99,205,2024-Q3
+doc_0217_ops_latam.txt,Apex Bio Labs,ops,latam,Zenith,none,critical,122294,96386,93,283,2024-Q3
+doc_0218_sales_eu-north.txt,Granite Finance Hub,sales,eu-north,Atlas,vendor-delay,high,131227,97494,92,113,2023-Q2
+doc_0219_hr_eu-central.txt,Nova Security Systems,hr,eu-central,Pulse,api-latency,critical,146928,74069,94,35,2023-Q4
+doc_0220_hr_eu-north.txt,Apex Bio Labs,hr,eu-north,Cobalt,policy-violation,high,136996,94270,87,189,2023-Q1
+doc_0221_compliance_latam.txt,Blue Delta Logistics,compliance,latam,Orion,cost-overrun,high,143341,74215,91,379,2025-Q2
+doc_0222_finance_eu-north.txt,Arctic Mobility,finance,eu-north,Zenith,quota-miss,critical,124014,84339,98,387,2023-Q1
+doc_0223_engineering_us-east.txt,Blue Delta Logistics,engineering,us-east,Orion,none,critical,130810,87789,96,9,2023-Q2
+doc_0224_finance_latam.txt,Blue Delta Logistics,finance,latam,Quasar,cost-overrun,low,122855,101559,92,126,2023-Q3
+doc_0225_hr_latam.txt,Granite Finance Hub,hr,latam,Cobalt,api-latency,high,135425,95569,96,243,2024-Q3
+doc_0226_ops_eu-north.txt,Helios Media Group,ops,eu-north,Cobalt,policy-violation,low,150246,70541,94,164,2025-Q3
+doc_0227_hr_latam.txt,Helios Media Group,hr,latam,Quasar,renewal-risk,low,149954,85936,93,60,2025-Q2
+doc_0228_compliance_us-east.txt,Granite Finance Hub,compliance,us-east,Atlas,cost-overrun,high,128947,94356,98,236,2025-Q4
+doc_0229_risk_eu-central.txt,Blue Delta Logistics,risk,eu-central,Quasar,security-alert,medium,143090,97079,97,81,2025-Q4
+doc_0230_hr_us-east.txt,Arctic Mobility,hr,us-east,Nimbus,policy-violation,high,122586,85651,97,152,2023-Q4
+doc_0231_support_us-west.txt,Arctic Mobility,support,us-west,Sierra,none,medium,128073,90601,92,170,2025-Q1
+doc_0232_engineering_eu-central.txt,Apex Bio Labs,engineering,eu-central,Zenith,policy-violation,medium,138153,93427,94,355,2023-Q4
+doc_0233_hr_eu-central.txt,Granite Finance Hub,hr,eu-central,Sierra,none,low,121469,73081,93,51,2023-Q3
+doc_0234_risk_us-west.txt,Nova Security Systems,risk,us-west,Nimbus,vendor-delay,medium,148354,71339,90,56,2025-Q3
+doc_0235_hr_latam.txt,Blue Delta Logistics,hr,latam,Atlas,api-latency,medium,139466,96119,88,58,2023-Q2
+doc_0236_ops_latam.txt,Vertex Retail,ops,latam,Sierra,security-alert,low,135397,102301,89,168,2025-Q2
+doc_0237_support_ap-south.txt,Helios Media Group,support,ap-south,Orion,api-latency,low,136805,82221,88,102,2023-Q3
+doc_0238_hr_ap-south.txt,Arctic Mobility,hr,ap-south,Nimbus,renewal-risk,low,150985,92291,93,235,2024-Q3
+doc_0239_risk_us-east.txt,Vertex Retail,risk,us-east,Nimbus,cost-overrun,medium,135585,73841,98,336,2025-Q1
+doc_0240_compliance_us-west.txt,Northstar Analytics,compliance,us-west,Sierra,vendor-delay,medium,134551,79132,94,255,2025-Q4
+doc_0241_compliance_latam.txt,Blue Delta Logistics,compliance,latam,Orion,vendor-delay,high,138737,92074,90,105,2025-Q2
+doc_0242_finance_us-east.txt,Vertex Retail,finance,us-east,Atlas,policy-violation,low,122050,102721,90,90,2023-Q4
+doc_0243_hr_us-west.txt,Arctic Mobility,hr,us-west,Orion,cost-overrun,medium,125245,73798,89,267,2024-Q1
+doc_0244_risk_us-west.txt,Arctic Mobility,risk,us-west,Sierra,policy-violation,high,129278,76794,97,152,2025-Q4
+doc_0245_engineering_us-east.txt,Apex Bio Labs,engineering,us-east,Nimbus,none,medium,141169,90378,92,61,2025-Q2
+doc_0246_sales_latam.txt,Northstar Analytics,sales,latam,Cobalt,policy-violation,critical,152713,81759,90,127,2025-Q2
+doc_0247_compliance_ap-south.txt,Vertex Retail,compliance,ap-south,Pulse,renewal-risk,high,134785,100038,87,366,2023-Q3
+doc_0248_hr_latam.txt,Granite Finance Hub,hr,latam,Cobalt,security-alert,high,145950,75647,93,344,2024-Q1
+doc_0249_risk_eu-north.txt,Blue Delta Logistics,risk,eu-north,Atlas,quota-miss,low,134781,71732,100,334,2025-Q2
+doc_0250_compliance_us-west.txt,Nova Security Systems,compliance,us-west,Quasar,vendor-delay,high,145287,81583,88,26,2024-Q4
+doc_0251_hr_us-west.txt,Blue Delta Logistics,hr,us-west,Atlas,renewal-risk,low,133502,83472,89,379,2025-Q1
+doc_0252_finance_us-east.txt,Northstar Analytics,finance,us-east,Quasar,security-alert,critical,124642,77567,96,175,2024-Q1
+doc_0253_sales_eu-north.txt,Helios Media Group,sales,eu-north,Orion,cost-overrun,high,128643,97032,88,110,2023-Q3
+doc_0254_compliance_eu-north.txt,Apex Bio Labs,compliance,eu-north,Sierra,vendor-delay,critical,144751,95704,95,208,2023-Q4
+doc_0255_compliance_us-east.txt,Apex Bio Labs,compliance,us-east,Cobalt,none,low,120318,79104,87,84,2024-Q4
+doc_0256_sales_ap-south.txt,Blue Delta Logistics,sales,ap-south,Nimbus,quota-miss,critical,138827,79334,91,344,2023-Q3
+doc_0257_engineering_ap-south.txt,Northstar Analytics,engineering,ap-south,Cobalt,policy-violation,medium,149240,93800,98,300,2023-Q4
+doc_0258_finance_us-east.txt,Nova Security Systems,finance,us-east,Zenith,vendor-delay,high,134147,88874,100,278,2023-Q3
+doc_0259_support_ap-south.txt,Blue Delta Logistics,support,ap-south,Pulse,vendor-delay,medium,122303,76717,98,4,2024-Q1
+doc_0260_finance_latam.txt,Northstar Analytics,finance,latam,Cobalt,policy-violation,medium,150354,74247,88,406,2025-Q2
+doc_0261_engineering_eu-north.txt,Blue Delta Logistics,engineering,eu-north,Nimbus,api-latency,medium,130889,83410,88,405,2024-Q3
+doc_0262_hr_eu-central.txt,Arctic Mobility,hr,eu-central,Orion,api-latency,medium,135480,88281,92,124,2024-Q1
+doc_0263_engineering_latam.txt,Arctic Mobility,engineering,latam,Orion,cost-overrun,low,120982,95448,90,241,2023-Q2
+doc_0264_ops_latam.txt,Apex Bio Labs,ops,latam,Cobalt,api-latency,medium,125497,100118,91,15,2023-Q3
+doc_0265_sales_ap-south.txt,Vertex Retail,sales,ap-south,Nimbus,policy-violation,high,151086,96996,87,129,2023-Q3
+doc_0266_ops_eu-north.txt,Northstar Analytics,ops,eu-north,Sierra,quota-miss,critical,147260,78393,99,258,2025-Q3
+doc_0267_hr_eu-north.txt,Blue Delta Logistics,hr,eu-north,Quasar,api-latency,high,135215,99217,98,274,2023-Q2
+doc_0268_hr_eu-central.txt,Blue Delta Logistics,hr,eu-central,Sierra,none,low,134775,83155,99,371,2024-Q3
+doc_0269_engineering_eu-north.txt,Arctic Mobility,engineering,eu-north,Nimbus,quota-miss,high,141945,81308,89,44,2024-Q3
+doc_0270_sales_latam.txt,Helios Media Group,sales,latam,Quasar,vendor-delay,high,140351,93138,97,228,2023-Q4
+doc_0271_support_latam.txt,Granite Finance Hub,support,latam,Orion,quota-miss,high,142327,88046,92,390,2024-Q2
+doc_0272_hr_ap-south.txt,Arctic Mobility,hr,ap-south,Cobalt,security-alert,medium,144747,78115,89,412,2023-Q3
+doc_0273_ops_eu-north.txt,Arctic Mobility,ops,eu-north,Sierra,security-alert,critical,120732,82298,100,275,2023-Q4
+doc_0274_finance_us-west.txt,Apex Bio Labs,finance,us-west,Atlas,api-latency,low,145242,86837,97,101,2024-Q4
+doc_0275_compliance_us-west.txt,Nova Security Systems,compliance,us-west,Zenith,none,low,152146,102657,93,101,2025-Q4
+doc_0276_finance_ap-south.txt,Granite Finance Hub,finance,ap-south,Cobalt,cost-overrun,critical,123289,93099,94,302,2024-Q1
+doc_0277_risk_us-east.txt,Helios Media Group,risk,us-east,Sierra,renewal-risk,critical,124394,83506,88,69,2025-Q1
+doc_0278_risk_ap-south.txt,Apex Bio Labs,risk,ap-south,Quasar,quota-miss,medium,145335,90204,90,213,2024-Q1
+doc_0279_risk_us-west.txt,Arctic Mobility,risk,us-west,Orion,renewal-risk,low,131084,80708,87,102,2024-Q4
+doc_0280_support_ap-south.txt,Helios Media Group,support,ap-south,Orion,vendor-delay,critical,124342,71215,98,394,2023-Q4
+doc_0281_hr_eu-central.txt,Apex Bio Labs,hr,eu-central,Pulse,api-latency,low,143144,88833,87,2,2023-Q2
+doc_0282_support_ap-south.txt,Helios Media Group,support,ap-south,Atlas,none,medium,128978,84750,96,194,2025-Q1
+doc_0283_engineering_us-west.txt,Apex Bio Labs,engineering,us-west,Orion,none,critical,142919,91612,96,310,2025-Q4
+doc_0284_hr_eu-north.txt,Blue Delta Logistics,hr,eu-north,Nimbus,api-latency,high,139616,96298,90,295,2025-Q4
+doc_0285_ops_us-east.txt,Helios Media Group,ops,us-east,Sierra,cost-overrun,critical,145129,90027,94,1,2024-Q4
+doc_0286_compliance_eu-central.txt,Arctic Mobility,compliance,eu-central,Sierra,renewal-risk,low,143757,80989,93,267,2023-Q4
+doc_0287_ops_eu-north.txt,Vertex Retail,ops,eu-north,Nimbus,api-latency,critical,123317,94566,92,121,2024-Q1
+doc_0288_hr_latam.txt,Helios Media Group,hr,latam,Atlas,renewal-risk,medium,149646,79503,88,306,2024-Q3
+doc_0289_sales_latam.txt,Blue Delta Logistics,sales,latam,Orion,quota-miss,low,120447,78739,91,190,2025-Q4
+doc_0290_finance_ap-south.txt,Granite Finance Hub,finance,ap-south,Quasar,renewal-risk,high,131875,74457,93,119,2025-Q4
+doc_0291_finance_eu-central.txt,Blue Delta Logistics,finance,eu-central,Atlas,api-latency,medium,151154,71562,96,295,2024-Q3
+doc_0292_engineering_us-west.txt,Apex Bio Labs,engineering,us-west,Orion,quota-miss,high,122596,77516,87,267,2024-Q4
+doc_0293_engineering_us-west.txt,Arctic Mobility,engineering,us-west,Zenith,quota-miss,high,130814,72360,97,271,2023-Q4
+doc_0294_ops_latam.txt,Helios Media Group,ops,latam,Pulse,api-latency,critical,141459,95901,93,291,2025-Q1
+doc_0295_compliance_ap-south.txt,Vertex Retail,compliance,ap-south,Atlas,quota-miss,low,128818,100442,95,396,2025-Q2
+doc_0296_sales_eu-north.txt,Granite Finance Hub,sales,eu-north,Sierra,vendor-delay,high,139968,72148,93,90,2025-Q2
+doc_0297_finance_eu-north.txt,Arctic Mobility,finance,eu-north,Quasar,api-latency,critical,134435,72585,93,113,2024-Q2
+doc_0298_finance_us-west.txt,Nova Security Systems,finance,us-west,Quasar,policy-violation,low,146032,84159,97,391,2025-Q1
+doc_0299_hr_latam.txt,Arctic Mobility,hr,latam,Cobalt,api-latency,high,134698,81208,90,394,2023-Q3
+doc_0300_finance_us-east.txt,Helios Media Group,finance,us-east,Orion,api-latency,low,144912,85553,88,370,2024-Q4

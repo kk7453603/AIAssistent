@@ -6,3 +6,4 @@ storage_data
 *.txt
 __pycache__/
 *.pyc
+.env
