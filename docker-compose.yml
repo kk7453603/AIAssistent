@@ -75,6 +75,8 @@ services:
       dockerfile: Dockerfile.worker
     env_file:
       - .env
+    ports:
+      - "${WORKER_METRICS_PORT:-9090}:${WORKER_METRICS_PORT:-9090}"
     depends_on:
       postgres:
         condition: service_healthy

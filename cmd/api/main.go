@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -12,16 +12,21 @@ import (
 	httpadapter "github.com/kirillkom/personal-ai-assistant/internal/adapters/http"
 	"github.com/kirillkom/personal-ai-assistant/internal/bootstrap"
 	"github.com/kirillkom/personal-ai-assistant/internal/config"
+	"github.com/kirillkom/personal-ai-assistant/internal/observability/logging"
 )
 
 func main() {
 	cfg := config.Load()
+	logger := logging.NewJSONLogger("api", cfg.LogLevel)
+	slog.SetDefault(logger)
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	app, err := bootstrap.New(ctx, cfg)
 	if err != nil {
-		log.Fatalf("bootstrap error: %v", err)
+		logger.Error("bootstrap_error", "error", err)
+		os.Exit(1)
 	}
 	defer app.Close()
 
@@ -37,17 +42,24 @@ func main() {
 		IdleTimeout:  120 * time.Second,
 	}
 
+	serverErr := make(chan error, 1)
 	go func() {
-		log.Printf("api listening on :%s", cfg.APIPort)
+		logger.Info("api_listening", "port", cfg.APIPort)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("api server error: %v", err)
+			serverErr <- err
 		}
 	}()
 
-	<-ctx.Done()
+	select {
+	case <-ctx.Done():
+	case err := <-serverErr:
+		logger.Error("api_server_error", "error", err)
+		stop()
+	}
+
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := server.Shutdown(shutdownCtx); err != nil {
-		log.Printf("api shutdown error: %v", err)
+		logger.Error("api_shutdown_error", "error", err)
 	}
 }

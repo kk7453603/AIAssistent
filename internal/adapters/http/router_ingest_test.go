@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -55,6 +56,44 @@ func TestHealthzEndpoint(t *testing.T) {
 
 	if res.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", res.Code)
+	}
+}
+
+func TestRequestIDHeaderIsGenerated(t *testing.T) {
+	handler := newRouterForIngestTests()
+	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	res := httptest.NewRecorder()
+	handler.ServeHTTP(res, req)
+
+	requestID := res.Header().Get("X-Request-Id")
+	if requestID == "" {
+		t.Fatalf("expected X-Request-Id header to be set")
+	}
+}
+
+func TestRequestIDHeaderIsPreservedFromClient(t *testing.T) {
+	handler := newRouterForIngestTests()
+	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	req.Header.Set("X-Request-Id", "my-request-id")
+	res := httptest.NewRecorder()
+	handler.ServeHTTP(res, req)
+
+	if got := res.Header().Get("X-Request-Id"); got != "my-request-id" {
+		t.Fatalf("expected X-Request-Id to be preserved, got %q", got)
+	}
+}
+
+func TestMetricsEndpoint(t *testing.T) {
+	handler := newRouterForIngestTests()
+	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	res := httptest.NewRecorder()
+	handler.ServeHTTP(res, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", res.Code)
+	}
+	if !strings.Contains(res.Body.String(), "paa_http_in_flight_requests") {
+		t.Fatalf("expected metrics payload, got: %s", res.Body.String())
 	}
 }
 

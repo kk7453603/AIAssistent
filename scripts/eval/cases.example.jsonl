@@ -1,0 +1,4 @@
+# Replace expected_filenames with files that are actually indexed in your Qdrant collection.
+{"id":"EX001","question":"What is the risk level for document doc_0001_support_ap-south.txt?","expected_filenames":["doc_0001_support_ap-south.txt"]}
+{"id":"EX002","question":"What is the gross margin for document doc_0002_support_us-west.txt in 2024-Q1?","expected_filenames":["doc_0002_support_us-west.txt"]}
+{"id":"EX003","question":"What is the incident type for document doc_0003_risk_us-west.txt?","expected_filenames":["doc_0003_risk_us-west.txt"]}

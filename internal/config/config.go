@@ -6,7 +6,8 @@ import (
 )
 
 type Config struct {
-	APIPort string
+	APIPort  string
+	LogLevel string
 
 	PostgresDSN string
 
@@ -31,11 +32,14 @@ type Config struct {
 	OpenAICompatContextMessages     int
 	OpenAICompatStreamChunkChars    int
 	OpenAICompatToolTriggerKeywords string
+
+	WorkerMetricsPort string
 }
 
 func Load() Config {
 	return Config{
-		APIPort: mustEnv("API_PORT", "8080"),
+		APIPort:  mustEnv("API_PORT", "8080"),
+		LogLevel: mustEnv("LOG_LEVEL", "info"),
 
 		PostgresDSN: mustEnv("POSTGRES_DSN", "postgres://postgres:postgres@localhost:5432/assistant?sslmode=disable"),
 
@@ -60,6 +64,8 @@ func Load() Config {
 		OpenAICompatContextMessages:     mustEnvInt("OPENAI_COMPAT_CONTEXT_MESSAGES", 5),
 		OpenAICompatStreamChunkChars:    mustEnvInt("OPENAI_COMPAT_STREAM_CHUNK_CHARS", 120),
 		OpenAICompatToolTriggerKeywords: mustEnv("OPENAI_COMPAT_TOOL_TRIGGER_KEYWORDS", "file,document,upload,attach,документ,файл,загрузи,вложение"),
+
+		WorkerMetricsPort: mustEnv("WORKER_METRICS_PORT", "9090"),
 	}
 }
 

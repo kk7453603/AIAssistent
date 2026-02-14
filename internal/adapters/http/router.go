@@ -5,17 +5,18 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"log"
 	"mime/multipart"
 	"net"
 	"net/http"
 	"strings"
 	"syscall"
+	"time"
 
 	apigen "github.com/kirillkom/personal-ai-assistant/internal/adapters/http/openapi"
 	"github.com/kirillkom/personal-ai-assistant/internal/config"
 	"github.com/kirillkom/personal-ai-assistant/internal/core/domain"
 	"github.com/kirillkom/personal-ai-assistant/internal/core/ports"
+	"github.com/kirillkom/personal-ai-assistant/internal/observability/metrics"
 )
 
 type Router struct {
@@ -29,6 +30,7 @@ type Router struct {
 	openAICompatStreamChunkChars int
 	toolTriggerKeywords          []string
 	ragTopK                      int
+	httpMetrics                  *metrics.HTTPServerMetrics
 }
 
 func NewRouter(
@@ -69,12 +71,14 @@ func NewRouter(
 		openAICompatStreamChunkChars: streamChunkChars,
 		toolTriggerKeywords:          toolKeywords,
 		ragTopK:                      ragTopK,
+		httpMetrics:                  metrics.NewHTTPServerMetrics("api"),
 	}
 }
 
 func (rt *Router) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /openapi.json", serveOpenAPISpecJSON)
+	mux.Handle("GET /metrics", rt.httpMetrics.Handler())
 
 	strict := apigen.NewStrictHandlerWithOptions(rt, []apigen.StrictMiddlewareFunc{
 		rt.openAICompatAuthMiddleware,
@@ -96,14 +100,10 @@ func (rt *Router) Handler() http.Handler {
 			writeError(w, http.StatusBadRequest, err)
 		},
 	})
-	return loggingMiddleware(handler)
-}
-
-func loggingMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("%s %s", r.Method, r.URL.Path)
-		next.ServeHTTP(w, r)
-	})
+	handler = rt.httpMetrics.Middleware("api", handler)
+	handler = accessLogMiddleware(handler)
+	handler = requestIDMiddleware(handler)
+	return handler
 }
 
 var _ apigen.StrictServerInterface = (*Router)(nil)
@@ -175,6 +175,7 @@ func (rt *Router) QueryRag(ctx context.Context, request apigen.QueryRagRequestOb
 		filter.Category = *request.Body.Category
 	}
 
+	start := time.Now()
 	answer, err := rt.querySvc.Answer(ctx, request.Body.Question, limit, filter)
 	if err != nil {
 		if status := mapErrorToHTTPStatus(err); status == http.StatusBadRequest {
@@ -184,6 +185,15 @@ func (rt *Router) QueryRag(ctx context.Context, request apigen.QueryRagRequestOb
 			Error: err.Error(),
 		}, nil
 	}
+
+	rt.httpMetrics.RecordRAGObservation("api", "query_rag", len(answer.Sources), time.Since(start))
+	rt.httpMetrics.RecordTokenUsage(
+		"api",
+		"query_rag",
+		"rag-backend",
+		estimateTokenCount(request.Body.Question),
+		estimateTokenCount(answer.Text),
+	)
 
 	return apigen.QueryRag200JSONResponse{
 		Text:    answer.Text,

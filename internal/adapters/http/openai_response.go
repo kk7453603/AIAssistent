@@ -61,13 +61,17 @@ func buildToolCallChatCompletionResponse(completionID string, created int64, mod
 }
 
 func estimateUsage(prompt string, completion string) *apigen.Usage {
-	promptTokens := len(strings.Fields(prompt))
-	completionTokens := len(strings.Fields(completion))
+	promptTokens := estimateTokenCount(prompt)
+	completionTokens := estimateTokenCount(completion)
 	return &apigen.Usage{
 		PromptTokens:     promptTokens,
 		CompletionTokens: completionTokens,
 		TotalTokens:      promptTokens + completionTokens,
 	}
+}
+
+func estimateTokenCount(text string) int {
+	return len(strings.Fields(text))
 }
 
 func toAPIDebugSources(chunks []domain.RetrievedChunk) []apigen.DebugSource {

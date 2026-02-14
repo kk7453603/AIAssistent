@@ -62,6 +62,15 @@ func (rt *Router) ChatCompletions(ctx context.Context, request apigen.ChatComple
 		}
 		debugMode := "tool_postprocess"
 		response := buildTextChatCompletionResponse(completionID, created, modelID, lastUser, answer, &apigen.DebugInfo{Mode: &debugMode})
+		if response.Usage != nil {
+			rt.httpMetrics.RecordTokenUsage(
+				"api",
+				"chat_tool_postprocess",
+				modelID,
+				response.Usage.PromptTokens,
+				response.Usage.CompletionTokens,
+			)
+		}
 		if stream {
 			return chatCompletionsSSEResponse{Chunks: buildTextStreamChunks(completionID, created, modelID, answer, rt.openAICompatStreamChunkChars)}, nil
 		}
@@ -75,6 +84,15 @@ func (rt *Router) ChatCompletions(ctx context.Context, request apigen.ChatComple
 
 	if toolCall, ok := rt.buildToolCallIfTriggered(lastUser, request.Body.Tools); ok {
 		response := buildToolCallChatCompletionResponse(completionID, created, modelID, lastUser, toolCall)
+		if response.Usage != nil {
+			rt.httpMetrics.RecordTokenUsage(
+				"api",
+				"chat_tool_call",
+				modelID,
+				response.Usage.PromptTokens,
+				response.Usage.CompletionTokens,
+			)
+		}
 		if stream {
 			return chatCompletionsSSEResponse{Chunks: buildToolCallStreamChunks(completionID, created, modelID, toolCall)}, nil
 		}
@@ -82,6 +100,7 @@ func (rt *Router) ChatCompletions(ctx context.Context, request apigen.ChatComple
 	}
 
 	ragQuestion := buildRAGQuestion(request.Body.Messages, lastUser, rt.openAICompatContextMessages)
+	start := time.Now()
 	answer, err := rt.querySvc.Answer(ctx, ragQuestion, rt.ragTopK, domain.SearchFilter{})
 	if err != nil {
 		return apigen.ChatCompletions500JSONResponse{Error: err.Error()}, nil
@@ -94,6 +113,16 @@ func (rt *Router) ChatCompletions(ctx context.Context, request apigen.ChatComple
 	}
 
 	response := buildTextChatCompletionResponse(completionID, created, modelID, ragQuestion, answer.Text, debug)
+	rt.httpMetrics.RecordRAGObservation("api", "chat_completions", len(answer.Sources), time.Since(start))
+	if response.Usage != nil {
+		rt.httpMetrics.RecordTokenUsage(
+			"api",
+			"chat_completions",
+			modelID,
+			response.Usage.PromptTokens,
+			response.Usage.CompletionTokens,
+		)
+	}
 	if stream {
 		return chatCompletionsSSEResponse{Chunks: buildTextStreamChunks(completionID, created, modelID, answer.Text, rt.openAICompatStreamChunkChars)}, nil
 	}

@@ -137,6 +137,53 @@ curl -X POST http://localhost:8080/v1/rag/query \
   }'
 ```
 
+## Observability
+
+### Request ID + structured logs
+- API и worker пишут JSON-логи.
+- Для каждого HTTP-запроса выставляется `X-Request-Id`:
+  - если клиент передал `X-Request-Id`, он сохраняется;
+  - иначе backend генерирует UUID.
+
+### Prometheus metrics
+- API metrics: `GET /metrics` на `http://localhost:8080/metrics`
+- Worker metrics: `GET /metrics` на `http://localhost:${WORKER_METRICS_PORT:-9090}/metrics`
+- Worker health: `GET /healthz` на `http://localhost:${WORKER_METRICS_PORT:-9090}/healthz`
+
+Примеры:
+```bash
+curl http://localhost:8080/metrics
+curl http://localhost:9090/metrics
+```
+
+## Retrieval evaluation
+
+Скрипты:
+- `scripts/eval/generate_cases_from_manifest.sh` — генерирует retrieval-кейсы (JSONL) из `manifest.csv`.
+- `scripts/eval/run.sh` — считает `precision@k`, `recall@k`, `MRR@k` через `POST /v1/rag/query`.
+
+Примеры:
+```bash
+# 1) Сгенерировать кейсы из manifest (например, из tmp/rag-300)
+make eval-cases \
+  EVAL_MANIFEST=./tmp/rag-300/manifest.csv \
+  EVAL_GENERATED_CASES=./tmp/eval/retrieval_cases.jsonl
+
+# 2) Запустить оценку
+make eval \
+  EVAL_CASES=./tmp/eval/retrieval_cases.jsonl \
+  EVAL_K=5 \
+  EVAL_REPORT=./tmp/eval/report.json
+```
+
+Формат кейса (JSONL):
+```json
+{"id":"Q1","question":"What is the risk level for document doc_0001_support_ap-south.txt?","expected_filenames":["doc_0001_support_ap-south.txt"]}
+```
+
+Базовый пример отчета с метриками и latency snapshot:
+- `docs/evaluation/baseline.md`
+
 ## Генерация тестовых данных для RAG
 Скрипт: `scripts/rag/generate_test_data.sh`
 
@@ -166,6 +213,7 @@ scripts/rag/generate_test_data.sh \
 
 ### Базовые
 - `API_PORT`
+- `LOG_LEVEL`
 - `POSTGRES_DSN`
 - `NATS_URL`
 - `NATS_SUBJECT`
@@ -178,6 +226,7 @@ scripts/rag/generate_test_data.sh \
 - `CHUNK_SIZE`
 - `CHUNK_OVERLAP`
 - `RAG_TOP_K`
+- `WORKER_METRICS_PORT`
 
 ### Слой OpenAI-compatible API
 - `OPENAI_COMPAT_API_KEY` (опционально; если пусто, `/v1/models` и `/v1/chat/completions` работают без авторизации)
