@@ -16,13 +16,12 @@ import (
 	"github.com/kirillkom/personal-ai-assistant/internal/config"
 	"github.com/kirillkom/personal-ai-assistant/internal/core/domain"
 	"github.com/kirillkom/personal-ai-assistant/internal/core/ports"
-	"github.com/kirillkom/personal-ai-assistant/internal/core/usecase"
 )
 
 type Router struct {
-	ingestUC *usecase.IngestDocumentUseCase
-	queryUC  *usecase.QueryUseCase
-	repo     ports.DocumentRepository
+	ingestor ports.DocumentIngestor
+	querySvc ports.DocumentQueryService
+	docs     ports.DocumentReader
 
 	openAICompatAPIKey           string
 	openAICompatModelID          string
@@ -34,9 +33,9 @@ type Router struct {
 
 func NewRouter(
 	cfg config.Config,
-	ingestUC *usecase.IngestDocumentUseCase,
-	queryUC *usecase.QueryUseCase,
-	repo ports.DocumentRepository,
+	ingestor ports.DocumentIngestor,
+	querySvc ports.DocumentQueryService,
+	docs ports.DocumentReader,
 ) *Router {
 	contextMessages := cfg.OpenAICompatContextMessages
 	if contextMessages <= 0 {
@@ -60,9 +59,9 @@ func NewRouter(
 	}
 
 	return &Router{
-		ingestUC: ingestUC,
-		queryUC:  queryUC,
-		repo:     repo,
+		ingestor: ingestor,
+		querySvc: querySvc,
+		docs:     docs,
 
 		openAICompatAPIKey:           cfg.OpenAICompatAPIKey,
 		openAICompatModelID:          cfg.OpenAICompatModelID,
@@ -129,13 +128,16 @@ func (rt *Router) UploadDocument(ctx context.Context, request apigen.UploadDocum
 		filename = "document.bin"
 	}
 
-	doc, err := rt.ingestUC.Upload(
+	doc, err := rt.ingestor.Upload(
 		ctx,
 		filename,
 		part.Header.Get("Content-Type"),
 		part,
 	)
 	if err != nil {
+		if status := mapErrorToHTTPStatus(err); status == http.StatusBadRequest {
+			return apigen.UploadDocument400JSONResponse{Error: err.Error()}, nil
+		}
 		return apigen.UploadDocument500JSONResponse{
 			Error: err.Error(),
 		}, nil
@@ -145,8 +147,9 @@ func (rt *Router) UploadDocument(ctx context.Context, request apigen.UploadDocum
 }
 
 func (rt *Router) GetDocumentById(ctx context.Context, request apigen.GetDocumentByIdRequestObject) (apigen.GetDocumentByIdResponseObject, error) {
-	doc, err := rt.repo.GetByID(ctx, request.DocumentId)
+	doc, err := rt.docs.GetByID(ctx, request.DocumentId)
 	if err != nil {
+		// Spec currently defines only 404 for this endpoint.
 		return apigen.GetDocumentById404JSONResponse{
 			Error: err.Error(),
 		}, nil
@@ -172,8 +175,11 @@ func (rt *Router) QueryRag(ctx context.Context, request apigen.QueryRagRequestOb
 		filter.Category = *request.Body.Category
 	}
 
-	answer, err := rt.queryUC.Answer(ctx, request.Body.Question, limit, filter)
+	answer, err := rt.querySvc.Answer(ctx, request.Body.Question, limit, filter)
 	if err != nil {
+		if status := mapErrorToHTTPStatus(err); status == http.StatusBadRequest {
+			return apigen.QueryRag400JSONResponse{Error: err.Error()}, nil
+		}
 		return apigen.QueryRag500JSONResponse{
 			Error: err.Error(),
 		}, nil

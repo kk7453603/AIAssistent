@@ -2,7 +2,6 @@ package bootstrap
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"github.com/kirillkom/personal-ai-assistant/internal/config"
@@ -20,14 +19,13 @@ import (
 type App struct {
 	Config config.Config
 
-	DB    *sql.DB
-	Queue *nats.Queue
+	Queue     ports.MessageQueue
+	Repo      ports.DocumentRepository
+	IngestUC  ports.DocumentIngestor
+	ProcessUC ports.DocumentProcessor
+	QueryUC   ports.DocumentQueryService
 
-	Repo ports.DocumentRepository
-
-	IngestUC  *usecase.IngestDocumentUseCase
-	ProcessUC *usecase.ProcessDocumentUseCase
-	QueryUC   *usecase.QueryUseCase
+	closeFn func()
 }
 
 func New(ctx context.Context, cfg config.Config) (*App, error) {
@@ -65,21 +63,22 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 
 	return &App{
 		Config: cfg,
-		DB:     db,
 		Queue:  queue,
 		Repo:   repo,
 
 		IngestUC:  ingestUC,
 		ProcessUC: processUC,
 		QueryUC:   queryUC,
+
+		closeFn: func() {
+			queue.Close()
+			_ = db.Close()
+		},
 	}, nil
 }
 
 func (a *App) Close() {
-	if a.Queue != nil {
-		a.Queue.Close()
-	}
-	if a.DB != nil {
-		_ = a.DB.Close()
+	if a.closeFn != nil {
+		a.closeFn()
 	}
 }
