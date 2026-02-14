@@ -1,0 +1,21 @@
+filename,company,domain,region,product,incident,risk,revenue_usd,cost_usd,sla_pct,ticket_backlog,quarter
+doc_0001_finance_latam.txt,Vertex Retail,finance,latam,Cobalt,cost-overrun,high,142070,82967,94,247,2023-Q3
+doc_0002_ops_eu-central.txt,Northstar Analytics,ops,eu-central,Atlas,vendor-delay,critical,140157,83439,96,371,2024-Q1
+doc_0003_ops_eu-north.txt,Nova Security Systems,ops,eu-north,Atlas,renewal-risk,critical,132185,102032,91,142,2024-Q3
+doc_0004_hr_latam.txt,Blue Delta Logistics,hr,latam,Cobalt,vendor-delay,high,130471,96668,88,222,2023-Q4
+doc_0005_finance_ap-south.txt,Nova Security Systems,finance,ap-south,Sierra,quota-miss,medium,147751,100718,89,3,2025-Q2
+doc_0006_finance_eu-north.txt,Arctic Mobility,finance,eu-north,Quasar,policy-violation,medium,133647,70326,93,393,2025-Q3
+doc_0007_ops_eu-central.txt,Granite Finance Hub,ops,eu-central,Pulse,security-alert,critical,124248,70001,95,392,2025-Q2
+doc_0008_sales_ap-south.txt,Arctic Mobility,sales,ap-south,Nimbus,security-alert,critical,126466,95293,89,241,2024-Q4
+doc_0009_risk_us-east.txt,Apex Bio Labs,risk,us-east,Orion,vendor-delay,high,150735,83565,93,342,2025-Q1
+doc_0010_risk_ap-south.txt,Blue Delta Logistics,risk,ap-south,Orion,policy-violation,high,122546,78335,89,182,2024-Q3
+doc_0011_engineering_us-west.txt,Northstar Analytics,engineering,us-west,Pulse,none,medium,146878,81275,96,104,2024-Q2
+doc_0012_compliance_ap-south.txt,Apex Bio Labs,compliance,ap-south,Orion,security-alert,low,139127,93258,94,309,2024-Q4
+doc_0013_engineering_us-east.txt,Granite Finance Hub,engineering,us-east,Cobalt,api-latency,low,123184,101819,87,199,2024-Q1
+doc_0014_compliance_eu-central.txt,Blue Delta Logistics,compliance,eu-central,Zenith,policy-violation,medium,145895,85949,94,378,2024-Q1
+doc_0015_hr_eu-north.txt,Granite Finance Hub,hr,eu-north,Sierra,renewal-risk,critical,121855,87364,100,230,2024-Q3
+doc_0016_sales_latam.txt,Nova Security Systems,sales,latam,Sierra,security-alert,medium,124200,90046,91,88,2024-Q4
+doc_0017_engineering_us-east.txt,Arctic Mobility,engineering,us-east,Pulse,policy-violation,critical,139902,72874,96,267,2025-Q1
+doc_0018_engineering_latam.txt,Northstar Analytics,engineering,latam,Zenith,quota-miss,medium,121111,92390,95,17,2024-Q2
+doc_0019_compliance_latam.txt,Nova Security Systems,compliance,latam,Atlas,api-latency,critical,141405,73062,87,391,2023-Q4
+doc_0020_ops_eu-north.txt,Nova Security Systems,ops,eu-north,Atlas,security-alert,low,131120,87070,96,333,2024-Q3

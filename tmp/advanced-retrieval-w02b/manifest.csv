@@ -1,0 +1,21 @@
+filename,company,domain,region,product,incident,risk,revenue_usd,cost_usd,sla_pct,ticket_backlog,quarter
+doc_0001_engineering_eu-north.txt,Apex Bio Labs,engineering,eu-north,Pulse,quota-miss,medium,124570,71672,89,419,2023-Q3
+doc_0002_risk_ap-south.txt,Apex Bio Labs,risk,ap-south,Cobalt,security-alert,low,148804,72640,100,199,2024-Q1
+doc_0003_finance_us-west.txt,Nova Security Systems,finance,us-west,Pulse,renewal-risk,high,134624,80062,93,31,2024-Q3
+doc_0004_engineering_ap-south.txt,Granite Finance Hub,engineering,ap-south,Orion,none,high,143144,78058,90,357,2023-Q4
+doc_0005_compliance_us-west.txt,Apex Bio Labs,compliance,us-west,Quasar,policy-violation,high,135828,81739,94,264,2025-Q2
+doc_0006_support_us-west.txt,Apex Bio Labs,support,us-west,Quasar,policy-violation,critical,123426,93687,100,74,2025-Q3
+doc_0007_finance_latam.txt,Granite Finance Hub,finance,latam,Orion,cost-overrun,low,144243,92353,90,279,2025-Q2
+doc_0008_finance_ap-south.txt,Northstar Analytics,finance,ap-south,Sierra,policy-violation,critical,138109,101730,88,43,2024-Q4
+doc_0009_ops_us-west.txt,Apex Bio Labs,ops,us-west,Zenith,none,high,147489,101297,98,104,2025-Q1
+doc_0010_ops_eu-central.txt,Helios Media Group,ops,eu-central,Cobalt,cost-overrun,medium,151366,94261,98,269,2024-Q3
+doc_0011_hr_us-west.txt,Helios Media Group,hr,us-west,Quasar,vendor-delay,low,144516,95761,95,386,2024-Q2
+doc_0012_support_eu-north.txt,Nova Security Systems,support,eu-north,Quasar,none,high,126973,77511,88,371,2024-Q4
+doc_0013_engineering_eu-central.txt,Apex Bio Labs,engineering,eu-central,Pulse,cost-overrun,medium,151520,91749,97,131,2024-Q1
+doc_0014_ops_us-west.txt,Vertex Retail,ops,us-west,Zenith,api-latency,low,125351,81366,91,208,2024-Q1
+doc_0015_sales_ap-south.txt,Vertex Retail,sales,ap-south,Atlas,renewal-risk,high,134958,72626,87,203,2024-Q3
+doc_0016_sales_eu-north.txt,Helios Media Group,sales,eu-north,Zenith,policy-violation,low,132698,92073,98,32,2024-Q4
+doc_0017_engineering_ap-south.txt,Apex Bio Labs,engineering,ap-south,Zenith,quota-miss,high,126613,88506,100,308,2025-Q1
+doc_0018_finance_us-west.txt,Helios Media Group,finance,us-west,Quasar,quota-miss,high,132883,79597,93,15,2024-Q2
+doc_0019_risk_us-west.txt,Granite Finance Hub,risk,us-west,Quasar,api-latency,medium,133619,92358,90,311,2023-Q4
+doc_0020_risk_eu-north.txt,Arctic Mobility,risk,eu-north,Quasar,api-latency,medium,121267,90063,96,107,2024-Q3

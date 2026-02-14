@@ -3,8 +3,10 @@ package bootstrap
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/kirillkom/personal-ai-assistant/internal/config"
+	"github.com/kirillkom/personal-ai-assistant/internal/core/domain"
 	"github.com/kirillkom/personal-ai-assistant/internal/core/ports"
 	"github.com/kirillkom/personal-ai-assistant/internal/core/usecase"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/chunking"
@@ -57,9 +59,20 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 	chunker := chunking.NewSplitter(cfg.ChunkSize, cfg.ChunkOverlap)
 	extractor := plaintext.NewExtractor(storage)
 
+	fusionStrategy := domain.FusionStrategy(strings.ToLower(strings.TrimSpace(cfg.RAGFusionStrategy)))
+	if fusionStrategy != domain.FusionStrategyRRF {
+		return nil, fmt.Errorf("unsupported RAG_FUSION_STRATEGY=%q: only rrf is supported", cfg.RAGFusionStrategy)
+	}
+
 	ingestUC := usecase.NewIngestDocumentUseCase(repo, storage, queue)
 	processUC := usecase.NewProcessDocumentUseCase(repo, extractor, classifier, chunker, embedder, vectorDB)
-	queryUC := usecase.NewQueryUseCase(embedder, vectorDB, generator)
+	queryUC := usecase.NewQueryUseCase(embedder, vectorDB, generator, usecase.QueryOptions{
+		RetrievalMode:    domain.RetrievalMode(strings.ToLower(strings.TrimSpace(cfg.RAGRetrievalMode))),
+		HybridCandidates: cfg.RAGHybridCandidates,
+		FusionStrategy:   fusionStrategy,
+		FusionRRFK:       cfg.RAGFusionRRFK,
+		RerankTopN:       cfg.RAGRerankTopN,
+	})
 
 	return &App{
 		Config: cfg,

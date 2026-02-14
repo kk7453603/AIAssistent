@@ -1,0 +1,16 @@
+filename,company,domain,region,product,incident,risk,revenue_usd,cost_usd,sla_pct,ticket_backlog,quarter
+doc_0001_engineering_us-east.txt,Arctic Mobility,engineering,us-east,Quasar,vendor-delay,medium,123525,98165,96,186,2023-Q3
+doc_0002_compliance_eu-north.txt,Blue Delta Logistics,compliance,eu-north,Atlas,renewal-risk,critical,124112,99259,90,90,2024-Q1
+doc_0003_risk_us-west.txt,Granite Finance Hub,risk,us-west,Atlas,none,critical,139562,101213,100,326,2024-Q3
+doc_0004_compliance_us-west.txt,Granite Finance Hub,compliance,us-west,Pulse,cost-overrun,low,145424,88551,100,357,2023-Q4
+doc_0005_risk_us-west.txt,Helios Media Group,risk,us-west,Pulse,renewal-risk,high,138581,79950,98,18,2025-Q2
+doc_0006_ops_latam.txt,Vertex Retail,ops,latam,Quasar,api-latency,low,138203,95669,92,306,2025-Q3
+doc_0007_ops_latam.txt,Helios Media Group,ops,latam,Quasar,cost-overrun,critical,128971,92684,91,105,2025-Q2
+doc_0008_finance_eu-north.txt,Apex Bio Labs,finance,eu-north,Atlas,vendor-delay,high,140925,76043,99,199,2024-Q4
+doc_0009_ops_us-west.txt,Northstar Analytics,ops,us-west,Sierra,cost-overrun,high,147847,100841,100,408,2025-Q1
+doc_0010_sales_latam.txt,Arctic Mobility,sales,latam,Nimbus,renewal-risk,high,142280,98477,100,119,2024-Q3
+doc_0011_engineering_latam.txt,Nova Security Systems,engineering,latam,Pulse,quota-miss,high,133603,101127,92,390,2024-Q2
+doc_0012_support_ap-south.txt,Granite Finance Hub,support,ap-south,Quasar,api-latency,medium,133911,72039,87,244,2024-Q4
+doc_0013_ops_us-east.txt,Blue Delta Logistics,ops,us-east,Nimbus,policy-violation,critical,135944,85429,94,177,2024-Q1
+doc_0014_ops_eu-north.txt,Granite Finance Hub,ops,eu-north,Cobalt,renewal-risk,critical,138938,89676,96,394,2024-Q1
+doc_0015_hr_us-west.txt,Apex Bio Labs,hr,us-west,Quasar,vendor-delay,critical,126150,70410,95,86,2024-Q3

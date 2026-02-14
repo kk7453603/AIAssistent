@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -14,6 +15,11 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/kirillkom/personal-ai-assistant/internal/core/domain"
+)
+
+const (
+	denseVectorName  = "dense"
+	sparseVectorName = "text"
 )
 
 type Client struct {
@@ -48,15 +54,19 @@ func (c *Client) IndexChunks(ctx context.Context, doc *domain.Document, chunks [
 
 	type point struct {
 		ID      string         `json:"id"`
-		Vector  []float32      `json:"vector"`
+		Vector  map[string]any `json:"vector"`
 		Payload map[string]any `json:"payload"`
 	}
 
 	points := make([]point, 0, len(chunks))
 	for i := range chunks {
+		sparse := encodeSparseDocument(chunks[i], doc.Filename)
 		points = append(points, point{
-			ID:     uuid.NewString(),
-			Vector: vectors[i],
+			ID: uuid.NewString(),
+			Vector: map[string]any{
+				denseVectorName:  vectors[i],
+				sparseVectorName: sparse,
+			},
 			Payload: map[string]any{
 				"doc_id":      doc.ID,
 				"filename":    doc.Filename,
@@ -88,6 +98,10 @@ func (c *Client) IndexChunks(ctx context.Context, doc *domain.Document, chunks [
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
+		if msg := strings.TrimSpace(string(body)); msg != "" {
+			return fmt.Errorf("qdrant upsert status: %s: %s", resp.Status, msg)
+		}
 		return fmt.Errorf("qdrant upsert status: %s", resp.Status)
 	}
 	return nil
@@ -100,66 +114,127 @@ func (c *Client) Search(
 	filter domain.SearchFilter,
 ) ([]domain.RetrievedChunk, error) {
 	reqBody := map[string]any{
-		"vector":       queryVector,
+		"query":        queryVector,
+		"using":        denseVectorName,
 		"limit":        limit,
 		"with_payload": true,
 	}
 	if filter.Category != "" {
-		reqBody["filter"] = map[string]any{
-			"must": []map[string]any{
-				{
-					"key": "category",
-					"match": map[string]any{
-						"value": filter.Category,
-					},
-				},
-			},
-		}
+		reqBody["filter"] = buildCategoryFilter(filter.Category)
 	}
 
+	return c.queryPoints(ctx, reqBody)
+}
+
+func (c *Client) SearchLexical(
+	ctx context.Context,
+	queryText string,
+	limit int,
+	filter domain.SearchFilter,
+) ([]domain.RetrievedChunk, error) {
+	sparse := encodeSparseQuery(queryText)
+	if len(sparse.Indices) == 0 {
+		return nil, nil
+	}
+
+	reqBody := map[string]any{
+		"query":        sparse,
+		"using":        sparseVectorName,
+		"limit":        limit,
+		"with_payload": true,
+	}
+	if filter.Category != "" {
+		reqBody["filter"] = buildCategoryFilter(filter.Category)
+	}
+
+	return c.queryPoints(ctx, reqBody)
+}
+
+func (c *Client) queryPoints(ctx context.Context, reqBody map[string]any) ([]domain.RetrievedChunk, error) {
 	body, err := json.Marshal(reqBody)
 	if err != nil {
-		return nil, fmt.Errorf("marshal search body: %w", err)
+		return nil, fmt.Errorf("marshal query body: %w", err)
 	}
 
-	url := fmt.Sprintf("%s/collections/%s/points/search", c.baseURL, c.collection)
+	url := fmt.Sprintf("%s/collections/%s/points/query", c.baseURL, c.collection)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
-		return nil, fmt.Errorf("create search request: %w", err)
+		return nil, fmt.Errorf("create query request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("qdrant search request: %w", err)
+		return nil, fmt.Errorf("qdrant query request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("qdrant search status: %s", resp.Status)
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
+		if msg := strings.TrimSpace(string(body)); msg != "" {
+			return nil, fmt.Errorf("qdrant query status: %s: %s", resp.Status, msg)
+		}
+		return nil, fmt.Errorf("qdrant query status: %s", resp.Status)
 	}
 
-	var searchResp struct {
-		Result []struct {
-			Score   float64        `json:"score"`
-			Payload map[string]any `json:"payload"`
-		} `json:"result"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&searchResp); err != nil {
-		return nil, fmt.Errorf("decode search response: %w", err)
+	points, err := decodeQueryPoints(resp.Body)
+	if err != nil {
+		return nil, err
 	}
 
-	out := make([]domain.RetrievedChunk, 0, len(searchResp.Result))
-	for _, r := range searchResp.Result {
+	out := make([]domain.RetrievedChunk, 0, len(points))
+	for _, r := range points {
 		out = append(out, domain.RetrievedChunk{
 			DocumentID: getStringPayload(r.Payload, "doc_id"),
 			Filename:   getStringPayload(r.Payload, "filename"),
 			Category:   getStringPayload(r.Payload, "category"),
+			ChunkIndex: getIntPayload(r.Payload, "chunk_index"),
 			Text:       getStringPayload(r.Payload, "text"),
 			Score:      r.Score,
 		})
 	}
 	return out, nil
+}
+
+type queryPoint struct {
+	Score   float64        `json:"score"`
+	Payload map[string]any `json:"payload"`
+}
+
+func decodeQueryPoints(r io.Reader) ([]queryPoint, error) {
+	var envelope struct {
+		Result json.RawMessage `json:"result"`
+	}
+	if err := json.NewDecoder(r).Decode(&envelope); err != nil {
+		return nil, fmt.Errorf("decode query response: %w", err)
+	}
+
+	var nested struct {
+		Points []queryPoint `json:"points"`
+	}
+	if err := json.Unmarshal(envelope.Result, &nested); err == nil && nested.Points != nil {
+		return nested.Points, nil
+	}
+
+	var flat []queryPoint
+	if err := json.Unmarshal(envelope.Result, &flat); err == nil {
+		return flat, nil
+	}
+
+	return nil, fmt.Errorf("decode query response: unexpected result shape")
+}
+
+func buildCategoryFilter(category string) map[string]any {
+	return map[string]any{
+		"must": []map[string]any{
+			{
+				"key": "category",
+				"match": map[string]any{
+					"value": category,
+				},
+			},
+		},
+	}
 }
 
 func (c *Client) ensureCollection(ctx context.Context, vectorSize int) error {
@@ -172,8 +247,15 @@ func (c *Client) ensureCollection(ctx context.Context, vectorSize int) error {
 
 	reqBody := map[string]any{
 		"vectors": map[string]any{
-			"size":     vectorSize,
-			"distance": "Cosine",
+			denseVectorName: map[string]any{
+				"size":     vectorSize,
+				"distance": "Cosine",
+			},
+		},
+		"sparse_vectors": map[string]any{
+			sparseVectorName: map[string]any{
+				"modifier": "idf",
+			},
 		},
 	}
 
@@ -195,8 +277,10 @@ func (c *Client) ensureCollection(ctx context.Context, vectorSize int) error {
 	}
 	defer resp.Body.Close()
 
-	// 200/201 for create, 409 if already exists (depends on version/config).
 	if resp.StatusCode == http.StatusConflict {
+		if err := c.verifyCollectionSchema(ctx, vectorSize); err != nil {
+			return err
+		}
 		c.markCollectionEnsured(vectorSize)
 		return nil
 	}
@@ -209,6 +293,115 @@ func (c *Client) ensureCollection(ctx context.Context, vectorSize int) error {
 	}
 	c.markCollectionEnsured(vectorSize)
 	return nil
+}
+
+func (c *Client) verifyCollectionSchema(ctx context.Context, expectedVectorSize int) error {
+	url := fmt.Sprintf("%s/collections/%s", c.baseURL, c.collection)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return fmt.Errorf("create verify collection request: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("verify collection request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
+		if msg := strings.TrimSpace(string(body)); msg != "" {
+			return fmt.Errorf("verify collection status: %s: %s", resp.Status, msg)
+		}
+		return fmt.Errorf("verify collection status: %s", resp.Status)
+	}
+
+	var payload struct {
+		Result struct {
+			Config struct {
+				Params map[string]any `json:"params"`
+			} `json:"config"`
+		} `json:"result"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		return fmt.Errorf("decode verify collection response: %w", err)
+	}
+
+	if err := verifyDenseVectorConfig(payload.Result.Config.Params, expectedVectorSize); err != nil {
+		return err
+	}
+	if err := verifySparseVectorConfig(payload.Result.Config.Params); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func verifyDenseVectorConfig(params map[string]any, expectedVectorSize int) error {
+	vectorsRaw, ok := params["vectors"]
+	if !ok {
+		return fmt.Errorf("qdrant collection %q is missing vectors config", denseVectorName)
+	}
+	vectors, ok := vectorsRaw.(map[string]any)
+	if !ok {
+		return fmt.Errorf("qdrant vectors config has unexpected shape")
+	}
+
+	namedDenseRaw, named := vectors[denseVectorName]
+	if !named {
+		if _, oldStyle := vectors["size"]; oldStyle {
+			return fmt.Errorf("qdrant collection uses old single-vector schema; create a new collection with named dense+sparse vectors")
+		}
+		return fmt.Errorf("qdrant collection is missing vector %q", denseVectorName)
+	}
+	namedDense, ok := namedDenseRaw.(map[string]any)
+	if !ok {
+		return fmt.Errorf("qdrant dense vector config has unexpected shape")
+	}
+	if expectedVectorSize > 0 {
+		size, ok := asInt(namedDense["size"])
+		if !ok {
+			return fmt.Errorf("qdrant dense vector size is missing")
+		}
+		if size != expectedVectorSize {
+			return fmt.Errorf("qdrant dense vector size mismatch: expected=%d actual=%d", expectedVectorSize, size)
+		}
+	}
+	return nil
+}
+
+func verifySparseVectorConfig(params map[string]any) error {
+	sparseRaw, ok := params["sparse_vectors"]
+	if !ok {
+		return fmt.Errorf("qdrant collection is missing sparse_vectors config")
+	}
+	sparse, ok := sparseRaw.(map[string]any)
+	if !ok {
+		return fmt.Errorf("qdrant sparse_vectors config has unexpected shape")
+	}
+	if _, ok := sparse[sparseVectorName]; !ok {
+		return fmt.Errorf("qdrant collection is missing sparse vector %q", sparseVectorName)
+	}
+	return nil
+}
+
+func asInt(v any) (int, bool) {
+	switch n := v.(type) {
+	case int:
+		return n, true
+	case int64:
+		return int(n), true
+	case float64:
+		return int(n), true
+	case json.Number:
+		i, err := n.Int64()
+		if err != nil {
+			return 0, false
+		}
+		return int(i), true
+	default:
+		return 0, false
+	}
 }
 
 func (c *Client) markCollectionEnsured(vectorSize int) {
@@ -228,4 +421,35 @@ func getStringPayload(payload map[string]any, key string) string {
 		return s
 	}
 	return fmt.Sprintf("%v", v)
+}
+
+func getIntPayload(payload map[string]any, key string) int {
+	v, ok := payload[key]
+	if !ok {
+		return -1
+	}
+	switch x := v.(type) {
+	case int:
+		return x
+	case int32:
+		return int(x)
+	case int64:
+		return int(x)
+	case float64:
+		return int(x)
+	case json.Number:
+		n, err := x.Int64()
+		if err != nil {
+			return -1
+		}
+		return int(n)
+	case string:
+		n, err := strconv.Atoi(strings.TrimSpace(x))
+		if err != nil {
+			return -1
+		}
+		return n
+	default:
+		return -1
+	}
 }

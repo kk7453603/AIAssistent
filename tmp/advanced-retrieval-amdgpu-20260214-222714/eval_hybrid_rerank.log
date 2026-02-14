@@ -1,0 +1,10 @@
+scripts/eval/run.sh --api-url "http://localhost:8080" --cases "tmp/advanced-retrieval-full/retrieval_cases.jsonl" --k "5" --out "tmp/advanced-retrieval-amdgpu-20260214-222714/report_hybrid_rerank.json"
+Eval report saved to: tmp/advanced-retrieval-amdgpu-20260214-222714/report_hybrid_rerank.json
+{
+  "total_cases": 30,
+  "failed_cases": 0,
+  "evaluated_cases": 30,
+  "precision_at_k": 0.20000000,
+  "recall_at_k": 1.00000000,
+  "mrr_at_k": 0.92222222
+}

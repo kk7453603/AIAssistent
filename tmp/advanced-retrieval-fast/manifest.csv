@@ -1,0 +1,7 @@
+filename,company,domain,region,product,incident,risk,revenue_usd,cost_usd,sla_pct,ticket_backlog,quarter
+doc_0001_sales_us-west.txt,Apex Bio Labs,sales,us-west,Orion,security-alert,medium,142281,91432,99,226,2023-Q3
+doc_0002_finance_ap-south.txt,Blue Delta Logistics,finance,ap-south,Zenith,renewal-risk,low,135395,76480,94,93,2024-Q1
+doc_0003_compliance_eu-north.txt,Nova Security Systems,compliance,eu-north,Orion,vendor-delay,low,141084,70925,100,144,2024-Q3
+doc_0004_finance_us-west.txt,Helios Media Group,finance,us-west,Orion,none,high,152268,76669,96,214,2023-Q4
+doc_0005_hr_us-east.txt,Apex Bio Labs,hr,us-east,Quasar,api-latency,low,142781,94935,98,296,2025-Q2
+doc_0006_compliance_us-west.txt,Helios Media Group,compliance,us-west,Atlas,quota-miss,low,127593,101711,88,330,2025-Q3

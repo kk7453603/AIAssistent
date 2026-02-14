@@ -21,6 +21,7 @@ type HTTPServerMetrics struct {
 	requestInFlight prometheus.Gauge
 
 	ragRequestsTotal     *prometheus.CounterVec
+	ragModeRequestsTotal *prometheus.CounterVec
 	ragRetrievalHitTotal *prometheus.CounterVec
 	ragNoContextTotal    *prometheus.CounterVec
 	ragRetrievedChunks   *prometheus.HistogramVec
@@ -69,6 +70,15 @@ func NewHTTPServerMetrics(service string) *HTTPServerMetrics {
 			Help:      "Total successful RAG requests.",
 		},
 		[]string{"service", "endpoint"},
+	)
+	ragModeRequestsTotal := prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "paa",
+			Subsystem: "rag",
+			Name:      "mode_requests_total",
+			Help:      "Total successful RAG requests by retrieval mode.",
+		},
+		[]string{"service", "endpoint", "mode"},
 	)
 	ragRetrievalHitTotal := prometheus.NewCounterVec(
 		prometheus.CounterOpts{
@@ -123,6 +133,7 @@ func NewHTTPServerMetrics(service string) *HTTPServerMetrics {
 		requestDuration,
 		requestInFlight,
 		ragRequestsTotal,
+		ragModeRequestsTotal,
 		ragRetrievalHitTotal,
 		ragNoContextTotal,
 		ragRetrievedChunks,
@@ -136,6 +147,7 @@ func NewHTTPServerMetrics(service string) *HTTPServerMetrics {
 		requestDuration:      requestDuration,
 		requestInFlight:      requestInFlight,
 		ragRequestsTotal:     ragRequestsTotal,
+		ragModeRequestsTotal: ragModeRequestsTotal,
 		ragRetrievalHitTotal: ragRetrievalHitTotal,
 		ragNoContextTotal:    ragNoContextTotal,
 		ragRetrievedChunks:   ragRetrievedChunks,
@@ -191,6 +203,13 @@ func (m *HTTPServerMetrics) RecordRAGObservation(service, endpoint string, sourc
 		return
 	}
 	m.ragNoContextTotal.WithLabelValues(service, endpoint).Inc()
+}
+
+func (m *HTTPServerMetrics) RecordRAGModeRequest(service, endpoint, mode string) {
+	if mode == "" {
+		mode = "unknown"
+	}
+	m.ragModeRequestsTotal.WithLabelValues(service, endpoint, mode).Inc()
 }
 
 func (m *HTTPServerMetrics) RecordTokenUsage(service, endpoint, model string, promptTokens, completionTokens int) {

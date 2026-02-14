@@ -156,11 +156,15 @@ curl http://localhost:8080/metrics
 curl http://localhost:9090/metrics
 ```
 
+RAG mode-aware метрика:
+- `paa_rag_mode_requests_total{service,endpoint,mode}`
+
 ## Retrieval evaluation
 
 Скрипты:
 - `scripts/eval/generate_cases_from_manifest.sh` — генерирует retrieval-кейсы (JSONL) из `manifest.csv`.
 - `scripts/eval/run.sh` — считает `precision@k`, `recall@k`, `MRR@k` через `POST /v1/rag/query`.
+- `scripts/eval/compare_modes.sh` — сравнивает отчеты `semantic`, `hybrid`, `hybrid+rerank` и считает дельты.
 
 Примеры:
 ```bash
@@ -174,6 +178,13 @@ make eval \
   EVAL_CASES=./tmp/eval/retrieval_cases.jsonl \
   EVAL_K=5 \
   EVAL_REPORT=./tmp/eval/report.json
+
+# 3) Сравнить режимы retrieval
+make eval-compare \
+  EVAL_REPORT_SEMANTIC=./tmp/eval/report_semantic.json \
+  EVAL_REPORT_HYBRID=./tmp/eval/report_hybrid.json \
+  EVAL_REPORT_HYBRID_RERANK=./tmp/eval/report_hybrid_rerank.json \
+  EVAL_COMPARE_OUT=./tmp/eval/modes_compare.json
 ```
 
 Формат кейса (JSONL):
@@ -183,6 +194,8 @@ make eval \
 
 Базовый пример отчета с метриками и latency snapshot:
 - `docs/evaluation/baseline.md`
+- Режимный бенчмарк hybrid retrieval:
+  - `docs/evaluation/advanced-retrieval.md`
 
 ## Генерация тестовых данных для RAG
 Скрипт: `scripts/rag/generate_test_data.sh`
@@ -226,6 +239,11 @@ scripts/rag/generate_test_data.sh \
 - `CHUNK_SIZE`
 - `CHUNK_OVERLAP`
 - `RAG_TOP_K`
+- `RAG_RETRIEVAL_MODE` (`semantic`, `hybrid`, `hybrid+rerank`)
+- `RAG_HYBRID_CANDIDATES`
+- `RAG_FUSION_STRATEGY` (сейчас поддерживается только `rrf`)
+- `RAG_FUSION_RRF_K`
+- `RAG_RERANK_TOP_N`
 - `WORKER_METRICS_PORT`
 
 ### Слой OpenAI-compatible API

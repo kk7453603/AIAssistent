@@ -47,3 +47,4 @@ Computed from the last `40` successful `/v1/rag/query` requests in API logs:
 ## Notes
 - Prometheus counters are cumulative across process lifetime; for scenario-specific quality use `tmp/baseline-w01/eval_report.json`.
 - During this run `no_context` metric was not emitted as non-zero for the measured requests.
+- Advanced retrieval mode comparison lives in `docs/evaluation/advanced-retrieval.md`.

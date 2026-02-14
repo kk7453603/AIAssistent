@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"mime/multipart"
 	"net"
 	"net/http"
@@ -187,12 +188,27 @@ func (rt *Router) QueryRag(ctx context.Context, request apigen.QueryRagRequestOb
 	}
 
 	rt.httpMetrics.RecordRAGObservation("api", "query_rag", len(answer.Sources), time.Since(start))
+	mode := string(answer.Retrieval.Mode)
+	if mode == "" {
+		mode = string(domain.RetrievalModeSemantic)
+	}
+	rt.httpMetrics.RecordRAGModeRequest("api", "query_rag", mode)
 	rt.httpMetrics.RecordTokenUsage(
 		"api",
 		"query_rag",
 		"rag-backend",
 		estimateTokenCount(request.Body.Question),
 		estimateTokenCount(answer.Text),
+	)
+	slog.Info("rag_retrieval",
+		"request_id", requestIDFromContext(ctx),
+		"endpoint", "query_rag",
+		"retrieval_mode", mode,
+		"semantic_candidates", answer.Retrieval.SemanticCandidates,
+		"lexical_candidates", answer.Retrieval.LexicalCandidates,
+		"rerank_applied", answer.Retrieval.RerankApplied,
+		"retrieved_chunks", len(answer.Sources),
+		"duration_ms", float64(time.Since(start).Microseconds())/1000.0,
 	)
 
 	return apigen.QueryRag200JSONResponse{

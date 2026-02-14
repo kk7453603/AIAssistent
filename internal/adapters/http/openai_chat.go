@@ -2,6 +2,7 @@ package httpadapter
 
 import (
 	"context"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -114,6 +115,11 @@ func (rt *Router) ChatCompletions(ctx context.Context, request apigen.ChatComple
 
 	response := buildTextChatCompletionResponse(completionID, created, modelID, ragQuestion, answer.Text, debug)
 	rt.httpMetrics.RecordRAGObservation("api", "chat_completions", len(answer.Sources), time.Since(start))
+	mode := string(answer.Retrieval.Mode)
+	if mode == "" {
+		mode = string(domain.RetrievalModeSemantic)
+	}
+	rt.httpMetrics.RecordRAGModeRequest("api", "chat_completions", mode)
 	if response.Usage != nil {
 		rt.httpMetrics.RecordTokenUsage(
 			"api",
@@ -123,6 +129,16 @@ func (rt *Router) ChatCompletions(ctx context.Context, request apigen.ChatComple
 			response.Usage.CompletionTokens,
 		)
 	}
+	slog.Info("rag_retrieval",
+		"request_id", requestIDFromContext(ctx),
+		"endpoint", "chat_completions",
+		"retrieval_mode", mode,
+		"semantic_candidates", answer.Retrieval.SemanticCandidates,
+		"lexical_candidates", answer.Retrieval.LexicalCandidates,
+		"rerank_applied", answer.Retrieval.RerankApplied,
+		"retrieved_chunks", len(answer.Sources),
+		"duration_ms", float64(time.Since(start).Microseconds())/1000.0,
+	)
 	if stream {
 		return chatCompletionsSSEResponse{Chunks: buildTextStreamChunks(completionID, created, modelID, answer.Text, rt.openAICompatStreamChunkChars)}, nil
 	}

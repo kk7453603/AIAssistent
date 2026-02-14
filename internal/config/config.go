@@ -23,9 +23,14 @@ type Config struct {
 
 	StoragePath string
 
-	ChunkSize    int
-	ChunkOverlap int
-	RAGTopK      int
+	ChunkSize           int
+	ChunkOverlap        int
+	RAGTopK             int
+	RAGRetrievalMode    string
+	RAGHybridCandidates int
+	RAGFusionStrategy   string
+	RAGFusionRRFK       int
+	RAGRerankTopN       int
 
 	OpenAICompatAPIKey              string
 	OpenAICompatModelID             string
@@ -55,9 +60,14 @@ func Load() Config {
 
 		StoragePath: mustEnv("STORAGE_PATH", "./data/storage"),
 
-		ChunkSize:    mustEnvInt("CHUNK_SIZE", 900),
-		ChunkOverlap: mustEnvInt("CHUNK_OVERLAP", 150),
-		RAGTopK:      mustEnvInt("RAG_TOP_K", 5),
+		ChunkSize:           mustEnvInt("CHUNK_SIZE", 900),
+		ChunkOverlap:        mustEnvInt("CHUNK_OVERLAP", 150),
+		RAGTopK:             mustEnvInt("RAG_TOP_K", 5),
+		RAGRetrievalMode:    mustEnv("RAG_RETRIEVAL_MODE", "semantic"),
+		RAGHybridCandidates: mustEnvInt("RAG_HYBRID_CANDIDATES", 30),
+		RAGFusionStrategy:   mustEnv("RAG_FUSION_STRATEGY", "rrf"),
+		RAGFusionRRFK:       mustEnvInt("RAG_FUSION_RRF_K", 60),
+		RAGRerankTopN:       mustEnvInt("RAG_RERANK_TOP_N", 20),
 
 		OpenAICompatAPIKey:              mustEnv("OPENAI_COMPAT_API_KEY", ""),
 		OpenAICompatModelID:             mustEnv("OPENAI_COMPAT_MODEL_ID", "paa-rag-v1"),

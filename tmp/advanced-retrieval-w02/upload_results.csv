@@ -1,0 +1,21 @@
+filename,document_id,upload_http,status,error
+doc_0001_finance_latam.txt,4ba98742-9f40-4722-888e-677d022b208a,202,failed,classify document: ollama generate status: 404 Not Found: {"error":"model 'qwen3-coder:30b' not found"}
+doc_0002_ops_eu-central.txt,fc04f303-55fe-42f1-bfd6-3a9e4c4048d2,202,failed,classify document: ollama generate status: 404 Not Found: {"error":"model 'qwen3-coder:30b' not found"}
+doc_0003_ops_eu-north.txt,d1f2b5d9-e4c3-4588-8d98-7acf6e6edb2e,202,failed,classify document: ollama generate status: 404 Not Found: {"error":"model 'qwen3-coder:30b' not found"}
+doc_0004_hr_latam.txt,4a4f00d9-458a-4931-ab9e-37c8817e494e,202,failed,classify document: ollama generate status: 404 Not Found: {"error":"model 'qwen3-coder:30b' not found"}
+doc_0005_finance_ap-south.txt,54cf5589-1b3e-459f-bc31-23ad757c772b,202,failed,classify document: ollama generate status: 404 Not Found: {"error":"model 'qwen3-coder:30b' not found"}
+doc_0006_finance_eu-north.txt,a35d88e6-1264-4726-a828-71677c127e71,202,failed,classify document: ollama generate status: 404 Not Found: {"error":"model 'qwen3-coder:30b' not found"}
+doc_0007_ops_eu-central.txt,8f81451c-962e-4a2d-a193-994b0122751a,202,failed,classify document: ollama generate status: 404 Not Found: {"error":"model 'qwen3-coder:30b' not found"}
+doc_0008_sales_ap-south.txt,80d3e209-3af4-4df9-a4cc-e3a668134360,202,failed,classify document: ollama generate status: 404 Not Found: {"error":"model 'qwen3-coder:30b' not found"}
+doc_0009_risk_us-east.txt,24c9d8b5-71e4-4a78-99b9-652a48206cee,202,failed,classify document: ollama generate status: 404 Not Found: {"error":"model 'qwen3-coder:30b' not found"}
+doc_0010_risk_ap-south.txt,1a890c1b-809b-4771-9ce1-4e83c51e5802,202,failed,classify document: ollama generate status: 404 Not Found: {"error":"model 'qwen3-coder:30b' not found"}
+doc_0011_engineering_us-west.txt,0fd45887-e2e1-4d28-bd39-ba8055ebd677,202,failed,classify document: ollama generate status: 404 Not Found: {"error":"model 'qwen3-coder:30b' not found"}
+doc_0012_compliance_ap-south.txt,565c6f49-e5d5-4b30-adb4-a533f0843d34,202,failed,classify document: ollama generate status: 404 Not Found: {"error":"model 'qwen3-coder:30b' not found"}
+doc_0013_engineering_us-east.txt,bc06ca15-dfba-4891-8b40-8a5ee5f5df9d,202,failed,classify document: ollama generate status: 404 Not Found: {"error":"model 'qwen3-coder:30b' not found"}
+doc_0014_compliance_eu-central.txt,f53fe1c4-16a9-477f-86d1-ba40ea204aec,202,failed,classify document: ollama generate status: 404 Not Found: {"error":"model 'qwen3-coder:30b' not found"}
+doc_0015_hr_eu-north.txt,f3f9cefb-ac51-4022-807c-f24a22842269,202,failed,classify document: ollama generate status: 404 Not Found: {"error":"model 'qwen3-coder:30b' not found"}
+doc_0016_sales_latam.txt,e49744d0-56f2-4292-ba61-b2cb38fda847,202,failed,classify document: ollama generate status: 404 Not Found: {"error":"model 'qwen3-coder:30b' not found"}
+doc_0017_engineering_us-east.txt,facbc6a2-c1fe-4083-8492-2a5b44161752,202,failed,classify document: ollama generate status: 404 Not Found: {"error":"model 'qwen3-coder:30b' not found"}
+doc_0018_engineering_latam.txt,dafc239e-ee84-410c-9b02-65d08ab486e1,202,failed,classify document: ollama generate status: 404 Not Found: {"error":"model 'qwen3-coder:30b' not found"}
+doc_0019_compliance_latam.txt,6f392afe-9746-46e5-b6a9-80f9584e35c3,202,failed,classify document: ollama generate status: 404 Not Found: {"error":"model 'qwen3-coder:30b' not found"}
+doc_0020_ops_eu-north.txt,83e58f77-66e9-420b-9a10-2411f4e3213b,202,failed,classify document: ollama generate status: 404 Not Found: {"error":"model 'qwen3-coder:30b' not found"}

@@ -49,8 +49,20 @@ func (f fakeVectorStore) Search(context.Context, []float32, int, domain.SearchFi
 		DocumentID: "doc-1",
 		Filename:   "doc.txt",
 		Category:   "general",
+		ChunkIndex: 0,
 		Text:       "chunk",
 		Score:      0.77,
+	}}, nil
+}
+
+func (f fakeVectorStore) SearchLexical(context.Context, string, int, domain.SearchFilter) ([]domain.RetrievedChunk, error) {
+	return []domain.RetrievedChunk{{
+		DocumentID: "doc-1",
+		Filename:   "doc.txt",
+		Category:   "general",
+		ChunkIndex: 0,
+		Text:       "chunk",
+		Score:      0.75,
 	}}, nil
 }
 
@@ -65,7 +77,7 @@ func (f fakeAnswerGenerator) GenerateFromPrompt(context.Context, string) (string
 }
 
 func newTestHandler(cfg config.Config) http.Handler {
-	queryUC := usecase.NewQueryUseCase(fakeEmbedder{}, fakeVectorStore{}, fakeAnswerGenerator{})
+	queryUC := usecase.NewQueryUseCase(fakeEmbedder{}, fakeVectorStore{}, fakeAnswerGenerator{}, usecase.QueryOptions{})
 	router := NewRouter(cfg, nil, queryUC, fakeDocumentRepo{})
 	return router.Handler()
 }

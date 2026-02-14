@@ -110,6 +110,10 @@ func (f *vectorFake) Search(context.Context, []float32, int, domain.SearchFilter
 	return nil, nil
 }
 
+func (f *vectorFake) SearchLexical(context.Context, string, int, domain.SearchFilter) ([]domain.RetrievedChunk, error) {
+	return nil, nil
+}
+
 func TestProcessByIDSuccess(t *testing.T) {
 	repo := &processRepoFake{doc: &domain.Document{ID: "doc-1"}}
 	uc := NewProcessDocumentUseCase(

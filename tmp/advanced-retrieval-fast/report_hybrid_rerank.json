@@ -1,0 +1,72 @@
+{
+  "generated_at": "2026-02-14T18:04:41Z",
+  "api_url": "http://localhost:8080",
+  "cases_file": "./tmp/advanced-retrieval-fast/retrieval_cases_quick.jsonl",
+  "top_k": 1,
+  "summary": {
+    "total_cases": 4,
+    "failed_cases": 0,
+    "evaluated_cases": 4,
+    "precision_at_k": 1.00000000,
+    "recall_at_k": 1.00000000,
+    "mrr_at_k": 1.00000000
+  },
+  "cases": [
+    {
+      "id": "RET0001",
+      "question": "What is the risk level for document doc_0001_sales_us-west.txt?",
+      "expected_filenames": [
+        "doc_0001_sales_us-west.txt"
+      ],
+      "actual_filenames": [
+        "doc_0001_sales_us-west.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 1,
+      "precision_at_k": 1.00000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "RET0002",
+      "question": "What is the gross margin for document doc_0001_sales_us-west.txt in 2023-Q3?",
+      "expected_filenames": [
+        "doc_0001_sales_us-west.txt"
+      ],
+      "actual_filenames": [
+        "doc_0001_sales_us-west.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 1,
+      "precision_at_k": 1.00000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "RET0003",
+      "question": "What is the risk level for document doc_0002_finance_ap-south.txt?",
+      "expected_filenames": [
+        "doc_0002_finance_ap-south.txt"
+      ],
+      "actual_filenames": [
+        "doc_0002_finance_ap-south.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 1,
+      "precision_at_k": 1.00000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "RET0004",
+      "question": "What is the gross margin for document doc_0002_finance_ap-south.txt in 2024-Q1?",
+      "expected_filenames": [
+        "doc_0002_finance_ap-south.txt"
+      ],
+      "actual_filenames": [
+        "doc_0002_finance_ap-south.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 1,
+      "precision_at_k": 1.00000000,
+      "recall_at_k": 1.00000000
+    }
+  ]
+}

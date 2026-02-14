@@ -37,14 +37,14 @@ Definition of Done:
 - Видно текущий baseline retrieval quality и latency.
 
 ### Этап 2 (Недели 3-4): Advanced Retrieval
-- [ ] Реализовать hybrid retrieval (semantic + lexical/BM25).
-- [ ] Добавить configurable fusion strategy (например, RRF).
-- [ ] Добавить reranking top-N кандидатов.
-- [ ] Добавить A/B режимы (`semantic`, `hybrid`, `hybrid+rerank`) через конфиг.
-- [ ] Обновить eval и сравнить режимы на одном датасете.
+- [x] Реализовать hybrid retrieval (semantic + lexical/BM25).
+- [x] Добавить configurable fusion strategy (например, RRF).
+- [x] Добавить reranking top-N кандидатов.
+- [x] Добавить A/B режимы (`semantic`, `hybrid`, `hybrid+rerank`) через конфиг.
+- [x] Обновить eval и сравнить режимы на одном датасете.
 
 Definition of Done:
-- На eval-наборе `hybrid+rerank` улучшает `MRR`/`precision@k` против semantic-only.
+- На eval-наборе `hybrid+rerank` улучшает `MRR`/`precision@k` против semantic-only. (подтверждено на smoke-наборе; полный прогон 30-50 кейсов запланирован отдельно)
 - Режим retrieval переключается без изменения бизнес-логики adapter слоя.
 
 ### Этап 3 (Недели 5-6): Agent Loop + Memory

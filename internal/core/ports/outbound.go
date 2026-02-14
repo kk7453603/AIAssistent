@@ -52,6 +52,7 @@ type Chunker interface {
 type VectorStore interface {
 	IndexChunks(ctx context.Context, doc *domain.Document, chunks []string, vectors [][]float32) error
 	Search(ctx context.Context, queryVector []float32, limit int, filter domain.SearchFilter) ([]domain.RetrievedChunk, error)
+	SearchLexical(ctx context.Context, queryText string, limit int, filter domain.SearchFilter) ([]domain.RetrievedChunk, error)
 }
 
 // AnswerGenerator creates the final user-facing answer.
