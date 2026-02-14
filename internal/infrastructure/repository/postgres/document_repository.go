@@ -117,7 +117,7 @@ WHERE id = $1
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, fmt.Errorf("document not found: %s", id)
+			return nil, domain.WrapError(domain.ErrDocumentNotFound, "get document by id", fmt.Errorf("id=%s", id))
 		}
 		return nil, fmt.Errorf("scan document: %w", err)
 	}
@@ -130,13 +130,20 @@ WHERE id = $1
 }
 
 func (r *DocumentRepository) UpdateStatus(ctx context.Context, id string, status domain.DocumentStatus, errMessage string) error {
-	_, err := r.db.ExecContext(ctx, `
+	result, err := r.db.ExecContext(ctx, `
 UPDATE documents
 SET status = $2, error_message = $3, updated_at = $4
 WHERE id = $1
 `, id, string(status), errMessage, time.Now().UTC())
 	if err != nil {
 		return fmt.Errorf("update document status: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("rows affected for update document status: %w", err)
+	}
+	if rows == 0 {
+		return domain.WrapError(domain.ErrDocumentNotFound, "update document status", fmt.Errorf("id=%s", id))
 	}
 	return nil
 }
@@ -146,13 +153,20 @@ func (r *DocumentRepository) SaveClassification(ctx context.Context, id string, 
 	if err != nil {
 		return fmt.Errorf("marshal tags: %w", err)
 	}
-	_, err = r.db.ExecContext(ctx, `
+	result, err := r.db.ExecContext(ctx, `
 UPDATE documents
 SET category = $2, subcategory = $3, tags = $4, confidence = $5, summary = $6, updated_at = $7
 WHERE id = $1
 `, id, cls.Category, cls.Subcategory, tagsJSON, cls.Confidence, cls.Summary, time.Now().UTC())
 	if err != nil {
 		return fmt.Errorf("save classification: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("rows affected for save classification: %w", err)
+	}
+	if rows == 0 {
+		return domain.WrapError(domain.ErrDocumentNotFound, "save classification", fmt.Errorf("id=%s", id))
 	}
 	return nil
 }

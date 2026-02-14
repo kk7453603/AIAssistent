@@ -1,11 +1,9 @@
 package ollama
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -38,21 +36,7 @@ func NewClassifier(client *Client) *Classifier {
 }
 
 func (c *Classifier) Classify(ctx context.Context, text string) (domain.Classification, error) {
-	const maxSnippet = 4000
-	snippet := text
-	if len(snippet) > maxSnippet {
-		snippet = snippet[:maxSnippet]
-	}
-
-	prompt := `You are a document classifier.
-Return strict JSON object with keys:
-category (string), subcategory (string), tags (array of strings), confidence (number from 0 to 1), summary (string).
-No markdown, no extra keys.
-
-Document:
-` + snippet
-
-	respText, err := c.client.generateJSON(ctx, prompt)
+	respText, err := c.client.generateJSON(ctx, buildClassificationPrompt(text))
 	if err != nil {
 		return domain.Classification{}, err
 	}
@@ -80,39 +64,18 @@ func (e *Embedder) Embed(ctx context.Context, texts []string) ([][]float32, erro
 		return nil, nil
 	}
 
-	reqBody := map[string]any{
+	request := map[string]any{
 		"model": e.client.embedModel,
 		"input": texts,
 	}
 
-	body, err := json.Marshal(reqBody)
-	if err != nil {
-		return nil, fmt.Errorf("marshal embed request: %w", err)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, e.client.baseURL+"/api/embed", bytes.NewReader(body))
-	if err != nil {
-		return nil, fmt.Errorf("create embed request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := e.client.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("ollama embed request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= 300 {
-		return nil, formatOllamaHTTPError("embed", resp)
-	}
-
-	var embedResp struct {
+	var response struct {
 		Embeddings [][]float32 `json:"embeddings"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&embedResp); err != nil {
-		return nil, fmt.Errorf("decode embed response: %w", err)
+	if err := e.client.postJSON(ctx, "/api/embed", request, &response, "embed"); err != nil {
+		return nil, err
 	}
-	return embedResp.Embeddings, nil
+	return response.Embeddings, nil
 }
 
 func (e *Embedder) EmbedQuery(ctx context.Context, text string) ([]float32, error) {
@@ -135,29 +98,7 @@ func NewGenerator(client *Client) *Generator {
 }
 
 func (g *Generator) GenerateAnswer(ctx context.Context, question string, chunks []domain.RetrievedChunk) (string, error) {
-	var contextBuilder strings.Builder
-	for idx, c := range chunks {
-		contextBuilder.WriteString(fmt.Sprintf(
-			"[%d] file=%s category=%s score=%.3f\n%s\n\n",
-			idx+1,
-			c.Filename,
-			c.Category,
-			c.Score,
-			c.Text,
-		))
-	}
-
-	prompt := fmt.Sprintf(`Answer user question only from context below.
-If context is insufficient, say it directly.
-
-Question:
-%s
-
-Context:
-%s
-`, question, contextBuilder.String())
-
-	return g.client.generateText(ctx, prompt)
+	return g.client.generateText(ctx, buildAnswerPrompt(question, chunks))
 }
 
 func (g *Generator) GenerateFromPrompt(ctx context.Context, prompt string) (string, error) {
@@ -184,34 +125,13 @@ func (c *Client) generateText(ctx context.Context, prompt string) (string, error
 }
 
 func (c *Client) generate(ctx context.Context, reqBody map[string]any) (string, error) {
-	body, err := json.Marshal(reqBody)
-	if err != nil {
-		return "", fmt.Errorf("marshal generate request: %w", err)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/api/generate", bytes.NewReader(body))
-	if err != nil {
-		return "", fmt.Errorf("create generate request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("ollama generate request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= 300 {
-		return "", formatOllamaHTTPError("generate", resp)
-	}
-
-	var generateResp struct {
+	var response struct {
 		Response string `json:"response"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&generateResp); err != nil {
-		return "", fmt.Errorf("decode generate response: %w", err)
+	if err := c.postJSON(ctx, "/api/generate", reqBody, &response, "generate"); err != nil {
+		return "", err
 	}
-	return strings.TrimSpace(generateResp.Response), nil
+	return strings.TrimSpace(response.Response), nil
 }
 
 func extractJSONObject(raw string) string {
@@ -221,13 +141,4 @@ func extractJSONObject(raw string) string {
 		return raw[start : end+1]
 	}
 	return raw
-}
-
-func formatOllamaHTTPError(operation string, resp *http.Response) error {
-	body, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
-	msg := strings.TrimSpace(string(body))
-	if msg == "" {
-		return fmt.Errorf("ollama %s status: %s", operation, resp.Status)
-	}
-	return fmt.Errorf("ollama %s status: %s: %s", operation, resp.Status, msg)
 }

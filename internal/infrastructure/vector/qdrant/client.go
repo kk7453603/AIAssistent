@@ -5,8 +5,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -18,6 +20,10 @@ type Client struct {
 	baseURL    string
 	collection string
 	httpClient *http.Client
+
+	ensureMu          sync.Mutex
+	ensuredCollection bool
+	ensuredVectorSize int
 }
 
 func New(baseURL, collection string) *Client {
@@ -157,6 +163,13 @@ func (c *Client) Search(
 }
 
 func (c *Client) ensureCollection(ctx context.Context, vectorSize int) error {
+	c.ensureMu.Lock()
+	if c.ensuredCollection && c.ensuredVectorSize == vectorSize {
+		c.ensureMu.Unlock()
+		return nil
+	}
+	c.ensureMu.Unlock()
+
 	reqBody := map[string]any{
 		"vectors": map[string]any{
 			"size":     vectorSize,
@@ -184,12 +197,25 @@ func (c *Client) ensureCollection(ctx context.Context, vectorSize int) error {
 
 	// 200/201 for create, 409 if already exists (depends on version/config).
 	if resp.StatusCode == http.StatusConflict {
+		c.markCollectionEnsured(vectorSize)
 		return nil
 	}
 	if resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
+		if msg := strings.TrimSpace(string(body)); msg != "" {
+			return fmt.Errorf("qdrant ensure collection status: %s: %s", resp.Status, msg)
+		}
 		return fmt.Errorf("qdrant ensure collection status: %s", resp.Status)
 	}
+	c.markCollectionEnsured(vectorSize)
 	return nil
+}
+
+func (c *Client) markCollectionEnsured(vectorSize int) {
+	c.ensureMu.Lock()
+	defer c.ensureMu.Unlock()
+	c.ensuredCollection = true
+	c.ensuredVectorSize = vectorSize
 }
 
 func getStringPayload(payload map[string]any, key string) string {

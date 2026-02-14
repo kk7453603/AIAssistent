@@ -2,8 +2,10 @@ package nats
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/nats-io/nats.go"
 )
@@ -39,7 +41,13 @@ func (q *Queue) PublishDocumentIngested(_ context.Context, documentID string) er
 
 func (q *Queue) SubscribeDocumentIngested(ctx context.Context, handler func(context.Context, string) error) error {
 	sub, err := q.conn.QueueSubscribe(q.subject, "workers", func(msg *nats.Msg) {
-		if err := handler(ctx, string(msg.Data)); err != nil {
+		if errors.Is(ctx.Err(), context.Canceled) {
+			return
+		}
+
+		handlerCtx, cancel := context.WithCancel(ctx)
+		defer cancel()
+		if err := handler(handlerCtx, string(msg.Data)); err != nil {
 			log.Printf("worker handler error for doc=%s: %v", string(msg.Data), err)
 		}
 	})
@@ -54,6 +62,9 @@ func (q *Queue) SubscribeDocumentIngested(ctx context.Context, handler func(cont
 	<-ctx.Done()
 	if err := sub.Drain(); err != nil {
 		return fmt.Errorf("nats drain subscription: %w", err)
+	}
+	if err := q.conn.FlushTimeout(5 * time.Second); err != nil {
+		return fmt.Errorf("nats flush after drain: %w", err)
 	}
 	return nil
 }
