@@ -48,6 +48,26 @@ type Config struct {
 	AgentKnowledgeTopK     int
 
 	WorkerMetricsPort string
+
+	APIRateLimitRPS            float64
+	APIRateLimitBurst          int
+	APIBackpressureMaxInFlight int
+	APIBackpressureWaitMS      int
+
+	ResilienceBreakerEnabled        bool
+	ResilienceRetryMaxAttempts      int
+	ResilienceRetryInitialBackoffMS int
+	ResilienceRetryMaxBackoffMS     int
+	ResilienceRetryMultiplier       float64
+	ResilienceBreakerMinRequests    int
+	ResilienceBreakerFailureRatio   float64
+	ResilienceBreakerOpenMS         int
+	ResilienceBreakerHalfOpenCalls  int
+
+	NATSConnectTimeoutMS     int
+	NATSReconnectWaitMS      int
+	NATSMaxReconnects        int
+	NATSRetryOnFailedConnect bool
 }
 
 func Load() Config {
@@ -93,6 +113,26 @@ func Load() Config {
 		AgentKnowledgeTopK:              mustEnvInt("AGENT_KNOWLEDGE_TOP_K", 5),
 
 		WorkerMetricsPort: mustEnv("WORKER_METRICS_PORT", "9090"),
+
+		APIRateLimitRPS:            mustEnvFloat("API_RATE_LIMIT_RPS", 40),
+		APIRateLimitBurst:          mustEnvInt("API_RATE_LIMIT_BURST", 80),
+		APIBackpressureMaxInFlight: mustEnvInt("API_BACKPRESSURE_MAX_IN_FLIGHT", 64),
+		APIBackpressureWaitMS:      mustEnvInt("API_BACKPRESSURE_WAIT_MS", 250),
+
+		ResilienceBreakerEnabled:        mustEnvBool("RESILIENCE_BREAKER_ENABLED", true),
+		ResilienceRetryMaxAttempts:      mustEnvInt("RESILIENCE_RETRY_MAX_ATTEMPTS", 3),
+		ResilienceRetryInitialBackoffMS: mustEnvInt("RESILIENCE_RETRY_INITIAL_BACKOFF_MS", 100),
+		ResilienceRetryMaxBackoffMS:     mustEnvInt("RESILIENCE_RETRY_MAX_BACKOFF_MS", 400),
+		ResilienceRetryMultiplier:       mustEnvFloat("RESILIENCE_RETRY_MULTIPLIER", 2.0),
+		ResilienceBreakerMinRequests:    mustEnvInt("RESILIENCE_BREAKER_MIN_REQUESTS", 10),
+		ResilienceBreakerFailureRatio:   mustEnvFloat("RESILIENCE_BREAKER_FAILURE_RATIO", 0.5),
+		ResilienceBreakerOpenMS:         mustEnvInt("RESILIENCE_BREAKER_OPEN_MS", 30000),
+		ResilienceBreakerHalfOpenCalls:  mustEnvInt("RESILIENCE_BREAKER_HALF_OPEN_MAX_CALLS", 2),
+
+		NATSConnectTimeoutMS:     mustEnvInt("NATS_CONNECT_TIMEOUT_MS", 2000),
+		NATSReconnectWaitMS:      mustEnvInt("NATS_RECONNECT_WAIT_MS", 2000),
+		NATSMaxReconnects:        mustEnvInt("NATS_MAX_RECONNECTS", 60),
+		NATSRetryOnFailedConnect: mustEnvBool("NATS_RETRY_ON_FAILED_CONNECT", true),
 	}
 }
 
@@ -126,4 +166,16 @@ func mustEnvBool(key string, fallback bool) bool {
 		return fallback
 	}
 	return parsed
+}
+
+func mustEnvFloat(key string, fallback float64) float64 {
+	v := os.Getenv(key)
+	if v == "" {
+		return fallback
+	}
+	n, err := strconv.ParseFloat(v, 64)
+	if err != nil {
+		return fallback
+	}
+	return n
 }

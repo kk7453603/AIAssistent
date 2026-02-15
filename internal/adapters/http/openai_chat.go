@@ -3,6 +3,7 @@ package httpadapter
 import (
 	"context"
 	"log/slog"
+	"net/http"
 	"strings"
 	"time"
 
@@ -59,6 +60,9 @@ func (rt *Router) ChatCompletions(ctx context.Context, request apigen.ChatComple
 		lastUser, _ := latestUserMessageContent(request.Body.Messages)
 		answer, err := rt.postProcessToolOutput(ctx, request.Body.Messages, toolContent)
 		if err != nil {
+			if mapErrorToHTTPStatus(err) == http.StatusServiceUnavailable {
+				return apigen.ChatCompletions503JSONResponse{Error: err.Error()}, nil
+			}
 			return apigen.ChatCompletions500JSONResponse{Error: err.Error()}, nil
 		}
 		debugMode := "tool_postprocess"
@@ -84,6 +88,9 @@ func (rt *Router) ChatCompletions(ctx context.Context, request apigen.ChatComple
 	}
 	if response, handled, err := rt.tryAgentCompletion(ctx, request, completionID, created, modelID, lastUser, stream); handled {
 		if err != nil {
+			if mapErrorToHTTPStatus(err) == http.StatusServiceUnavailable {
+				return apigen.ChatCompletions503JSONResponse{Error: err.Error()}, nil
+			}
 			return apigen.ChatCompletions500JSONResponse{Error: err.Error()}, nil
 		}
 		return response, nil
@@ -110,6 +117,9 @@ func (rt *Router) ChatCompletions(ctx context.Context, request apigen.ChatComple
 	start := time.Now()
 	answer, err := rt.querySvc.Answer(ctx, ragQuestion, rt.ragTopK, domain.SearchFilter{})
 	if err != nil {
+		if mapErrorToHTTPStatus(err) == http.StatusServiceUnavailable {
+			return apigen.ChatCompletions503JSONResponse{Error: err.Error()}, nil
+		}
 		return apigen.ChatCompletions500JSONResponse{Error: err.Error()}, nil
 	}
 

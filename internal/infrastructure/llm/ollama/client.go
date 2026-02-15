@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/kirillkom/personal-ai-assistant/internal/core/domain"
+	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/resilience"
 )
 
 type Client struct {
@@ -16,14 +17,29 @@ type Client struct {
 	genModel   string
 	embedModel string
 	httpClient *http.Client
+	executor   *resilience.Executor
 }
 
 func New(baseURL, genModel, embedModel string) *Client {
+	return NewWithOptions(baseURL, genModel, embedModel, Options{})
+}
+
+type Options struct {
+	HTTPClient         *http.Client
+	ResilienceExecutor *resilience.Executor
+}
+
+func NewWithOptions(baseURL, genModel, embedModel string, options Options) *Client {
+	httpClient := options.HTTPClient
+	if httpClient == nil {
+		httpClient = &http.Client{Timeout: 120 * time.Second}
+	}
 	return &Client{
 		baseURL:    strings.TrimRight(baseURL, "/"),
 		genModel:   genModel,
 		embedModel: embedModel,
-		httpClient: &http.Client{Timeout: 120 * time.Second},
+		httpClient: httpClient,
+		executor:   options.ResilienceExecutor,
 	}
 }
 

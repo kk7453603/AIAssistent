@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/kirillkom/personal-ai-assistant/internal/core/domain"
+	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/resilience"
 )
 
 const (
@@ -26,6 +27,7 @@ type Client struct {
 	baseURL    string
 	collection string
 	httpClient *http.Client
+	executor   *resilience.Executor
 
 	ensureMu          sync.Mutex
 	ensuredCollection bool
@@ -33,11 +35,74 @@ type Client struct {
 }
 
 func New(baseURL, collection string) *Client {
+	return NewWithOptions(baseURL, collection, Options{})
+}
+
+func NewWithOptions(baseURL, collection string, options Options) *Client {
+	httpClient := options.HTTPClient
+	if httpClient == nil {
+		httpClient = &http.Client{Timeout: 60 * time.Second}
+	}
 	return &Client{
 		baseURL:    strings.TrimRight(baseURL, "/"),
 		collection: collection,
-		httpClient: &http.Client{Timeout: 60 * time.Second},
+		httpClient: httpClient,
+		executor:   options.ResilienceExecutor,
 	}
+}
+
+func (c *Client) doRequest(
+	ctx context.Context,
+	operation string,
+	method string,
+	url string,
+	body []byte,
+	contentType string,
+) (*http.Response, error) {
+	var response *http.Response
+	call := func(callCtx context.Context) error {
+		var payload io.Reader
+		if len(body) > 0 {
+			payload = bytes.NewReader(body)
+		}
+
+		req, err := http.NewRequestWithContext(callCtx, method, url, payload)
+		if err != nil {
+			return fmt.Errorf("create %s request: %w", operation, err)
+		}
+		if contentType != "" {
+			req.Header.Set("Content-Type", contentType)
+		}
+
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			return fmt.Errorf("qdrant %s request: %w", operation, err)
+		}
+		if isRetryableHTTPStatus(resp.StatusCode) {
+			body, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
+			resp.Body.Close()
+			return &HTTPStatusError{
+				Operation:  operation,
+				StatusCode: resp.StatusCode,
+				Status:     resp.Status,
+				Body:       strings.TrimSpace(string(body)),
+			}
+		}
+
+		response = resp
+		return nil
+	}
+
+	var err error
+	if c.executor != nil {
+		err = c.executor.Execute(ctx, "qdrant."+operation, call, classifyQdrantError)
+	} else {
+		err = call(ctx)
+	}
+	if err != nil {
+		return nil, wrapTemporaryIfNeeded("qdrant "+operation, err)
+	}
+	return response, nil
 }
 
 func (c *Client) IndexChunks(ctx context.Context, doc *domain.Document, chunks []string, vectors [][]float32) error {
@@ -85,15 +150,9 @@ func (c *Client) IndexChunks(ctx context.Context, doc *domain.Document, chunks [
 	}
 
 	url := fmt.Sprintf("%s/collections/%s/points?wait=true", c.baseURL, c.collection)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPut, url, bytes.NewReader(body))
+	resp, err := c.doRequest(ctx, "upsert_points", http.MethodPut, url, body, "application/json")
 	if err != nil {
-		return fmt.Errorf("create upsert request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("qdrant upsert request: %w", err)
+		return err
 	}
 	defer resp.Body.Close()
 
@@ -157,15 +216,9 @@ func (c *Client) queryPoints(ctx context.Context, reqBody map[string]any) ([]dom
 	}
 
 	url := fmt.Sprintf("%s/collections/%s/points/query", c.baseURL, c.collection)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+	resp, err := c.doRequest(ctx, "query_points", http.MethodPost, url, body, "application/json")
 	if err != nil {
-		return nil, fmt.Errorf("create query request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("qdrant query request: %w", err)
+		return nil, err
 	}
 	defer resp.Body.Close()
 
@@ -265,15 +318,9 @@ func (c *Client) ensureCollection(ctx context.Context, vectorSize int) error {
 	}
 
 	url := fmt.Sprintf("%s/collections/%s", c.baseURL, c.collection)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPut, url, bytes.NewReader(body))
+	resp, err := c.doRequest(ctx, "ensure_collection", http.MethodPut, url, body, "application/json")
 	if err != nil {
-		return fmt.Errorf("create collection request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("qdrant ensure collection request: %w", err)
+		return err
 	}
 	defer resp.Body.Close()
 
@@ -297,14 +344,9 @@ func (c *Client) ensureCollection(ctx context.Context, vectorSize int) error {
 
 func (c *Client) verifyCollectionSchema(ctx context.Context, expectedVectorSize int) error {
 	url := fmt.Sprintf("%s/collections/%s", c.baseURL, c.collection)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	resp, err := c.doRequest(ctx, "verify_collection", http.MethodGet, url, nil, "")
 	if err != nil {
-		return fmt.Errorf("create verify collection request: %w", err)
-	}
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("verify collection request: %w", err)
+		return err
 	}
 	defer resp.Body.Close()
 

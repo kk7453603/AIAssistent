@@ -15,6 +15,7 @@ import (
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/llm/ollama"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/queue/nats"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/repository/postgres"
+	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/resilience"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/storage/localfs"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/vector/qdrant"
 )
@@ -50,18 +51,43 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		return nil, fmt.Errorf("init object storage: %w", err)
 	}
 
-	queue, err := nats.New(cfg.NATSURL, cfg.NATSSubject)
+	resilienceExecutor := resilience.NewExecutor(resilience.Config{
+		RetryMaxAttempts:        cfg.ResilienceRetryMaxAttempts,
+		RetryInitialBackoff:     time.Duration(cfg.ResilienceRetryInitialBackoffMS) * time.Millisecond,
+		RetryMaxBackoff:         time.Duration(cfg.ResilienceRetryMaxBackoffMS) * time.Millisecond,
+		RetryMultiplier:         cfg.ResilienceRetryMultiplier,
+		BreakerEnabled:          cfg.ResilienceBreakerEnabled,
+		BreakerMinRequests:      uint32(cfg.ResilienceBreakerMinRequests),
+		BreakerFailureRatio:     cfg.ResilienceBreakerFailureRatio,
+		BreakerOpenTimeout:      time.Duration(cfg.ResilienceBreakerOpenMS) * time.Millisecond,
+		BreakerHalfOpenMaxCalls: uint32(cfg.ResilienceBreakerHalfOpenCalls),
+	})
+
+	retryOnFailedConnect := cfg.NATSRetryOnFailedConnect
+	queue, err := nats.NewWithOptions(cfg.NATSURL, cfg.NATSSubject, nats.Options{
+		ConnectTimeout:       time.Duration(cfg.NATSConnectTimeoutMS) * time.Millisecond,
+		ReconnectWait:        time.Duration(cfg.NATSReconnectWaitMS) * time.Millisecond,
+		MaxReconnects:        cfg.NATSMaxReconnects,
+		RetryOnFailedConnect: &retryOnFailedConnect,
+		ResilienceExecutor:   resilienceExecutor,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("init message queue: %w", err)
 	}
 
-	ollamaClient := ollama.New(cfg.OllamaURL, cfg.OllamaGenModel, cfg.OllamaEmbedModel)
+	ollamaClient := ollama.NewWithOptions(cfg.OllamaURL, cfg.OllamaGenModel, cfg.OllamaEmbedModel, ollama.Options{
+		ResilienceExecutor: resilienceExecutor,
+	})
 	classifier := ollama.NewClassifier(ollamaClient)
 	embedder := ollama.NewEmbedder(ollamaClient)
 	generator := ollama.NewGenerator(ollamaClient)
 
-	vectorDB := qdrant.New(cfg.QdrantURL, cfg.QdrantCollection)
-	memoryVector := qdrant.NewMemoryClient(cfg.QdrantURL, cfg.QdrantMemoryCollection)
+	vectorDB := qdrant.NewWithOptions(cfg.QdrantURL, cfg.QdrantCollection, qdrant.Options{
+		ResilienceExecutor: resilienceExecutor,
+	})
+	memoryVector := qdrant.NewMemoryClientWithOptions(cfg.QdrantURL, cfg.QdrantMemoryCollection, qdrant.Options{
+		ResilienceExecutor: resilienceExecutor,
+	})
 	chunker := chunking.NewSplitter(cfg.ChunkSize, cfg.ChunkOverlap)
 	extractor := plaintext.NewExtractor(storage)
 

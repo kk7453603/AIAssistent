@@ -12,12 +12,14 @@ import (
 	"time"
 
 	"github.com/kirillkom/personal-ai-assistant/internal/core/domain"
+	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/resilience"
 )
 
 type MemoryClient struct {
 	baseURL    string
 	collection string
 	httpClient *http.Client
+	executor   *resilience.Executor
 
 	ensureMu          sync.Mutex
 	ensuredCollection bool
@@ -25,11 +27,73 @@ type MemoryClient struct {
 }
 
 func NewMemoryClient(baseURL, collection string) *MemoryClient {
+	return NewMemoryClientWithOptions(baseURL, collection, Options{})
+}
+
+func NewMemoryClientWithOptions(baseURL, collection string, options Options) *MemoryClient {
+	httpClient := options.HTTPClient
+	if httpClient == nil {
+		httpClient = &http.Client{Timeout: 60 * time.Second}
+	}
 	return &MemoryClient{
 		baseURL:    strings.TrimRight(baseURL, "/"),
 		collection: collection,
-		httpClient: &http.Client{Timeout: 60 * time.Second},
+		httpClient: httpClient,
+		executor:   options.ResilienceExecutor,
 	}
+}
+
+func (c *MemoryClient) doRequest(
+	ctx context.Context,
+	operation string,
+	method string,
+	url string,
+	body []byte,
+	contentType string,
+) (*http.Response, error) {
+	var response *http.Response
+	call := func(callCtx context.Context) error {
+		var payload io.Reader
+		if len(body) > 0 {
+			payload = bytes.NewReader(body)
+		}
+		req, err := http.NewRequestWithContext(callCtx, method, url, payload)
+		if err != nil {
+			return fmt.Errorf("create memory %s request: %w", operation, err)
+		}
+		if contentType != "" {
+			req.Header.Set("Content-Type", contentType)
+		}
+
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			return fmt.Errorf("memory %s request: %w", operation, err)
+		}
+		if isRetryableHTTPStatus(resp.StatusCode) {
+			body, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
+			resp.Body.Close()
+			return &HTTPStatusError{
+				Operation:  "memory " + operation,
+				StatusCode: resp.StatusCode,
+				Status:     resp.Status,
+				Body:       strings.TrimSpace(string(body)),
+			}
+		}
+
+		response = resp
+		return nil
+	}
+
+	var err error
+	if c.executor != nil {
+		err = c.executor.Execute(ctx, "qdrant.memory."+operation, call, classifyQdrantError)
+	} else {
+		err = call(ctx)
+	}
+	if err != nil {
+		return nil, wrapTemporaryIfNeeded("qdrant memory "+operation, err)
+	}
+	return response, nil
 }
 
 func (c *MemoryClient) IndexSummary(ctx context.Context, summary domain.MemorySummary, vector []float32) error {
@@ -61,15 +125,9 @@ func (c *MemoryClient) IndexSummary(ctx context.Context, summary domain.MemorySu
 	}
 
 	url := fmt.Sprintf("%s/collections/%s/points?wait=true", c.baseURL, c.collection)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPut, url, bytes.NewReader(body))
+	resp, err := c.doRequest(ctx, "upsert_points", http.MethodPut, url, body, "application/json")
 	if err != nil {
-		return fmt.Errorf("create memory upsert request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("memory upsert request: %w", err)
+		return err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
@@ -104,15 +162,9 @@ func (c *MemoryClient) SearchSummaries(
 		return nil, fmt.Errorf("marshal memory query body: %w", err)
 	}
 	url := fmt.Sprintf("%s/collections/%s/points/query", c.baseURL, c.collection)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+	resp, err := c.doRequest(ctx, "query_points", http.MethodPost, url, body, "application/json")
 	if err != nil {
-		return nil, fmt.Errorf("create memory query request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("memory query request: %w", err)
+		return nil, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
@@ -180,15 +232,9 @@ func (c *MemoryClient) ensureCollection(ctx context.Context, vectorSize int) err
 	}
 
 	url := fmt.Sprintf("%s/collections/%s", c.baseURL, c.collection)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPut, url, bytes.NewReader(body))
+	resp, err := c.doRequest(ctx, "ensure_collection", http.MethodPut, url, body, "application/json")
 	if err != nil {
-		return fmt.Errorf("create memory ensure collection request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("memory ensure collection request: %w", err)
+		return err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 && resp.StatusCode != http.StatusConflict {

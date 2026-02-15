@@ -5,12 +5,15 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"math"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"golang.org/x/time/rate"
 )
 
 const requestIDHeader = "X-Request-Id"
@@ -75,6 +78,86 @@ func accessLogMiddleware(next http.Handler) http.Handler {
 			slog.Info("http_request", logAttrs...)
 		}
 	})
+}
+
+func rateLimitMiddleware(next http.Handler, limiter *rate.Limiter) http.Handler {
+	if limiter == nil {
+		return next
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if shouldBypassTrafficControls(r.URL.Path) {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if limiter.Allow() {
+			next.ServeHTTP(w, r)
+			return
+		}
+		retryAfterSec := int(math.Ceil(1 / float64(limiter.Limit())))
+		if retryAfterSec < 1 {
+			retryAfterSec = 1
+		}
+		w.Header().Set("Retry-After", strconv.Itoa(retryAfterSec))
+		writeError(w, http.StatusTooManyRequests, fmt.Errorf("rate limit exceeded"))
+	})
+}
+
+func backpressureMiddleware(next http.Handler, maxInFlight int, waitTimeout time.Duration) http.Handler {
+	if maxInFlight <= 0 {
+		return next
+	}
+	if waitTimeout < 0 {
+		waitTimeout = 0
+	}
+
+	slots := make(chan struct{}, maxInFlight)
+
+	acquireSlot := func(ctx context.Context) bool {
+		if waitTimeout == 0 {
+			select {
+			case slots <- struct{}{}:
+				return true
+			default:
+				return false
+			}
+		}
+
+		timer := time.NewTimer(waitTimeout)
+		defer timer.Stop()
+		select {
+		case slots <- struct{}{}:
+			return true
+		case <-ctx.Done():
+			return false
+		case <-timer.C:
+			return false
+		}
+	}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if shouldBypassTrafficControls(r.URL.Path) {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		if !acquireSlot(r.Context()) {
+			writeError(w, http.StatusServiceUnavailable, fmt.Errorf("server is overloaded, try again later"))
+			return
+		}
+		defer func() {
+			<-slots
+		}()
+		next.ServeHTTP(w, r)
+	})
+}
+
+func shouldBypassTrafficControls(path string) bool {
+	switch path {
+	case "/healthz", "/metrics", "/openapi.json":
+		return true
+	default:
+		return false
+	}
 }
 
 type statusRecorder struct {

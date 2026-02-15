@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"math"
 	"mime/multipart"
 	"net"
 	"net/http"
@@ -18,6 +19,7 @@ import (
 	"github.com/kirillkom/personal-ai-assistant/internal/core/domain"
 	"github.com/kirillkom/personal-ai-assistant/internal/core/ports"
 	"github.com/kirillkom/personal-ai-assistant/internal/observability/metrics"
+	"golang.org/x/time/rate"
 )
 
 type Router struct {
@@ -34,6 +36,9 @@ type Router struct {
 	ragTopK                      int
 	agentModeEnabled             bool
 	httpMetrics                  *metrics.HTTPServerMetrics
+	apiRateLimiter               *rate.Limiter
+	apiBackpressureMaxInFlight   int
+	apiBackpressureWaitTimeout   time.Duration
 }
 
 func NewRouter(
@@ -63,6 +68,22 @@ func NewRouter(
 		}
 		toolKeywords = append(toolKeywords, keyword)
 	}
+	var apiRateLimiter *rate.Limiter
+	apiRateLimitRPS := cfg.APIRateLimitRPS
+	apiRateLimitBurst := cfg.APIRateLimitBurst
+	if apiRateLimitRPS > 0 && apiRateLimitBurst <= 0 {
+		apiRateLimitBurst = int(math.Ceil(apiRateLimitRPS))
+		if apiRateLimitBurst < 1 {
+			apiRateLimitBurst = 1
+		}
+	}
+	if apiRateLimitRPS > 0 && apiRateLimitBurst > 0 {
+		apiRateLimiter = rate.NewLimiter(rate.Limit(apiRateLimitRPS), apiRateLimitBurst)
+	}
+	apiBackpressureWait := time.Duration(cfg.APIBackpressureWaitMS) * time.Millisecond
+	if cfg.APIBackpressureWaitMS < 0 {
+		apiBackpressureWait = 0
+	}
 
 	return &Router{
 		ingestor: ingestor,
@@ -78,6 +99,9 @@ func NewRouter(
 		ragTopK:                      ragTopK,
 		agentModeEnabled:             cfg.AgentModeEnabled,
 		httpMetrics:                  metrics.NewHTTPServerMetrics("api"),
+		apiRateLimiter:               apiRateLimiter,
+		apiBackpressureMaxInFlight:   cfg.APIBackpressureMaxInFlight,
+		apiBackpressureWaitTimeout:   apiBackpressureWait,
 	}
 }
 
@@ -96,7 +120,7 @@ func (rt *Router) Handler() http.Handler {
 			if isClientDisconnectError(err) {
 				return
 			}
-			writeError(w, http.StatusInternalServerError, err)
+			writeError(w, mapErrorToHTTPStatus(err), err)
 		},
 	})
 
@@ -106,6 +130,8 @@ func (rt *Router) Handler() http.Handler {
 			writeError(w, http.StatusBadRequest, err)
 		},
 	})
+	handler = backpressureMiddleware(handler, rt.apiBackpressureMaxInFlight, rt.apiBackpressureWaitTimeout)
+	handler = rateLimitMiddleware(handler, rt.apiRateLimiter)
 	handler = rt.httpMetrics.Middleware("api", handler)
 	handler = accessLogMiddleware(handler)
 	handler = requestIDMiddleware(handler)
@@ -141,8 +167,11 @@ func (rt *Router) UploadDocument(ctx context.Context, request apigen.UploadDocum
 		part,
 	)
 	if err != nil {
-		if status := mapErrorToHTTPStatus(err); status == http.StatusBadRequest {
+		switch status := mapErrorToHTTPStatus(err); status {
+		case http.StatusBadRequest:
 			return apigen.UploadDocument400JSONResponse{Error: err.Error()}, nil
+		case http.StatusServiceUnavailable:
+			return apigen.UploadDocument503JSONResponse{Error: err.Error()}, nil
 		}
 		return apigen.UploadDocument500JSONResponse{
 			Error: err.Error(),
@@ -184,8 +213,11 @@ func (rt *Router) QueryRag(ctx context.Context, request apigen.QueryRagRequestOb
 	start := time.Now()
 	answer, err := rt.querySvc.Answer(ctx, request.Body.Question, limit, filter)
 	if err != nil {
-		if status := mapErrorToHTTPStatus(err); status == http.StatusBadRequest {
+		switch status := mapErrorToHTTPStatus(err); status {
+		case http.StatusBadRequest:
 			return apigen.QueryRag400JSONResponse{Error: err.Error()}, nil
+		case http.StatusServiceUnavailable:
+			return apigen.QueryRag503JSONResponse{Error: err.Error()}, nil
 		}
 		return apigen.QueryRag500JSONResponse{
 			Error: err.Error(),

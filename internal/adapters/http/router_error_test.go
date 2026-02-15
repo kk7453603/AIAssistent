@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -63,6 +64,83 @@ func TestQueryRagMapsDomainInvalidInputTo400(t *testing.T) {
 
 	if res.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d", res.Code)
+	}
+}
+
+func TestQueryRagMapsDomainTemporaryTo503(t *testing.T) {
+	handler := NewRouter(
+		config.Config{RAGTopK: 5},
+		nil,
+		queryErrFake{err: domain.WrapError(domain.ErrTemporary, "answer", errors.New("qdrant timeout"))},
+		docsErrFake{},
+		nil,
+	).Handler()
+
+	payload, _ := json.Marshal(map[string]any{"question": "test"})
+	req := httptest.NewRequest(http.MethodPost, "/v1/rag/query", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+	res := httptest.NewRecorder()
+	handler.ServeHTTP(res, req)
+
+	if res.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503, got %d", res.Code)
+	}
+}
+
+func TestUploadDocumentMapsDomainTemporaryTo503(t *testing.T) {
+	handler := NewRouter(
+		config.Config{RAGTopK: 5},
+		ingestErrFake{err: domain.WrapError(domain.ErrTemporary, "publish", errors.New("nats unavailable"))},
+		queryErrFake{},
+		docsErrFake{},
+		nil,
+	).Handler()
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	part, err := writer.CreateFormFile("file", "file.txt")
+	if err != nil {
+		t.Fatalf("CreateFormFile() error = %v", err)
+	}
+	if _, err := part.Write([]byte("hello")); err != nil {
+		t.Fatalf("Write() error = %v", err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("Close() error = %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/documents", &body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	res := httptest.NewRecorder()
+	handler.ServeHTTP(res, req)
+
+	if res.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503, got %d", res.Code)
+	}
+}
+
+func TestChatCompletionsMapsDomainTemporaryTo503(t *testing.T) {
+	handler := NewRouter(
+		config.Config{OpenAICompatModelID: "paa-rag-v1", RAGTopK: 5},
+		nil,
+		queryErrFake{err: domain.WrapError(domain.ErrTemporary, "answer", errors.New("ollama unavailable"))},
+		docsErrFake{},
+		nil,
+	).Handler()
+
+	payload, _ := json.Marshal(map[string]any{
+		"model": "paa-rag-v1",
+		"messages": []map[string]any{
+			{"role": "user", "content": "tell me about this document"},
+		},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+	res := httptest.NewRecorder()
+	handler.ServeHTTP(res, req)
+
+	if res.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503, got %d", res.Code)
 	}
 }
 
