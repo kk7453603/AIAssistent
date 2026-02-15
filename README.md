@@ -227,6 +227,120 @@ Troubleshooting:
   - `docker compose logs prometheus`
   - `make monitoring-validate`
 
+## Demo-сценарии (Stage 4)
+
+### 1) End-to-end ingestion -> RAG
+1. Загрузить документ:
+```bash
+curl -X POST http://localhost:8080/v1/documents -F "file=@./sample.txt"
+```
+2. Дождаться `status=ready`:
+```bash
+curl http://localhost:8080/v1/documents/<document_id>
+```
+3. Выполнить RAG-запрос:
+```bash
+curl -X POST http://localhost:8080/v1/rag/query \
+  -H "Content-Type: application/json" \
+  -d '{"question":"Сделай summary документа","limit":5}'
+```
+Ожидаемый результат: осмысленный ответ + непустой `sources` (если контекст найден).
+
+### 2) OpenAI-compatible chat + tool trigger (intent-based)
+1. В OpenWebUI прикрепить файл.
+2. Отправить запрос с явным намерением действия над вложением, например:
+   - `upload this file and summarize key points`
+   - `проанализируй вложенный документ и выдели риски`
+3. Проверить, что backend возвращает `tool_calls`, а после tool-output генерируется финальный ответ.
+
+Ожидаемый результат: tool ветка срабатывает на action+attachment intent и не срабатывает на чисто информационные вопросы (`what is document database?`).
+
+### 3) Alert smoke (операционный демо)
+1. Остановить API:
+```bash
+docker compose stop api
+```
+2. Через 2+ минуты проверить `ApiDown` в Alertmanager/Grafana.
+3. Поднять API обратно:
+```bash
+docker compose start api
+```
+4. Убедиться, что alert переходит в `resolved`.
+
+## Production runbook (локальная эксплуатация)
+
+### SLO/основные сигналы
+- API availability: target `up{job="paa-api"} == 1`.
+- API errors: 5xx ratio < 5% (алерт `ApiHighErrorRate`).
+- API latency: p95 < 2s (алерт `ApiLatencyP95High`).
+- Worker queue lag: p95 < 60s (алерт `WorkerQueueLagP95High`).
+- Worker processing errors: < 10% (алерт `WorkerProcessingErrorRateHigh`).
+
+### Preflight перед запуском
+1. Проверить env:
+   - `cp .env.example .env` (если еще не создан).
+   - убедиться, что заданы `OPENWEBUI_SECRET_KEY`, `GRAFANA_ADMIN_USER`, `GRAFANA_ADMIN_PASSWORD`.
+2. Проверить monitoring config:
+```bash
+make monitoring-validate
+docker compose config
+```
+
+### Запуск/остановка
+- Полный запуск:
+```bash
+docker compose up -d --build
+```
+- Только мониторинг:
+```bash
+docker compose up -d prometheus alertmanager grafana
+```
+- Мягкая остановка:
+```bash
+docker compose stop
+```
+
+### Smoke-check после запуска
+1. API health:
+   - `curl -f http://localhost:8080/healthz`
+2. Метрики:
+   - `curl -f http://localhost:8080/metrics`
+   - `curl -f http://localhost:9090/metrics`
+3. Monitoring UI:
+   - `http://localhost:9091` (Prometheus)
+   - `http://localhost:9093` (Alertmanager)
+   - `http://localhost:3001` (Grafana)
+4. Prometheus targets:
+   - `paa-api`, `paa-worker` должны быть `UP`.
+
+### Runbook по инцидентам
+1. `ApiDown` / `WorkerDown`:
+   - проверить контейнеры: `docker compose ps`
+   - проверить логи: `docker compose logs api worker --tail=200`
+   - проверить доступность зависимостей: `postgres`, `nats`, `qdrant`, `ollama`
+   - восстановить сервис: `docker compose restart api` или `docker compose restart worker`
+2. `ApiHighErrorRate`:
+   - проверить последние 5xx в логах API
+   - проверить зависимость Ollama/Qdrant (часто причина 503/temporary failures)
+   - при необходимости снизить входящий поток (`API_RATE_LIMIT_RPS`, `API_RATE_LIMIT_BURST`)
+3. `ApiLatencyP95High`:
+   - проверить нагрузку и `API_BACKPRESSURE_MAX_IN_FLIGHT`
+   - оценить размер контекста/сложность запросов
+   - проверить задержки Ollama/Qdrant
+4. `WorkerQueueLagP95High`:
+   - проверить скорость ingestion vs processing
+   - добавить worker instance или уменьшить входящий поток ingestion
+5. `WorkerProcessingErrorRateHigh`:
+   - проверить тип ошибок в `worker` логах
+   - проверить корректность моделей Ollama и доступность Qdrant
+
+### Плановое восстановление после деградации
+1. Убедиться, что внешние зависимости доступны.
+2. Перезапустить деградировавшие сервисы.
+3. Проверить, что alerts `resolved`.
+4. Повторить functional smoke:
+   - upload -> ready -> rag query.
+
 ## Retrieval evaluation
 
 Скрипты:

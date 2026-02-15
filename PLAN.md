@@ -64,8 +64,8 @@ Definition of Done:
 - [x] Добавить rate limiting и backpressure.
 - [x] Добавить resilience для Ollama/Qdrant/NATS (retry policy + circuit breaker pattern).
 - [x] Добавить dashboards/alerts (минимум latency, errors, queue backlog).
-- [ ] Улучшить OpenWebUI trigger logic (intent detection вместо простых keywords).
-- [ ] Подготовить demo-сценарии и README-раздел "production runbook".
+- [x] Улучшить OpenWebUI trigger logic (intent detection вместо простых keywords).
+- [x] Подготовить demo-сценарии и README-раздел "production runbook".
 
 Definition of Done:
 - Сервис выдерживает деградацию внешнего зависимого сервиса без полной недоступности.
