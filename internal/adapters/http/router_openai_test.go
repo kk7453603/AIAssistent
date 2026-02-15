@@ -274,6 +274,62 @@ func TestChatCompletionsToolCalls(t *testing.T) {
 	}
 }
 
+func TestChatCompletionsDoesNotTriggerToolForInformationalPrompt(t *testing.T) {
+	handler := newTestHandler(config.Config{
+		OpenAICompatModelID:             "paa-rag-v1",
+		OpenAICompatToolTriggerKeywords: "upload,file,document",
+		RAGTopK:                         5,
+	})
+
+	payload := map[string]interface{}{
+		"model": "paa-rag-v1",
+		"messages": []map[string]interface{}{
+			{"role": "user", "content": "what is a document database?"},
+		},
+		"tools": []map[string]interface{}{
+			{
+				"type": "function",
+				"function": map[string]interface{}{
+					"name": "ingest_and_query",
+				},
+			},
+		},
+	}
+	body, _ := json.Marshal(payload)
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	res := httptest.NewRecorder()
+	handler.ServeHTTP(res, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", res.Code)
+	}
+
+	var chatResp apigen.ChatCompletionResponse
+	if err := json.NewDecoder(res.Body).Decode(&chatResp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(chatResp.Choices) == 0 || chatResp.Choices[0].FinishReason == nil {
+		t.Fatalf("expected non-empty choices with finish reason, got %+v", chatResp.Choices)
+	}
+	if *chatResp.Choices[0].FinishReason == "tool_calls" {
+		t.Fatalf("did not expect tool_calls for informational prompt")
+	}
+	if chatResp.Choices[0].Message.ToolCalls != nil && len(*chatResp.Choices[0].Message.ToolCalls) > 0 {
+		t.Fatalf("did not expect tool calls in assistant message")
+	}
+	if chatResp.Choices[0].Message.Content == nil {
+		t.Fatalf("expected assistant content from rag flow")
+	}
+	content, ok := (*chatResp.Choices[0].Message.Content).(string)
+	if !ok {
+		t.Fatalf("expected string content, got %#v", *chatResp.Choices[0].Message.Content)
+	}
+	if content != "rag answer" {
+		t.Fatalf("expected rag answer, got %q", content)
+	}
+}
+
 func TestChatCompletionsPostToolProcessing(t *testing.T) {
 	handler := newTestHandler(config.Config{
 		OpenAICompatModelID: "paa-rag-v1",

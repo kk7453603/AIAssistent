@@ -30,7 +30,7 @@ func (rt *Router) buildToolCallIfTriggered(lastUserMessage string, tools *[]apig
 	if tools == nil || len(*tools) == 0 {
 		return apigen.ToolCall{}, false
 	}
-	if !containsAnyKeyword(strings.ToLower(lastUserMessage), rt.toolTriggerKeywords) {
+	if !shouldTriggerToolCall(lastUserMessage, rt.toolTriggerKeywords) {
 		return apigen.ToolCall{}, false
 	}
 
@@ -84,6 +84,102 @@ func containsAnyKeyword(message string, keywords []string) bool {
 	}
 	for _, keyword := range keywords {
 		if keyword != "" && strings.Contains(message, keyword) {
+			return true
+		}
+	}
+	return false
+}
+
+var (
+	toolIntentActionKeywords = []string{
+		"upload", "attach", "ingest", "index", "process", "parse", "summarize", "summarise", "analyze", "analyse", "extract", "scan", "read",
+		"загруз", "прикреп", "влож", "проиндекс", "обработ", "суммар", "саммари", "проанализ", "извлеч", "прочита",
+	}
+	toolIntentFileKeywords = []string{
+		"file", "files", "document", "documents", "attachment", "attachments", "pdf", "docx", "txt", "md",
+		"файл", "файлы", "документ", "документы", "вложение", "вложения",
+	}
+	toolIntentAttachmentHints = []string{
+		"this file", "these files", "this document", "these documents",
+		"attached file", "attached files", "attached document", "attached documents",
+		"этот файл", "эти файлы", "этот документ", "эти документы",
+		"вложен", "прикрепл", "во вложении", "из вложения",
+	}
+	toolIntentRequestCues = []string{
+		"?", "please", "can you", "could you", "tell me", "summarize", "analyse", "analyze", "extract",
+		"пожалуйста", "можешь", "сделай", "расскажи", "проанализируй", "извлеки",
+	}
+	toolIntentInformationalPrefixes = []string{
+		"what is ", "what are ", "how to ", "how do ", "how does ", "explain ", "tell me about ",
+		"что такое ", "как ", "объясни ", "расскажи про ", "расскажи о ",
+	}
+	toolIntentInformationalHints = []string{
+		" api ", " endpoint", " endpoints", "документац", "спецификац", "swagger", "openapi",
+	}
+)
+
+func shouldTriggerToolCall(message string, configuredKeywords []string) bool {
+	normalized := normalizeIntentText(message)
+	if normalized == "" {
+		return false
+	}
+
+	attachmentRef := containsAnyKeyword(normalized, toolIntentAttachmentHints)
+	actionHits := countKeywordHits(normalized, toolIntentActionKeywords)
+	fileHits := countKeywordHits(normalized, toolIntentFileKeywords)
+	customHits := countKeywordHits(normalized, configuredKeywords)
+
+	if attachmentRef && hasRequestCue(normalized, actionHits) {
+		return true
+	}
+	if looksLikeInformationalQuestion(normalized) && !attachmentRef {
+		return false
+	}
+	if actionHits > 0 && (fileHits > 0 || customHits > 0) {
+		return true
+	}
+
+	return false
+}
+
+func normalizeIntentText(message string) string {
+	if strings.TrimSpace(message) == "" {
+		return ""
+	}
+	return strings.ToLower(strings.Join(strings.Fields(message), " "))
+}
+
+func countKeywordHits(message string, keywords []string) int {
+	if len(keywords) == 0 || message == "" {
+		return 0
+	}
+	hits := 0
+	for _, keyword := range keywords {
+		if keyword == "" {
+			continue
+		}
+		if strings.Contains(message, strings.ToLower(strings.TrimSpace(keyword))) {
+			hits++
+		}
+	}
+	return hits
+}
+
+func hasRequestCue(message string, actionHits int) bool {
+	if actionHits > 0 {
+		return true
+	}
+	return containsAnyKeyword(message, toolIntentRequestCues)
+}
+
+func looksLikeInformationalQuestion(message string) bool {
+	for _, prefix := range toolIntentInformationalPrefixes {
+		if strings.HasPrefix(message, prefix) {
+			return true
+		}
+	}
+	for _, hint := range toolIntentInformationalHints {
+		if strings.Contains(message, hint) {
 			return true
 		}
 	}
