@@ -414,7 +414,9 @@ scripts/rag/generate_test_data.sh \
 - `NATS_SUBJECT`
 - `OLLAMA_URL`
 - `OLLAMA_GEN_MODEL`
+- `OLLAMA_PLANNER_MODEL` (если пусто, planner использует `OLLAMA_GEN_MODEL`)
 - `OLLAMA_EMBED_MODEL`
+- `OLLAMA_PORT`
 - `QDRANT_URL`
 - `QDRANT_COLLECTION`
 - `QDRANT_MEMORY_COLLECTION`
@@ -437,7 +439,9 @@ scripts/rag/generate_test_data.sh \
 - `OPENAI_COMPAT_TOOL_TRIGGER_KEYWORDS` (CSV-список триггер-слов для ветки `tool_calls`)
 - `AGENT_MODE_ENABLED` (по умолчанию: `false`)
 - `AGENT_MAX_ITERATIONS` (по умолчанию: `6`)
-- `AGENT_TIMEOUT_SECONDS` (по умолчанию: `25`)
+- `AGENT_TIMEOUT_SECONDS` (по умолчанию: `90`)
+- `AGENT_PLANNER_TIMEOUT_SECONDS` (по умолчанию: `20`)
+- `AGENT_TOOL_TIMEOUT_SECONDS` (по умолчанию: `30`)
 - `AGENT_SHORT_MEMORY_MESSAGES` (по умолчанию: `12`)
 - `AGENT_SUMMARY_EVERY_TURNS` (по умолчанию: `6`)
 - `AGENT_MEMORY_TOP_K` (по умолчанию: `4`)

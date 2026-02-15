@@ -59,6 +59,8 @@ type MemoryHit struct {
 type AgentLimits struct {
 	MaxIterations       int           `json:"max_iterations"`
 	Timeout             time.Duration `json:"timeout"`
+	PlannerTimeout      time.Duration `json:"planner_timeout"`
+	ToolTimeout         time.Duration `json:"tool_timeout"`
 	ShortMemoryMessages int           `json:"short_memory_messages"`
 	SummaryEveryTurns   int           `json:"summary_every_turns"`
 	MemoryTopK          int           `json:"memory_top_k"`

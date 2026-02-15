@@ -40,6 +40,7 @@ func (rt *Router) tryAgentCompletion(
 	}
 	rt.httpMetrics.RecordAgentRun("api", "chat_completions", status, result.Iterations)
 	rt.httpMetrics.RecordMemoryHits("api", "chat_completions", result.MemoryHits)
+	rt.httpMetrics.RecordAgentFallbackReason("api", "chat_completions", result.FallbackReason)
 	if result.SummaryCreated {
 		rt.httpMetrics.RecordMemorySummary("api")
 	}

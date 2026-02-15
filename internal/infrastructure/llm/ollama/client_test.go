@@ -54,3 +54,39 @@ func TestEmbedIncludesHTTPBodyInError(t *testing.T) {
 		t.Fatalf("expected response body in error, got %v", err)
 	}
 }
+
+func TestGenerateJSONFromPromptUsesPlannerModelAndJSONFormat(t *testing.T) {
+	var capturedModel string
+	var capturedFormat string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/generate" {
+			http.NotFound(w, r)
+			return
+		}
+		var payload map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Fatalf("decode request: %v", err)
+		}
+		capturedModel, _ = payload["model"].(string)
+		capturedFormat, _ = payload["format"].(string)
+		_, _ = w.Write([]byte(`{"response":"{\"type\":\"final\",\"answer\":\"ok\"}"}`))
+	}))
+	defer server.Close()
+
+	client := NewWithOptions(server.URL, "gen-model", "embed-model", Options{PlannerModel: "planner-model"})
+	gen := NewGenerator(client)
+	out, err := gen.GenerateJSONFromPrompt(context.Background(), "return json")
+	if err != nil {
+		t.Fatalf("GenerateJSONFromPrompt() error = %v", err)
+	}
+	if out == "" {
+		t.Fatalf("expected non-empty response")
+	}
+	if capturedModel != "planner-model" {
+		t.Fatalf("expected planner model, got %q", capturedModel)
+	}
+	if capturedFormat != "json" {
+		t.Fatalf("expected format=json, got %q", capturedFormat)
+	}
+}

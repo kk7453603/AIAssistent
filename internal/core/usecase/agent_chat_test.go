@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -11,11 +12,18 @@ import (
 )
 
 type fakeAgentQueryService struct {
-	generateResponses []string
-	answerText        string
+	generateResponses     []string
+	generateTextResponses []string
+	answerText            string
+	answerErr             error
+	generateJSONErr       error
+	generateJSONHook      func(context.Context, string) (string, error)
 }
 
 func (f *fakeAgentQueryService) Answer(_ context.Context, _ string, _ int, _ domain.SearchFilter) (*domain.Answer, error) {
+	if f.answerErr != nil {
+		return nil, f.answerErr
+	}
 	text := f.answerText
 	if text == "" {
 		text = "knowledge answer"
@@ -29,6 +37,21 @@ func (f *fakeAgentQueryService) Answer(_ context.Context, _ string, _ int, _ dom
 }
 
 func (f *fakeAgentQueryService) GenerateFromPrompt(_ context.Context, _ string) (string, error) {
+	if len(f.generateTextResponses) > 0 {
+		out := f.generateTextResponses[0]
+		f.generateTextResponses = f.generateTextResponses[1:]
+		return out, nil
+	}
+	return "summary text", nil
+}
+
+func (f *fakeAgentQueryService) GenerateJSONFromPrompt(ctx context.Context, _ string) (string, error) {
+	if f.generateJSONHook != nil {
+		return f.generateJSONHook(ctx, "")
+	}
+	if f.generateJSONErr != nil {
+		return "", f.generateJSONErr
+	}
 	if len(f.generateResponses) == 0 {
 		return `{"type":"final","answer":"fallback"}`, nil
 	}
@@ -48,10 +71,10 @@ func (f *fakeAgentEmbedder) EmbedQuery(context.Context, string) ([]float32, erro
 }
 
 type fakeConversationStore struct {
-	currentTurn   int
-	lastSummary   int
-	messages      []domain.ConversationMessage
-	conversation  domain.Conversation
+	currentTurn  int
+	lastSummary  int
+	messages     []domain.ConversationMessage
+	conversation domain.Conversation
 }
 
 func (f *fakeConversationStore) EnsureConversation(_ context.Context, userID, conversationID string) (*domain.Conversation, error) {
@@ -159,7 +182,7 @@ func (f *fakeTaskStore) SoftDeleteTask(_ context.Context, _, taskID string) erro
 }
 
 type fakeMemoryStore struct {
-	lastTurn int
+	lastTurn  int
 	summaries []domain.MemorySummary
 }
 
@@ -302,8 +325,8 @@ func TestAgentChatUseCaseCreatesSummaryOnSessionEnd(t *testing.T) {
 	query := &fakeAgentQueryService{
 		generateResponses: []string{
 			`{"type":"final","answer":"done"}`,
-			"summary text",
 		},
+		generateTextResponses: []string{"summary text"},
 	}
 	memoryStore := &fakeMemoryStore{}
 	memoryVector := &fakeMemoryVectorStore{}
@@ -335,3 +358,106 @@ func TestAgentChatUseCaseCreatesSummaryOnSessionEnd(t *testing.T) {
 	}
 }
 
+func TestAgentChatUseCasePlannerRepairsFencedJSON(t *testing.T) {
+	query := &fakeAgentQueryService{
+		generateResponses: []string{
+			"```json\n{\"type\":\"final\",\"answer\":\"done\"}\n```",
+			`{"type":"final","answer":"done"}`,
+		},
+	}
+	uc := NewAgentChatUseCase(
+		query,
+		&fakeAgentEmbedder{},
+		&fakeConversationStore{},
+		&fakeTaskStore{},
+		&fakeMemoryStore{},
+		&fakeMemoryVectorStore{},
+		domain.AgentLimits{},
+	)
+
+	result, err := uc.Complete(context.Background(), domain.AgentChatRequest{
+		UserID: "u-1",
+		Messages: []domain.AgentInputMessage{
+			{Role: "user", Content: "hello"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Complete() error = %v", err)
+	}
+	if result.FallbackReason != "" {
+		t.Fatalf("expected no fallback reason after repair, got %q", result.FallbackReason)
+	}
+	if result.Answer != "done" {
+		t.Fatalf("expected repaired final answer, got %q", result.Answer)
+	}
+}
+
+func TestAgentChatUseCasePlannerErrorFallsBackToRAG(t *testing.T) {
+	query := &fakeAgentQueryService{
+		generateJSONErr: errors.New("planner unavailable"),
+		answerText:      "rag fallback answer",
+	}
+	uc := NewAgentChatUseCase(
+		query,
+		&fakeAgentEmbedder{},
+		&fakeConversationStore{},
+		&fakeTaskStore{},
+		&fakeMemoryStore{},
+		&fakeMemoryVectorStore{},
+		domain.AgentLimits{},
+	)
+
+	result, err := uc.Complete(context.Background(), domain.AgentChatRequest{
+		UserID: "u-1",
+		Messages: []domain.AgentInputMessage{
+			{Role: "user", Content: "hello"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Complete() error = %v", err)
+	}
+	if result.FallbackReason != "planner_error" {
+		t.Fatalf("expected fallback reason planner_error, got %q", result.FallbackReason)
+	}
+	if result.Answer != "rag fallback answer" {
+		t.Fatalf("expected rag fallback answer, got %q", result.Answer)
+	}
+}
+
+func TestAgentChatUseCasePlannerTimeoutFallsBackToRAG(t *testing.T) {
+	query := &fakeAgentQueryService{
+		answerText: "rag fallback answer",
+		generateJSONHook: func(ctx context.Context, _ string) (string, error) {
+			<-ctx.Done()
+			return "", ctx.Err()
+		},
+	}
+	uc := NewAgentChatUseCase(
+		query,
+		&fakeAgentEmbedder{},
+		&fakeConversationStore{},
+		&fakeTaskStore{},
+		&fakeMemoryStore{},
+		&fakeMemoryVectorStore{},
+		domain.AgentLimits{
+			Timeout:        300 * time.Millisecond,
+			PlannerTimeout: 20 * time.Millisecond,
+		},
+	)
+
+	result, err := uc.Complete(context.Background(), domain.AgentChatRequest{
+		UserID: "u-1",
+		Messages: []domain.AgentInputMessage{
+			{Role: "user", Content: "hello"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Complete() error = %v", err)
+	}
+	if result.FallbackReason != "timeout" {
+		t.Fatalf("expected fallback reason timeout, got %q", result.FallbackReason)
+	}
+	if result.Answer != "rag fallback answer" {
+		t.Fatalf("expected rag fallback answer, got %q", result.Answer)
+	}
+}

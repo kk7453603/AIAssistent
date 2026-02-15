@@ -14,9 +14,10 @@ type Config struct {
 	NATSURL     string
 	NATSSubject string
 
-	OllamaURL        string
-	OllamaGenModel   string
-	OllamaEmbedModel string
+	OllamaURL          string
+	OllamaGenModel     string
+	OllamaEmbedModel   string
+	OllamaPlannerModel string
 
 	QdrantURL              string
 	QdrantCollection       string
@@ -39,13 +40,15 @@ type Config struct {
 	OpenAICompatStreamChunkChars    int
 	OpenAICompatToolTriggerKeywords string
 
-	AgentModeEnabled       bool
-	AgentMaxIterations     int
-	AgentTimeoutSeconds    int
-	AgentShortMemoryMsgs   int
-	AgentSummaryEveryTurns int
-	AgentMemoryTopK        int
-	AgentKnowledgeTopK     int
+	AgentModeEnabled           bool
+	AgentMaxIterations         int
+	AgentTimeoutSeconds        int
+	AgentPlannerTimeoutSeconds int
+	AgentToolTimeoutSeconds    int
+	AgentShortMemoryMsgs       int
+	AgentSummaryEveryTurns     int
+	AgentMemoryTopK            int
+	AgentKnowledgeTopK         int
 
 	WorkerMetricsPort string
 
@@ -80,9 +83,10 @@ func Load() Config {
 		NATSURL:     mustEnv("NATS_URL", "nats://localhost:4222"),
 		NATSSubject: mustEnv("NATS_SUBJECT", "documents.ingest"),
 
-		OllamaURL:        mustEnv("OLLAMA_URL", "http://localhost:11434"),
-		OllamaGenModel:   mustEnv("OLLAMA_GEN_MODEL", "llama3.1:8b"),
-		OllamaEmbedModel: mustEnv("OLLAMA_EMBED_MODEL", "nomic-embed-text"),
+		OllamaURL:          mustEnv("OLLAMA_URL", "http://localhost:11434"),
+		OllamaGenModel:     mustEnv("OLLAMA_GEN_MODEL", "llama3.1:8b"),
+		OllamaEmbedModel:   mustEnv("OLLAMA_EMBED_MODEL", "nomic-embed-text"),
+		OllamaPlannerModel: mustEnv("OLLAMA_PLANNER_MODEL", ""),
 
 		QdrantURL:              mustEnv("QDRANT_URL", "http://localhost:6333"),
 		QdrantCollection:       mustEnv("QDRANT_COLLECTION", "documents"),
@@ -106,7 +110,9 @@ func Load() Config {
 		OpenAICompatToolTriggerKeywords: mustEnv("OPENAI_COMPAT_TOOL_TRIGGER_KEYWORDS", "file,document,upload,attach,документ,файл,загрузи,вложение"),
 		AgentModeEnabled:                mustEnvBool("AGENT_MODE_ENABLED", false),
 		AgentMaxIterations:              mustEnvInt("AGENT_MAX_ITERATIONS", 6),
-		AgentTimeoutSeconds:             mustEnvInt("AGENT_TIMEOUT_SECONDS", 25),
+		AgentTimeoutSeconds:             mustEnvInt("AGENT_TIMEOUT_SECONDS", 90),
+		AgentPlannerTimeoutSeconds:      mustEnvInt("AGENT_PLANNER_TIMEOUT_SECONDS", 20),
+		AgentToolTimeoutSeconds:         mustEnvInt("AGENT_TOOL_TIMEOUT_SECONDS", 30),
 		AgentShortMemoryMsgs:            mustEnvInt("AGENT_SHORT_MEMORY_MESSAGES", 12),
 		AgentSummaryEveryTurns:          mustEnvInt("AGENT_SUMMARY_EVERY_TURNS", 6),
 		AgentMemoryTopK:                 mustEnvInt("AGENT_MEMORY_TOP_K", 4),

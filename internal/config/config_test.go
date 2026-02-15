@@ -204,3 +204,45 @@ func TestLoadParsesResilienceAndNATSOverrides(t *testing.T) {
 		t.Fatalf("expected NATS retry on failed connect false")
 	}
 }
+
+func TestLoadIncludesPlannerModelAndAgentTimeoutDefaults(t *testing.T) {
+	t.Setenv("OLLAMA_PLANNER_MODEL", "")
+	t.Setenv("AGENT_TIMEOUT_SECONDS", "")
+	t.Setenv("AGENT_PLANNER_TIMEOUT_SECONDS", "")
+	t.Setenv("AGENT_TOOL_TIMEOUT_SECONDS", "")
+
+	cfg := Load()
+	if cfg.OllamaPlannerModel != "" {
+		t.Fatalf("expected empty planner model default, got %q", cfg.OllamaPlannerModel)
+	}
+	if cfg.AgentTimeoutSeconds != 90 {
+		t.Fatalf("expected agent timeout default 90, got %d", cfg.AgentTimeoutSeconds)
+	}
+	if cfg.AgentPlannerTimeoutSeconds != 20 {
+		t.Fatalf("expected agent planner timeout default 20, got %d", cfg.AgentPlannerTimeoutSeconds)
+	}
+	if cfg.AgentToolTimeoutSeconds != 30 {
+		t.Fatalf("expected agent tool timeout default 30, got %d", cfg.AgentToolTimeoutSeconds)
+	}
+}
+
+func TestLoadParsesPlannerModelAndAgentTimeoutOverrides(t *testing.T) {
+	t.Setenv("OLLAMA_PLANNER_MODEL", "llama3.1:8b")
+	t.Setenv("AGENT_TIMEOUT_SECONDS", "120")
+	t.Setenv("AGENT_PLANNER_TIMEOUT_SECONDS", "25")
+	t.Setenv("AGENT_TOOL_TIMEOUT_SECONDS", "35")
+
+	cfg := Load()
+	if cfg.OllamaPlannerModel != "llama3.1:8b" {
+		t.Fatalf("expected planner model override, got %q", cfg.OllamaPlannerModel)
+	}
+	if cfg.AgentTimeoutSeconds != 120 {
+		t.Fatalf("expected agent timeout override 120, got %d", cfg.AgentTimeoutSeconds)
+	}
+	if cfg.AgentPlannerTimeoutSeconds != 25 {
+		t.Fatalf("expected agent planner timeout override 25, got %d", cfg.AgentPlannerTimeoutSeconds)
+	}
+	if cfg.AgentToolTimeoutSeconds != 35 {
+		t.Fatalf("expected agent tool timeout override 35, got %d", cfg.AgentToolTimeoutSeconds)
+	}
+}

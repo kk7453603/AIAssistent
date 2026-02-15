@@ -76,6 +76,10 @@ func (f fakeAnswerGenerator) GenerateFromPrompt(context.Context, string) (string
 	return "post processed answer", nil
 }
 
+func (f fakeAnswerGenerator) GenerateJSONFromPrompt(context.Context, string) (string, error) {
+	return `{"type":"final","answer":"post processed answer"}`, nil
+}
+
 type fakeAgentService struct {
 	result *domain.AgentRunResult
 	err    error

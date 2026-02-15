@@ -75,6 +75,10 @@ func (f *queryGeneratorFake) GenerateFromPrompt(_ context.Context, prompt string
 	return prompt, nil
 }
 
+func (f *queryGeneratorFake) GenerateJSONFromPrompt(_ context.Context, prompt string) (string, error) {
+	return prompt, nil
+}
+
 func TestQueryUseCaseAnswerDefaultLimit(t *testing.T) {
 	embedder := &queryEmbedderFake{}
 	vector := &queryVectorFake{}

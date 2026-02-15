@@ -59,6 +59,7 @@ type VectorStore interface {
 type AnswerGenerator interface {
 	GenerateAnswer(ctx context.Context, question string, chunks []domain.RetrievedChunk) (string, error)
 	GenerateFromPrompt(ctx context.Context, prompt string) (string, error)
+	GenerateJSONFromPrompt(ctx context.Context, prompt string) (string, error)
 }
 
 // ConversationStore persists conversation state and messages.

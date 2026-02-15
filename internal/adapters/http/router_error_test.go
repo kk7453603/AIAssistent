@@ -35,6 +35,9 @@ func (f queryErrFake) Answer(context.Context, string, int, domain.SearchFilter) 
 }
 
 func (f queryErrFake) GenerateFromPrompt(context.Context, string) (string, error) { return "ok", nil }
+func (f queryErrFake) GenerateJSONFromPrompt(context.Context, string) (string, error) {
+	return `{"type":"final","answer":"ok"}`, nil
+}
 
 type docsErrFake struct {
 	err error

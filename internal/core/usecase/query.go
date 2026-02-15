@@ -96,6 +96,14 @@ func (uc *QueryUseCase) GenerateFromPrompt(ctx context.Context, prompt string) (
 	return answerText, nil
 }
 
+func (uc *QueryUseCase) GenerateJSONFromPrompt(ctx context.Context, prompt string) (string, error) {
+	answerText, err := uc.generator.GenerateJSONFromPrompt(ctx, prompt)
+	if err != nil {
+		return "", fmt.Errorf("generate json from prompt: %w", err)
+	}
+	return answerText, nil
+}
+
 func (uc *QueryUseCase) retrieveChunks(
 	ctx context.Context,
 	question string,

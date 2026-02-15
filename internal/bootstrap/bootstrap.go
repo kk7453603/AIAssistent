@@ -76,6 +76,7 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 	}
 
 	ollamaClient := ollama.NewWithOptions(cfg.OllamaURL, cfg.OllamaGenModel, cfg.OllamaEmbedModel, ollama.Options{
+		PlannerModel:       cfg.OllamaPlannerModel,
 		ResilienceExecutor: resilienceExecutor,
 	})
 	classifier := ollama.NewClassifier(ollamaClient)
@@ -115,6 +116,8 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		domain.AgentLimits{
 			MaxIterations:       cfg.AgentMaxIterations,
 			Timeout:             time.Duration(cfg.AgentTimeoutSeconds) * time.Second,
+			PlannerTimeout:      time.Duration(cfg.AgentPlannerTimeoutSeconds) * time.Second,
+			ToolTimeout:         time.Duration(cfg.AgentToolTimeoutSeconds) * time.Second,
 			ShortMemoryMessages: cfg.AgentShortMemoryMsgs,
 			SummaryEveryTurns:   cfg.AgentSummaryEveryTurns,
 			MemoryTopK:          cfg.AgentMemoryTopK,

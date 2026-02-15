@@ -13,11 +13,12 @@ import (
 )
 
 type Client struct {
-	baseURL    string
-	genModel   string
-	embedModel string
-	httpClient *http.Client
-	executor   *resilience.Executor
+	baseURL      string
+	genModel     string
+	embedModel   string
+	plannerModel string
+	httpClient   *http.Client
+	executor     *resilience.Executor
 }
 
 func New(baseURL, genModel, embedModel string) *Client {
@@ -25,6 +26,7 @@ func New(baseURL, genModel, embedModel string) *Client {
 }
 
 type Options struct {
+	PlannerModel       string
 	HTTPClient         *http.Client
 	ResilienceExecutor *resilience.Executor
 }
@@ -35,11 +37,12 @@ func NewWithOptions(baseURL, genModel, embedModel string, options Options) *Clie
 		httpClient = &http.Client{Timeout: 120 * time.Second}
 	}
 	return &Client{
-		baseURL:    strings.TrimRight(baseURL, "/"),
-		genModel:   genModel,
-		embedModel: embedModel,
-		httpClient: httpClient,
-		executor:   options.ResilienceExecutor,
+		baseURL:      strings.TrimRight(baseURL, "/"),
+		genModel:     genModel,
+		embedModel:   embedModel,
+		plannerModel: strings.TrimSpace(options.PlannerModel),
+		httpClient:   httpClient,
+		executor:     options.ResilienceExecutor,
 	}
 }
 
@@ -121,9 +124,18 @@ func (g *Generator) GenerateFromPrompt(ctx context.Context, prompt string) (stri
 	return g.client.generateText(ctx, prompt)
 }
 
+func (g *Generator) GenerateJSONFromPrompt(ctx context.Context, prompt string) (string, error) {
+	return g.client.generateJSON(ctx, prompt)
+}
+
 func (c *Client) generateJSON(ctx context.Context, prompt string) (string, error) {
+	model := c.genModel
+	if c.plannerModel != "" {
+		model = c.plannerModel
+	}
+
 	reqBody := map[string]any{
-		"model":  c.genModel,
+		"model":  model,
 		"prompt": prompt,
 		"stream": false,
 		"format": "json",

@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -42,7 +43,13 @@ func NewAgentChatUseCase(
 		limits.MaxIterations = 6
 	}
 	if limits.Timeout <= 0 {
-		limits.Timeout = 25 * time.Second
+		limits.Timeout = 90 * time.Second
+	}
+	if limits.PlannerTimeout <= 0 {
+		limits.PlannerTimeout = 20 * time.Second
+	}
+	if limits.ToolTimeout <= 0 {
+		limits.ToolTimeout = 30 * time.Second
 	}
 	if limits.ShortMemoryMessages <= 0 {
 		limits.ShortMemoryMessages = 12
@@ -137,17 +144,29 @@ func (uc *AgentChatUseCase) Complete(ctx context.Context, req domain.AgentChatRe
 		}
 
 		iterations = i
-		planRaw, err := uc.querySvc.GenerateFromPrompt(loopCtx, buildPlannerPrompt(lastUserMessage, shortMemory, memoryHits, scratchpad))
+		plannerCtx, plannerCancel := context.WithTimeout(loopCtx, uc.limits.PlannerTimeout)
+		planRaw, err := uc.querySvc.GenerateJSONFromPrompt(plannerCtx, buildPlannerPrompt(lastUserMessage, shortMemory, memoryHits, scratchpad))
+		plannerCancel()
 		if err != nil {
-			fallbackReason = "planner_error"
+			if isAgentTimeoutError(err) {
+				fallbackReason = "timeout"
+			} else {
+				fallbackReason = "planner_error"
+			}
 			break
 		}
 
 		step, err := parseAgentStep(planRaw)
 		if err != nil {
-			repairedRaw, repairErr := uc.querySvc.GenerateFromPrompt(loopCtx, buildPlannerRepairPrompt(planRaw))
+			repairCtx, repairCancel := context.WithTimeout(loopCtx, uc.limits.PlannerTimeout)
+			repairedRaw, repairErr := uc.querySvc.GenerateJSONFromPrompt(repairCtx, buildPlannerRepairPrompt(planRaw))
+			repairCancel()
 			if repairErr != nil {
-				fallbackReason = "planner_invalid_json"
+				if isAgentTimeoutError(repairErr) {
+					fallbackReason = "timeout"
+				} else {
+					fallbackReason = "planner_invalid_json"
+				}
 				break
 			}
 			step, err = parseAgentStep(repairedRaw)
@@ -165,8 +184,13 @@ func (uc *AgentChatUseCase) Complete(ctx context.Context, req domain.AgentChatRe
 				fallbackReason = "empty_final_answer"
 			}
 		case "tool":
-			event, execErr := uc.executeTool(loopCtx, userID, step, lastUserMessage)
+			toolCtx, toolCancel := context.WithTimeout(loopCtx, uc.limits.ToolTimeout)
+			event, execErr := uc.executeTool(toolCtx, userID, step, lastUserMessage)
+			toolCancel()
 			if execErr != nil {
+				if isAgentTimeoutError(execErr) {
+					fallbackReason = "timeout"
+				}
 				errorPayload, _ := json.Marshal(map[string]string{"error": execErr.Error()})
 				event = domain.AgentToolEvent{
 					Tool:   step.Tool,
@@ -182,6 +206,9 @@ func (uc *AgentChatUseCase) Complete(ctx context.Context, req domain.AgentChatRe
 				}
 			}
 			scratchpad = append(scratchpad, fmt.Sprintf("%s:%s", event.Tool, event.Output))
+			if fallbackReason == "timeout" {
+				break
+			}
 		default:
 			fallbackReason = "unsupported_step_type"
 		}
@@ -193,6 +220,12 @@ func (uc *AgentChatUseCase) Complete(ctx context.Context, req domain.AgentChatRe
 
 	if fallbackReason == "" && finalAnswer == "" {
 		fallbackReason = "max_iterations"
+	}
+	if finalAnswer == "" && shouldFallbackToRAG(fallbackReason) {
+		fallbackAnswer, fallbackErr := uc.answerFromKnowledgeFallback(ctx, lastUserMessage)
+		if fallbackErr == nil && strings.TrimSpace(fallbackAnswer) != "" {
+			finalAnswer = fallbackAnswer
+		}
 	}
 	if finalAnswer == "" {
 		finalAnswer = "I reached the current execution limits. Please refine the request and try again."
@@ -240,6 +273,34 @@ func (uc *AgentChatUseCase) Complete(ctx context.Context, req domain.AgentChatRe
 		FallbackReason: fallbackReason,
 		ToolEvents:     toolEvents,
 	}, nil
+}
+
+func shouldFallbackToRAG(reason string) bool {
+	switch reason {
+	case "planner_invalid_json", "planner_error", "timeout":
+		return true
+	default:
+		return false
+	}
+}
+
+func isAgentTimeoutError(err error) bool {
+	return errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled)
+}
+
+func (uc *AgentChatUseCase) answerFromKnowledgeFallback(ctx context.Context, question string) (string, error) {
+	fallbackCtx, cancel := context.WithTimeout(ctx, uc.limits.ToolTimeout)
+	defer cancel()
+
+	answer, err := uc.querySvc.Answer(fallbackCtx, question, uc.limits.KnowledgeTopK, domain.SearchFilter{})
+	if err != nil {
+		return "", fmt.Errorf("rag fallback answer: %w", err)
+	}
+	text := strings.TrimSpace(answer.Text)
+	if text == "" {
+		return "", fmt.Errorf("rag fallback answer is empty")
+	}
+	return text, nil
 }
 
 func latestUserInput(messages []domain.AgentInputMessage) (string, bool) {

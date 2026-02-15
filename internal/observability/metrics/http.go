@@ -30,6 +30,7 @@ type HTTPServerMetrics struct {
 	agentRunsTotal       *prometheus.CounterVec
 	agentIterations      *prometheus.HistogramVec
 	agentToolCallsTotal  *prometheus.CounterVec
+	agentFallbackTotal   *prometheus.CounterVec
 	memoryHitsTotal      *prometheus.CounterVec
 	memorySummariesTotal *prometheus.CounterVec
 }
@@ -160,6 +161,15 @@ func NewHTTPServerMetrics(service string) *HTTPServerMetrics {
 		},
 		[]string{"service", "tool", "status"},
 	)
+	agentFallbackTotal := prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "paa",
+			Subsystem: "agent",
+			Name:      "fallback_total",
+			Help:      "Total agent runs that ended with fallback reason.",
+		},
+		[]string{"service", "endpoint", "reason"},
+	)
 	memoryHitsTotal := prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "paa",
@@ -193,6 +203,7 @@ func NewHTTPServerMetrics(service string) *HTTPServerMetrics {
 		agentRunsTotal,
 		agentIterations,
 		agentToolCallsTotal,
+		agentFallbackTotal,
 		memoryHitsTotal,
 		memorySummariesTotal,
 	)
@@ -212,6 +223,7 @@ func NewHTTPServerMetrics(service string) *HTTPServerMetrics {
 		agentRunsTotal:       agentRunsTotal,
 		agentIterations:      agentIterations,
 		agentToolCallsTotal:  agentToolCallsTotal,
+		agentFallbackTotal:   agentFallbackTotal,
 		memoryHitsTotal:      memoryHitsTotal,
 		memorySummariesTotal: memorySummariesTotal,
 	}
@@ -303,6 +315,13 @@ func (m *HTTPServerMetrics) RecordAgentToolCall(service, tool, status string) {
 		status = "unknown"
 	}
 	m.agentToolCallsTotal.WithLabelValues(service, tool, status).Inc()
+}
+
+func (m *HTTPServerMetrics) RecordAgentFallbackReason(service, endpoint, reason string) {
+	if reason == "" {
+		return
+	}
+	m.agentFallbackTotal.WithLabelValues(service, endpoint, reason).Inc()
 }
 
 func (m *HTTPServerMetrics) RecordMemoryHits(service, endpoint string, hits int) {
