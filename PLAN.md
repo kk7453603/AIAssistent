@@ -61,9 +61,9 @@ Definition of Done:
 - В новом диалоге агент извлекает релевантный контекст из прошлых разговоров.
 
 ### Этап 4 (Недели 7-8): Hardening + Productization
-- [ ] Добавить rate limiting и backpressure.
-- [ ] Добавить resilience для Ollama/Qdrant/NATS (retry policy + circuit breaker pattern).
-- [ ] Добавить dashboards/alerts (минимум latency, errors, queue backlog).
+- [x] Добавить rate limiting и backpressure.
+- [x] Добавить resilience для Ollama/Qdrant/NATS (retry policy + circuit breaker pattern).
+- [x] Добавить dashboards/alerts (минимум latency, errors, queue backlog).
 - [ ] Улучшить OpenWebUI trigger logic (intent detection вместо простых keywords).
 - [ ] Подготовить demo-сценарии и README-раздел "production runbook".
 

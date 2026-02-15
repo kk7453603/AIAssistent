@@ -1,0 +1,82 @@
+groups:
+  - name: paa-service-availability
+    rules:
+      - alert: ApiDown
+        expr: up{job="paa-api"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: api
+        annotations:
+          summary: "API target is down"
+          description: "Prometheus cannot scrape paa-api for more than 2 minutes."
+
+      - alert: WorkerDown
+        expr: up{job="paa-worker"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: worker
+        annotations:
+          summary: "Worker target is down"
+          description: "Prometheus cannot scrape paa-worker for more than 2 minutes."
+
+  - name: paa-performance-and-quality
+    rules:
+      - alert: ApiHighErrorRate
+        expr: |
+          (
+            sum(rate(paa_http_requests_total{service="api",status=~"5.."}[5m]))
+            /
+            clamp_min(sum(rate(paa_http_requests_total{service="api"}[5m])), 0.001)
+          ) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+          service: api
+        annotations:
+          summary: "API 5xx error rate is high"
+          description: "API 5xx ratio is above 5% over 5m and persists for 10m."
+
+      - alert: ApiLatencyP95High
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (rate(paa_http_request_duration_seconds_bucket{service="api"}[5m]))
+          ) > 2
+        for: 10m
+        labels:
+          severity: warning
+          service: api
+        annotations:
+          summary: "API p95 latency is high"
+          description: "API p95 latency is above 2 seconds over 5m and persists for 10m."
+
+      - alert: WorkerQueueLagP95High
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (rate(paa_worker_queue_lag_seconds_bucket{service="worker"}[10m]))
+          ) > 60
+        for: 10m
+        labels:
+          severity: warning
+          service: worker
+        annotations:
+          summary: "Worker queue lag p95 is high"
+          description: "Worker queue lag p95 is above 60 seconds over 10m and persists for 10m."
+
+      - alert: WorkerProcessingErrorRateHigh
+        expr: |
+          (
+            sum(rate(paa_worker_document_process_total{service="worker",status="error"}[10m]))
+            /
+            clamp_min(sum(rate(paa_worker_document_process_total{service="worker"}[10m])), 0.001)
+          ) > 0.10
+        for: 15m
+        labels:
+          severity: warning
+          service: worker
+        annotations:
+          summary: "Worker processing error rate is high"
+          description: "Worker error ratio is above 10% over 10m and persists for 15m."

@@ -1,4 +1,4 @@
-.PHONY: generate-openapi generate test vet test-core-cover eval eval-cases eval-compare
+.PHONY: generate-openapi generate test vet test-core-cover eval eval-cases eval-compare monitoring-validate
 
 EVAL_API_URL ?= http://localhost:8080
 EVAL_CASES ?= scripts/eval/cases.example.jsonl
@@ -10,6 +10,7 @@ EVAL_REPORT_SEMANTIC ?= ./tmp/eval/report_semantic.json
 EVAL_REPORT_HYBRID ?= ./tmp/eval/report_hybrid.json
 EVAL_REPORT_HYBRID_RERANK ?= ./tmp/eval/report_hybrid_rerank.json
 EVAL_COMPARE_OUT ?= ./tmp/eval/modes_compare.json
+PROMTOOL_IMAGE ?= prom/prometheus:v2.54.1
 
 generate-openapi:
 	go generate ./internal/adapters/http/openapi
@@ -37,3 +38,15 @@ eval-compare:
 		--hybrid "$(EVAL_REPORT_HYBRID)" \
 		--hybrid-rerank "$(EVAL_REPORT_HYBRID_RERANK)" \
 		--out "$(EVAL_COMPARE_OUT)"
+
+monitoring-validate:
+	docker run --rm \
+		--entrypoint=promtool \
+		-v "$(CURDIR)/deploy/monitoring/prometheus:/etc/prometheus:ro" \
+		$(PROMTOOL_IMAGE) \
+		check config /etc/prometheus/prometheus.yml
+	docker run --rm \
+		--entrypoint=promtool \
+		-v "$(CURDIR)/deploy/monitoring/prometheus:/etc/prometheus:ro" \
+		$(PROMTOOL_IMAGE) \
+		check rules /etc/prometheus/rules/paa-alerts.yml

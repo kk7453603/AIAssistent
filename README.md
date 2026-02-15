@@ -168,6 +168,12 @@ curl -X POST http://localhost:8080/v1/rag/query \
 - API metrics: `GET /metrics` на `http://localhost:8080/metrics`
 - Worker metrics: `GET /metrics` на `http://localhost:${WORKER_METRICS_PORT:-9090}/metrics`
 - Worker health: `GET /healthz` на `http://localhost:${WORKER_METRICS_PORT:-9090}/healthz`
+- API traffic controls:
+  - rate limit возвращает `429 Too Many Requests` + заголовок `Retry-After`;
+  - backpressure при перегрузке возвращает `503 Service Unavailable`.
+- Resilience:
+  - временные сбои Ollama/Qdrant/NATS ретраятся;
+  - при деградации dependency сервис может вернуть `503 Service Unavailable` (через `domain.ErrTemporary`).
 
 Примеры:
 ```bash
@@ -177,6 +183,49 @@ curl http://localhost:9090/metrics
 
 RAG mode-aware метрика:
 - `paa_rag_mode_requests_total{service,endpoint,mode}`
+
+### Dashboards + alerts
+Локальный monitoring stack включает:
+- Prometheus
+- Alertmanager (UI-only receiver)
+- Grafana с автоподгрузкой дашборда `PAA Overview`
+
+Проверить конфигурацию:
+```bash
+make monitoring-validate
+```
+
+Поднять stack:
+```bash
+docker compose up -d --build prometheus alertmanager grafana
+```
+
+URL:
+- Prometheus: `http://localhost:9091`
+- Alertmanager: `http://localhost:9093`
+- Grafana: `http://localhost:3001`
+
+Проверки:
+- В Prometheus на странице `Status -> Targets` должны быть `UP` цели:
+  - `paa-api`
+  - `paa-worker`
+- В Grafana должен автоматически появиться dashboard `PAA Overview` в папке `Personal AI Assistant`.
+
+Alert smoke:
+1. Остановить API контейнер:
+   - `docker compose stop api`
+2. Подождать 2+ минуты и проверить alert `ApiDown` в Alertmanager/Grafana.
+3. Вернуть API:
+   - `docker compose start api`
+4. Убедиться, что alert перешёл в `resolved`.
+
+Troubleshooting:
+- Если `paa-worker` в статусе `DOWN`, проверьте что worker metrics слушает `9090` внутри контейнера.
+- Если dashboard не появился, проверьте логи Grafana:
+  - `docker compose logs grafana`
+- Если alert rules не подхватываются, проверьте:
+  - `docker compose logs prometheus`
+  - `make monitoring-validate`
 
 ## Retrieval evaluation
 
@@ -279,6 +328,25 @@ scripts/rag/generate_test_data.sh \
 - `AGENT_SUMMARY_EVERY_TURNS` (по умолчанию: `6`)
 - `AGENT_MEMORY_TOP_K` (по умолчанию: `4`)
 - `AGENT_KNOWLEDGE_TOP_K` (по умолчанию: `5`)
+- `API_RATE_LIMIT_RPS` (по умолчанию: `40`, `<=0` отключает rate limit)
+- `API_RATE_LIMIT_BURST` (по умолчанию: `80`)
+- `API_BACKPRESSURE_MAX_IN_FLIGHT` (по умолчанию: `64`, `<=0` отключает backpressure)
+- `API_BACKPRESSURE_WAIT_MS` (по умолчанию: `250`)
+- `RESILIENCE_BREAKER_ENABLED` (по умолчанию: `true`)
+- `RESILIENCE_RETRY_MAX_ATTEMPTS` (по умолчанию: `3`)
+- `RESILIENCE_RETRY_INITIAL_BACKOFF_MS` (по умолчанию: `100`)
+- `RESILIENCE_RETRY_MAX_BACKOFF_MS` (по умолчанию: `400`)
+- `RESILIENCE_RETRY_MULTIPLIER` (по умолчанию: `2.0`)
+- `RESILIENCE_BREAKER_MIN_REQUESTS` (по умолчанию: `10`)
+- `RESILIENCE_BREAKER_FAILURE_RATIO` (по умолчанию: `0.5`)
+- `RESILIENCE_BREAKER_OPEN_MS` (по умолчанию: `30000`)
+- `RESILIENCE_BREAKER_HALF_OPEN_MAX_CALLS` (по умолчанию: `2`)
+- `NATS_CONNECT_TIMEOUT_MS` (по умолчанию: `2000`)
+- `NATS_RECONNECT_WAIT_MS` (по умолчанию: `2000`)
+- `NATS_MAX_RECONNECTS` (по умолчанию: `60`)
+- `NATS_RETRY_ON_FAILED_CONNECT` (по умолчанию: `true`)
+- `GRAFANA_ADMIN_USER` (по умолчанию: `admin`)
+- `GRAFANA_ADMIN_PASSWORD` (по умолчанию: `ChangeMeGrafana123!`)
 
 ### Инициализация OpenWebUI
 - `OPENWEBUI_ADMIN_EMAIL`
