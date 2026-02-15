@@ -27,3 +27,8 @@ type DocumentReader interface {
 type DocumentProcessor interface {
 	ProcessByID(ctx context.Context, documentID string) error
 }
+
+// AgentChatService orchestrates iterative tool-use and memory-aware chat completion.
+type AgentChatService interface {
+	Complete(ctx context.Context, req domain.AgentChatRequest) (*domain.AgentRunResult, error)
+}

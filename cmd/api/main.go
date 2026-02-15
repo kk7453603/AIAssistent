@@ -30,7 +30,7 @@ func main() {
 	}
 	defer app.Close()
 
-	router := httpadapter.NewRouter(cfg, app.IngestUC, app.QueryUC, app.Repo).Handler()
+	router := httpadapter.NewRouter(cfg, app.IngestUC, app.QueryUC, app.Repo, app.AgentUC).Handler()
 	server := &http.Server{
 		Addr:              ":" + cfg.APIPort,
 		Handler:           router,

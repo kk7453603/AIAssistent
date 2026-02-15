@@ -82,6 +82,12 @@ func (rt *Router) ChatCompletions(ctx context.Context, request apigen.ChatComple
 	if !ok {
 		return apigen.ChatCompletions400JSONResponse{Error: "at least one user message with text content is required"}, nil
 	}
+	if response, handled, err := rt.tryAgentCompletion(ctx, request, completionID, created, modelID, lastUser, stream); handled {
+		if err != nil {
+			return apigen.ChatCompletions500JSONResponse{Error: err.Error()}, nil
+		}
+		return response, nil
+	}
 
 	if toolCall, ok := rt.buildToolCallIfTriggered(lastUser, request.Body.Tools); ok {
 		response := buildToolCallChatCompletionResponse(completionID, created, modelID, lastUser, toolCall)

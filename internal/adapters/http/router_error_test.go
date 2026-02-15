@@ -52,6 +52,7 @@ func TestQueryRagMapsDomainInvalidInputTo400(t *testing.T) {
 		nil,
 		queryErrFake{err: domain.WrapError(domain.ErrInvalidInput, "answer", errors.New("bad query"))},
 		docsErrFake{},
+		nil,
 	).Handler()
 
 	payload, _ := json.Marshal(map[string]any{"question": "test"})
@@ -71,6 +72,7 @@ func TestGetDocumentByIDReturns404ForNotFound(t *testing.T) {
 		nil,
 		queryErrFake{},
 		docsErrFake{err: domain.WrapError(domain.ErrDocumentNotFound, "get", errors.New("id=missing"))},
+		nil,
 	).Handler()
 
 	req := httptest.NewRequest(http.MethodGet, "/v1/documents/missing", nil)

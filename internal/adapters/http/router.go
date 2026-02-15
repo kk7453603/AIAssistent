@@ -24,6 +24,7 @@ type Router struct {
 	ingestor ports.DocumentIngestor
 	querySvc ports.DocumentQueryService
 	docs     ports.DocumentReader
+	agentSvc ports.AgentChatService
 
 	openAICompatAPIKey           string
 	openAICompatModelID          string
@@ -31,6 +32,7 @@ type Router struct {
 	openAICompatStreamChunkChars int
 	toolTriggerKeywords          []string
 	ragTopK                      int
+	agentModeEnabled             bool
 	httpMetrics                  *metrics.HTTPServerMetrics
 }
 
@@ -39,6 +41,7 @@ func NewRouter(
 	ingestor ports.DocumentIngestor,
 	querySvc ports.DocumentQueryService,
 	docs ports.DocumentReader,
+	agentSvc ports.AgentChatService,
 ) *Router {
 	contextMessages := cfg.OpenAICompatContextMessages
 	if contextMessages <= 0 {
@@ -65,6 +68,7 @@ func NewRouter(
 		ingestor: ingestor,
 		querySvc: querySvc,
 		docs:     docs,
+		agentSvc: agentSvc,
 
 		openAICompatAPIKey:           cfg.OpenAICompatAPIKey,
 		openAICompatModelID:          cfg.OpenAICompatModelID,
@@ -72,6 +76,7 @@ func NewRouter(
 		openAICompatStreamChunkChars: streamChunkChars,
 		toolTriggerKeywords:          toolKeywords,
 		ragTopK:                      ragTopK,
+		agentModeEnabled:             cfg.AgentModeEnabled,
 		httpMetrics:                  metrics.NewHTTPServerMetrics("api"),
 	}
 }

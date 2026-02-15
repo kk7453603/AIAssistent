@@ -316,6 +316,19 @@ components:
         tool_choice:
           description: OpenAI-compatible tool choice field.
           nullable: true
+        metadata:
+          $ref: "#/components/schemas/ChatRequestMetadata"
+
+    ChatRequestMetadata:
+      type: object
+      properties:
+        user_id:
+          type: string
+        conversation_id:
+          type: string
+        session_end:
+          type: boolean
+          default: false
 
     ChatMessageDelta:
       type: object
@@ -393,6 +406,20 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/DebugSource"
+        conversation_id:
+          type: string
+        agent_enabled:
+          type: boolean
+        agent_iterations:
+          type: integer
+        memory_hits:
+          type: integer
+        tools_invoked:
+          type: array
+          items:
+            type: string
+        fallback_reason:
+          type: string
 
     ChatCompletionResponse:
       type: object

@@ -27,6 +27,11 @@ type HTTPServerMetrics struct {
 	ragRetrievedChunks   *prometheus.HistogramVec
 	ragDuration          *prometheus.HistogramVec
 	llmTokensTotal       *prometheus.CounterVec
+	agentRunsTotal       *prometheus.CounterVec
+	agentIterations      *prometheus.HistogramVec
+	agentToolCallsTotal  *prometheus.CounterVec
+	memoryHitsTotal      *prometheus.CounterVec
+	memorySummariesTotal *prometheus.CounterVec
 }
 
 func NewHTTPServerMetrics(service string) *HTTPServerMetrics {
@@ -127,6 +132,52 @@ func NewHTTPServerMetrics(service string) *HTTPServerMetrics {
 		},
 		[]string{"service", "endpoint", "direction", "model"},
 	)
+	agentRunsTotal := prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "paa",
+			Subsystem: "agent",
+			Name:      "runs_total",
+			Help:      "Total completed agent runs by status.",
+		},
+		[]string{"service", "endpoint", "status"},
+	)
+	agentIterations := prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: "paa",
+			Subsystem: "agent",
+			Name:      "iterations",
+			Help:      "Distribution of agent loop iterations per run.",
+			Buckets:   []float64{1, 2, 3, 4, 5, 6, 8, 10},
+		},
+		[]string{"service", "endpoint"},
+	)
+	agentToolCallsTotal := prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "paa",
+			Subsystem: "agent",
+			Name:      "tool_calls_total",
+			Help:      "Total tool calls performed by the agent.",
+		},
+		[]string{"service", "tool", "status"},
+	)
+	memoryHitsTotal := prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "paa",
+			Subsystem: "memory",
+			Name:      "hits_total",
+			Help:      "Total retrieved memory hits in agent runs.",
+		},
+		[]string{"service", "endpoint"},
+	)
+	memorySummariesTotal := prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "paa",
+			Subsystem: "memory",
+			Name:      "summaries_total",
+			Help:      "Total generated long-term memory summaries.",
+		},
+		[]string{"service"},
+	)
 
 	registry.MustRegister(
 		requestTotal,
@@ -139,6 +190,11 @@ func NewHTTPServerMetrics(service string) *HTTPServerMetrics {
 		ragRetrievedChunks,
 		ragDuration,
 		llmTokensTotal,
+		agentRunsTotal,
+		agentIterations,
+		agentToolCallsTotal,
+		memoryHitsTotal,
+		memorySummariesTotal,
 	)
 
 	return &HTTPServerMetrics{
@@ -153,6 +209,11 @@ func NewHTTPServerMetrics(service string) *HTTPServerMetrics {
 		ragRetrievedChunks:   ragRetrievedChunks,
 		ragDuration:          ragDuration,
 		llmTokensTotal:       llmTokensTotal,
+		agentRunsTotal:       agentRunsTotal,
+		agentIterations:      agentIterations,
+		agentToolCallsTotal:  agentToolCallsTotal,
+		memoryHitsTotal:      memoryHitsTotal,
+		memorySummariesTotal: memorySummariesTotal,
 	}
 }
 
@@ -222,6 +283,37 @@ func (m *HTTPServerMetrics) RecordTokenUsage(service, endpoint, model string, pr
 	if completionTokens > 0 {
 		m.llmTokensTotal.WithLabelValues(service, endpoint, "out", model).Add(float64(completionTokens))
 	}
+}
+
+func (m *HTTPServerMetrics) RecordAgentRun(service, endpoint, status string, iterations int) {
+	if status == "" {
+		status = "unknown"
+	}
+	m.agentRunsTotal.WithLabelValues(service, endpoint, status).Inc()
+	if iterations > 0 {
+		m.agentIterations.WithLabelValues(service, endpoint).Observe(float64(iterations))
+	}
+}
+
+func (m *HTTPServerMetrics) RecordAgentToolCall(service, tool, status string) {
+	if tool == "" {
+		tool = "unknown"
+	}
+	if status == "" {
+		status = "unknown"
+	}
+	m.agentToolCallsTotal.WithLabelValues(service, tool, status).Inc()
+}
+
+func (m *HTTPServerMetrics) RecordMemoryHits(service, endpoint string, hits int) {
+	if hits <= 0 {
+		return
+	}
+	m.memoryHitsTotal.WithLabelValues(service, endpoint).Add(float64(hits))
+}
+
+func (m *HTTPServerMetrics) RecordMemorySummary(service string) {
+	m.memorySummariesTotal.WithLabelValues(service).Inc()
 }
 
 type statusRecorder struct {

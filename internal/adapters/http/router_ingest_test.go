@@ -45,6 +45,7 @@ func newRouterForIngestTests() http.Handler {
 		ingestSuccessFake{},
 		queryErrFake{},
 		docsErrFake{},
+		nil,
 	).Handler()
 }
 

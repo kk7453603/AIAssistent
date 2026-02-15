@@ -18,8 +18,9 @@ type Config struct {
 	OllamaGenModel   string
 	OllamaEmbedModel string
 
-	QdrantURL        string
-	QdrantCollection string
+	QdrantURL              string
+	QdrantCollection       string
+	QdrantMemoryCollection string
 
 	StoragePath string
 
@@ -38,6 +39,14 @@ type Config struct {
 	OpenAICompatStreamChunkChars    int
 	OpenAICompatToolTriggerKeywords string
 
+	AgentModeEnabled       bool
+	AgentMaxIterations     int
+	AgentTimeoutSeconds    int
+	AgentShortMemoryMsgs   int
+	AgentSummaryEveryTurns int
+	AgentMemoryTopK        int
+	AgentKnowledgeTopK     int
+
 	WorkerMetricsPort string
 }
 
@@ -55,8 +64,9 @@ func Load() Config {
 		OllamaGenModel:   mustEnv("OLLAMA_GEN_MODEL", "llama3.1:8b"),
 		OllamaEmbedModel: mustEnv("OLLAMA_EMBED_MODEL", "nomic-embed-text"),
 
-		QdrantURL:        mustEnv("QDRANT_URL", "http://localhost:6333"),
-		QdrantCollection: mustEnv("QDRANT_COLLECTION", "documents"),
+		QdrantURL:              mustEnv("QDRANT_URL", "http://localhost:6333"),
+		QdrantCollection:       mustEnv("QDRANT_COLLECTION", "documents"),
+		QdrantMemoryCollection: mustEnv("QDRANT_MEMORY_COLLECTION", "conversation_memory"),
 
 		StoragePath: mustEnv("STORAGE_PATH", "./data/storage"),
 
@@ -74,6 +84,13 @@ func Load() Config {
 		OpenAICompatContextMessages:     mustEnvInt("OPENAI_COMPAT_CONTEXT_MESSAGES", 5),
 		OpenAICompatStreamChunkChars:    mustEnvInt("OPENAI_COMPAT_STREAM_CHUNK_CHARS", 120),
 		OpenAICompatToolTriggerKeywords: mustEnv("OPENAI_COMPAT_TOOL_TRIGGER_KEYWORDS", "file,document,upload,attach,документ,файл,загрузи,вложение"),
+		AgentModeEnabled:                mustEnvBool("AGENT_MODE_ENABLED", false),
+		AgentMaxIterations:              mustEnvInt("AGENT_MAX_ITERATIONS", 6),
+		AgentTimeoutSeconds:             mustEnvInt("AGENT_TIMEOUT_SECONDS", 25),
+		AgentShortMemoryMsgs:            mustEnvInt("AGENT_SHORT_MEMORY_MESSAGES", 12),
+		AgentSummaryEveryTurns:          mustEnvInt("AGENT_SUMMARY_EVERY_TURNS", 6),
+		AgentMemoryTopK:                 mustEnvInt("AGENT_MEMORY_TOP_K", 4),
+		AgentKnowledgeTopK:              mustEnvInt("AGENT_KNOWLEDGE_TOP_K", 5),
 
 		WorkerMetricsPort: mustEnv("WORKER_METRICS_PORT", "9090"),
 	}
@@ -97,4 +114,16 @@ func mustEnvInt(key string, fallback int) int {
 		return fallback
 	}
 	return n
+}
+
+func mustEnvBool(key string, fallback bool) bool {
+	v := os.Getenv(key)
+	if v == "" {
+		return fallback
+	}
+	parsed, err := strconv.ParseBool(v)
+	if err != nil {
+		return fallback
+	}
+	return parsed
 }

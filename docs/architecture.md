@@ -188,7 +188,11 @@ sequenceDiagram
     participant UI as OpenWebUI/Client
     participant API as API router
     participant OA as OpenAI-compatible adapter
+    participant Agent as AgentChatUC
     participant Query as QueryUC
+    participant TaskRepo as Task Store (Postgres)
+    participant MemRepo as Memory Store (Postgres)
+    participant MemVDB as Memory Vector (Qdrant)
     participant LLM as Ollama
     participant VDB as Qdrant
 
@@ -202,7 +206,22 @@ sequenceDiagram
     UI->>API: POST /v1/chat/completions
     API->>OA: ChatCompletions(messages, stream, tools)
 
-    alt latest message = role=tool
+    alt agent mode enabled + metadata.user_id provided
+        OA->>Agent: Complete(user_id, conversation_id, messages)
+        Agent->>MemRepo: load recent messages + summaries
+        Agent->>MemVDB: semantic memory search (top-k)
+        loop max_iterations
+            alt knowledge_search tool
+                Agent->>Query: Answer(question)
+            else task_tool
+                Agent->>TaskRepo: create/list/get/update/delete/complete
+            end
+        end
+        Agent->>MemRepo: persist user/tool/assistant messages
+        Agent->>MemRepo: save long-term summary (periodic/session_end)
+        Agent->>MemVDB: index summary vector
+        OA-->>UI: финальный assistant text (JSON или SSE + [DONE])
+    else latest message = role=tool
         OA->>Query: GenerateFromPrompt(tool_output rewrite)
         OA-->>UI: финальный assistant text (JSON или SSE + [DONE])
     else tools заданы и найден trigger keyword
@@ -220,7 +239,7 @@ sequenceDiagram
 
 ### Что показывает
 - Единая картина для `/v1/rag/query` и `/v1/chat/completions`.
-- Ветки `tool_calls` и post-tool внутри OpenAI-compatible чата.
+- Ветки server-side agent loop, legacy `tool_calls` и post-tool внутри OpenAI-compatible чата.
 
 ### Когда использовать
 - Разбор отличий поведения JSON/SSE в chat endpoint.
@@ -229,9 +248,13 @@ sequenceDiagram
 ### Якоря исходного кода
 - `internal/adapters/http/router.go`
 - `internal/adapters/http/openai_chat.go`
+- `internal/adapters/http/openai_agent.go`
 - `internal/adapters/http/openai_sse.go`
 - `internal/adapters/http/openai_tooling.go`
+- `internal/core/usecase/agent_chat.go`
 - `internal/core/usecase/query.go`
+- `internal/infrastructure/repository/postgres/*_repository.go`
+- `internal/infrastructure/vector/qdrant/memory_client.go`
 - `deploy/openwebui/tools/assistant_ingest_and_query.py`
 
 ## 5) State Diagram: Жизненный цикл документа

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/kirillkom/personal-ai-assistant/internal/config"
 	"github.com/kirillkom/personal-ai-assistant/internal/core/domain"
@@ -26,6 +27,7 @@ type App struct {
 	IngestUC  ports.DocumentIngestor
 	ProcessUC ports.DocumentProcessor
 	QueryUC   ports.DocumentQueryService
+	AgentUC   ports.AgentChatService
 
 	closeFn func()
 }
@@ -39,6 +41,9 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 	if err := repo.EnsureSchema(ctx); err != nil {
 		return nil, fmt.Errorf("ensure schema: %w", err)
 	}
+	conversationRepo := postgres.NewConversationRepository(db)
+	taskRepo := postgres.NewTaskRepository(db)
+	memoryRepo := postgres.NewMemoryRepository(db)
 
 	storage, err := localfs.New(cfg.StoragePath)
 	if err != nil {
@@ -56,6 +61,7 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 	generator := ollama.NewGenerator(ollamaClient)
 
 	vectorDB := qdrant.New(cfg.QdrantURL, cfg.QdrantCollection)
+	memoryVector := qdrant.NewMemoryClient(cfg.QdrantURL, cfg.QdrantMemoryCollection)
 	chunker := chunking.NewSplitter(cfg.ChunkSize, cfg.ChunkOverlap)
 	extractor := plaintext.NewExtractor(storage)
 
@@ -73,6 +79,22 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		FusionRRFK:       cfg.RAGFusionRRFK,
 		RerankTopN:       cfg.RAGRerankTopN,
 	})
+	agentUC := usecase.NewAgentChatUseCase(
+		queryUC,
+		embedder,
+		conversationRepo,
+		taskRepo,
+		memoryRepo,
+		memoryVector,
+		domain.AgentLimits{
+			MaxIterations:       cfg.AgentMaxIterations,
+			Timeout:             time.Duration(cfg.AgentTimeoutSeconds) * time.Second,
+			ShortMemoryMessages: cfg.AgentShortMemoryMsgs,
+			SummaryEveryTurns:   cfg.AgentSummaryEveryTurns,
+			MemoryTopK:          cfg.AgentMemoryTopK,
+			KnowledgeTopK:       cfg.AgentKnowledgeTopK,
+		},
+	)
 
 	return &App{
 		Config: cfg,
@@ -82,6 +104,7 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		IngestUC:  ingestUC,
 		ProcessUC: processUC,
 		QueryUC:   queryUC,
+		AgentUC:   agentUC,
 
 		closeFn: func() {
 			queue.Close()

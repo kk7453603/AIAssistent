@@ -15,7 +15,7 @@
 - [x] Добавлены базовые продуктовые метрики и тех. observability (latency/error/token usage, queue lag).
 - [x] Добавлен evaluation-framework для retrieval quality (`scripts/eval`, `make eval`).
 - [ ] Retrieval пока semantic-only (без hybrid BM25 + rerank).
-- [ ] Нет agent loop (итеративный tool-use) и долгосрочной памяти диалогов.
+- [x] Добавлен agent loop (итеративный tool-use) и долгосрочная память диалогов.
 
 ## Приоритизация
 - `P0` (критично): observability + evaluation + agent skeleton.
@@ -48,13 +48,13 @@ Definition of Done:
 - Режим retrieval переключается без изменения бизнес-логики adapter слоя.
 
 ### Этап 3 (Недели 5-6): Agent Loop + Memory
-- [ ] Добавить доменную модель агента (итерации, лимиты, план шагов).
-- [ ] Реализовать минимум 2 инструмента:
-  - [ ] `KnowledgeSearchTool` (текущий RAG).
-  - [ ] `TaskTool` (простые create/list задачи для персональной памяти).
-- [ ] Ввести short-term memory (последние N сообщений) + long-term summaries в vector store.
-- [ ] Добавить сохранение и retrieval past conversations по semantic search.
-- [ ] Добавить guardrails: max iterations, timeout, safe tool error handling.
+- [x] Добавить доменную модель агента (итерации, лимиты, план шагов).
+- [x] Реализовать минимум 2 инструмента:
+  - [x] `KnowledgeSearchTool` (текущий RAG).
+  - [x] `TaskTool` (full CRUD + delete задачи для персональной памяти).
+- [x] Ввести short-term memory (последние N сообщений) + long-term summaries в vector store.
+- [x] Добавить сохранение и retrieval past conversations по semantic search.
+- [x] Добавить guardrails: max iterations, timeout, safe tool error handling.
 
 Definition of Done:
 - Агент может сделать multi-step сценарий (поиск -> уточнение -> финальный ответ).

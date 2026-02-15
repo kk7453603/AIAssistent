@@ -60,3 +60,34 @@ type AnswerGenerator interface {
 	GenerateAnswer(ctx context.Context, question string, chunks []domain.RetrievedChunk) (string, error)
 	GenerateFromPrompt(ctx context.Context, prompt string) (string, error)
 }
+
+// ConversationStore persists conversation state and messages.
+type ConversationStore interface {
+	EnsureConversation(ctx context.Context, userID, conversationID string) (*domain.Conversation, error)
+	NextUserTurn(ctx context.Context, userID, conversationID string) (int, error)
+	AppendMessage(ctx context.Context, message domain.ConversationMessage) error
+	ListRecentMessages(ctx context.Context, userID, conversationID string, limit int) ([]domain.ConversationMessage, error)
+	ListMessagesByTurnRange(ctx context.Context, userID, conversationID string, turnFrom, turnTo int) ([]domain.ConversationMessage, error)
+	UpdateLastSummaryEndTurn(ctx context.Context, userID, conversationID string, turn int) error
+}
+
+// TaskStore persists and retrieves user tasks.
+type TaskStore interface {
+	CreateTask(ctx context.Context, task *domain.Task) error
+	ListTasks(ctx context.Context, userID string, includeDeleted bool) ([]domain.Task, error)
+	GetTaskByID(ctx context.Context, userID, taskID string) (*domain.Task, error)
+	UpdateTask(ctx context.Context, task *domain.Task) error
+	SoftDeleteTask(ctx context.Context, userID, taskID string) error
+}
+
+// MemoryStore persists memory summaries.
+type MemoryStore interface {
+	CreateSummary(ctx context.Context, summary *domain.MemorySummary) error
+	GetLastSummaryEndTurn(ctx context.Context, userID, conversationID string) (int, error)
+}
+
+// MemoryVectorStore indexes and searches memory summaries semantically.
+type MemoryVectorStore interface {
+	IndexSummary(ctx context.Context, summary domain.MemorySummary, vector []float32) error
+	SearchSummaries(ctx context.Context, userID, conversationID string, queryVector []float32, limit int) ([]domain.MemoryHit, error)
+}

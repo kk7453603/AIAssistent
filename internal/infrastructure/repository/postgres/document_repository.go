@@ -69,6 +69,60 @@ CREATE TABLE IF NOT EXISTS documents (
 
 CREATE INDEX IF NOT EXISTS idx_documents_status ON documents(status);
 CREATE INDEX IF NOT EXISTS idx_documents_created_at ON documents(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS conversations (
+	user_id TEXT NOT NULL,
+	conversation_id TEXT NOT NULL,
+	current_user_turn INTEGER NOT NULL DEFAULT 0,
+	last_summary_end_turn INTEGER NOT NULL DEFAULT 0,
+	created_at TIMESTAMPTZ NOT NULL,
+	updated_at TIMESTAMPTZ NOT NULL,
+	PRIMARY KEY (user_id, conversation_id)
+);
+
+CREATE TABLE IF NOT EXISTS conversation_messages (
+	id TEXT PRIMARY KEY,
+	user_id TEXT NOT NULL,
+	conversation_id TEXT NOT NULL,
+	role TEXT NOT NULL,
+	content TEXT NOT NULL,
+	tool_name TEXT,
+	user_turn INTEGER NOT NULL,
+	created_at TIMESTAMPTZ NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_conversation_messages_user_conv_created
+	ON conversation_messages(user_id, conversation_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_conversation_messages_user_conv_turn
+	ON conversation_messages(user_id, conversation_id, user_turn, created_at ASC);
+
+CREATE TABLE IF NOT EXISTS tasks (
+	id TEXT PRIMARY KEY,
+	user_id TEXT NOT NULL,
+	title TEXT NOT NULL,
+	details TEXT NOT NULL DEFAULT '',
+	status TEXT NOT NULL,
+	due_at TIMESTAMPTZ,
+	created_at TIMESTAMPTZ NOT NULL,
+	updated_at TIMESTAMPTZ NOT NULL,
+	deleted_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_tasks_user_status_deleted_updated
+	ON tasks(user_id, status, deleted_at, updated_at DESC);
+
+CREATE TABLE IF NOT EXISTS memory_summaries (
+	id TEXT PRIMARY KEY,
+	user_id TEXT NOT NULL,
+	conversation_id TEXT NOT NULL,
+	turn_from INTEGER NOT NULL,
+	turn_to INTEGER NOT NULL,
+	summary TEXT NOT NULL,
+	created_at TIMESTAMPTZ NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_memory_summaries_user_conv_created
+	ON memory_summaries(user_id, conversation_id, created_at DESC);
 `
 	if _, err := tx.ExecContext(ctx, query); err != nil {
 		return fmt.Errorf("execute schema ddl: %w", err)

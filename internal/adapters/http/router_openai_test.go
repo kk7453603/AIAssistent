@@ -76,9 +76,36 @@ func (f fakeAnswerGenerator) GenerateFromPrompt(context.Context, string) (string
 	return "post processed answer", nil
 }
 
+type fakeAgentService struct {
+	result *domain.AgentRunResult
+	err    error
+	called bool
+}
+
+func (f *fakeAgentService) Complete(context.Context, domain.AgentChatRequest) (*domain.AgentRunResult, error) {
+	f.called = true
+	if f.err != nil {
+		return nil, f.err
+	}
+	if f.result != nil {
+		return f.result, nil
+	}
+	return &domain.AgentRunResult{
+		ConversationID: "conv-1",
+		Answer:         "agent answer",
+		Iterations:     2,
+		MemoryHits:     1,
+		ToolsInvoked:   []string{"knowledge_search"},
+	}, nil
+}
+
 func newTestHandler(cfg config.Config) http.Handler {
+	return newTestHandlerWithAgent(cfg, nil)
+}
+
+func newTestHandlerWithAgent(cfg config.Config, agentSvc *fakeAgentService) http.Handler {
 	queryUC := usecase.NewQueryUseCase(fakeEmbedder{}, fakeVectorStore{}, fakeAnswerGenerator{}, usecase.QueryOptions{})
-	router := NewRouter(cfg, nil, queryUC, fakeDocumentRepo{})
+	router := NewRouter(cfg, nil, queryUC, fakeDocumentRepo{}, agentSvc)
 	return router.Handler()
 }
 
@@ -283,5 +310,88 @@ func TestChatCompletionsPostToolProcessing(t *testing.T) {
 	}
 	if content != "post processed answer" {
 		t.Fatalf("expected post processed answer, got %s", content)
+	}
+}
+
+func TestChatCompletionsAgentModeWithMetadata(t *testing.T) {
+	agent := &fakeAgentService{
+		result: &domain.AgentRunResult{
+			ConversationID: "conv-agent-1",
+			Answer:         "agent final answer",
+			Iterations:     3,
+			MemoryHits:     2,
+			ToolsInvoked:   []string{"knowledge_search", "task_tool"},
+		},
+	}
+	handler := newTestHandlerWithAgent(config.Config{
+		OpenAICompatModelID: "paa-rag-v1",
+		AgentModeEnabled:    true,
+		RAGTopK:             5,
+	}, agent)
+
+	payload := map[string]interface{}{
+		"model": "paa-rag-v1",
+		"messages": []map[string]interface{}{
+			{"role": "user", "content": "remember my tasks"},
+		},
+		"metadata": map[string]interface{}{
+			"user_id":         "u-1",
+			"conversation_id": "conv-agent-1",
+		},
+	}
+	body, _ := json.Marshal(payload)
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	res := httptest.NewRecorder()
+	handler.ServeHTTP(res, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", res.Code)
+	}
+	if !agent.called {
+		t.Fatalf("expected agent service to be called")
+	}
+
+	var chatResp apigen.ChatCompletionResponse
+	if err := json.NewDecoder(res.Body).Decode(&chatResp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	content, ok := (*chatResp.Choices[0].Message.Content).(string)
+	if !ok || content != "agent final answer" {
+		t.Fatalf("unexpected assistant content: %#v", chatResp.Choices[0].Message.Content)
+	}
+	if chatResp.Debug == nil || chatResp.Debug.AgentEnabled == nil || !*chatResp.Debug.AgentEnabled {
+		t.Fatalf("expected debug.agent_enabled=true, got %#v", chatResp.Debug)
+	}
+}
+
+func TestChatCompletionsAgentModeFallsBackWithoutUserID(t *testing.T) {
+	agent := &fakeAgentService{}
+	handler := newTestHandlerWithAgent(config.Config{
+		OpenAICompatModelID: "paa-rag-v1",
+		AgentModeEnabled:    true,
+		RAGTopK:             5,
+	}, agent)
+
+	payload := map[string]interface{}{
+		"model": "paa-rag-v1",
+		"messages": []map[string]interface{}{
+			{"role": "user", "content": "tell me about this document"},
+		},
+		"metadata": map[string]interface{}{
+			"conversation_id": "conv-missing-user",
+		},
+	}
+	body, _ := json.Marshal(payload)
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	res := httptest.NewRecorder()
+	handler.ServeHTTP(res, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", res.Code)
+	}
+	if agent.called {
+		t.Fatalf("did not expect agent call without metadata.user_id")
 	}
 }

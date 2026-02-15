@@ -6,6 +6,7 @@ MVP-сервис для:
 - индексации чанков в Qdrant;
 - использования контекста в RAG-запросах;
 - OpenAI-compatible чата в OpenWebUI.
+- server-side agent loop с memory/tool orchestration (feature-flag).
 
 ## Стек
 - Go (`api` + `worker`)
@@ -95,6 +96,24 @@ curl -X POST http://localhost:8080/v1/chat/completions \
     "messages": [
       {"role": "user", "content": "О чем документ?"}
     ]
+  }'
+```
+
+Пример agent-mode (server-side memory + tools):
+```bash
+curl -X POST http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer ${OPENAI_COMPAT_API_KEY}" \
+  -d '{
+    "model": "paa-rag-v1",
+    "messages": [
+      {"role": "user", "content": "Добавь задачу купить молоко и напомни завтра"}
+    ],
+    "metadata": {
+      "user_id": "demo-user-1",
+      "conversation_id": "weekly-planning",
+      "session_end": false
+    }
   }'
 ```
 
@@ -235,6 +254,7 @@ scripts/rag/generate_test_data.sh \
 - `OLLAMA_EMBED_MODEL`
 - `QDRANT_URL`
 - `QDRANT_COLLECTION`
+- `QDRANT_MEMORY_COLLECTION`
 - `STORAGE_PATH`
 - `CHUNK_SIZE`
 - `CHUNK_OVERLAP`
@@ -252,6 +272,13 @@ scripts/rag/generate_test_data.sh \
 - `OPENAI_COMPAT_CONTEXT_MESSAGES` (по умолчанию: `5`)
 - `OPENAI_COMPAT_STREAM_CHUNK_CHARS` (по умолчанию: `120`)
 - `OPENAI_COMPAT_TOOL_TRIGGER_KEYWORDS` (CSV-список триггер-слов для ветки `tool_calls`)
+- `AGENT_MODE_ENABLED` (по умолчанию: `false`)
+- `AGENT_MAX_ITERATIONS` (по умолчанию: `6`)
+- `AGENT_TIMEOUT_SECONDS` (по умолчанию: `25`)
+- `AGENT_SHORT_MEMORY_MESSAGES` (по умолчанию: `12`)
+- `AGENT_SUMMARY_EVERY_TURNS` (по умолчанию: `6`)
+- `AGENT_MEMORY_TOP_K` (по умолчанию: `4`)
+- `AGENT_KNOWLEDGE_TOP_K` (по умолчанию: `5`)
 
 ### Инициализация OpenWebUI
 - `OPENWEBUI_ADMIN_EMAIL`
@@ -280,6 +307,7 @@ scripts/rag/generate_test_data.sh \
 - OpenAI-compatible слой разнесен по ответственности:
   - auth: `internal/adapters/http/openai_auth.go`
   - orchestration: `internal/adapters/http/openai_chat.go`
+  - agent orchestration: `internal/adapters/http/openai_agent.go`
   - tool branch: `internal/adapters/http/openai_tooling.go`
   - SSE: `internal/adapters/http/openai_sse.go`
   - parsing/helpers: `internal/adapters/http/openai_message_parsing.go`, `internal/adapters/http/openai_response.go`
