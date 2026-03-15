@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-15T23:13:06Z",
+  "generated_at": "2026-03-15T23:27:08Z",
   "api_url": "http://localhost:8080",
   "cases_file": "./tmp/advanced-retrieval-w02/retrieval_cases.jsonl",
   "top_k": 5,
@@ -707,7 +707,7 @@
         "doc_0020_ops_eu-north.txt",
         "doc_0015_hr_eu-north.txt",
         "doc_0007_ops_eu-central.txt",
-        "doc_0006_finance_eu-north.txt"
+        "doc_0002_ops_eu-central.txt"
       ],
       "relevant_count": 1,
       "reciprocal_rank": 0.5,

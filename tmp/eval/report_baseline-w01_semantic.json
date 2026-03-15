@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-15T23:09:37Z",
+  "generated_at": "2026-03-15T23:20:39Z",
   "api_url": "http://localhost:8080",
   "cases_file": "./tmp/baseline-w01/retrieval_cases.jsonl",
   "top_k": 5,

@@ -1,0 +1,15 @@
+{"question": "Which documents relate to product Orion in US West region?", "expected_filenames": ["doc_0001_sales_us-west.txt", "doc_0004_finance_us-west.txt"], "id": "HARD0001"}
+{"question": "In US West, which document has the highest revenue?", "expected_filenames": ["doc_0004_finance_us-west.txt"], "id": "HARD0002"}
+{"question": "In AP South, which document has the highest revenue?", "expected_filenames": ["doc_0002_finance_ap-south.txt"], "id": "HARD0003"}
+{"question": "In EU North, which document has the highest revenue?", "expected_filenames": ["doc_0003_compliance_eu-north.txt"], "id": "HARD0004"}
+{"question": "In US East, which document has the highest revenue?", "expected_filenames": ["doc_0005_hr_us-east.txt"], "id": "HARD0005"}
+{"question": "Which document shows the lowest SLA in sales?", "expected_filenames": ["doc_0001_sales_us-west.txt"], "id": "HARD0006"}
+{"question": "Which document shows the lowest SLA in finance?", "expected_filenames": ["doc_0002_finance_ap-south.txt"], "id": "HARD0007"}
+{"question": "Which document shows the lowest SLA in compliance?", "expected_filenames": ["doc_0006_compliance_us-west.txt"], "id": "HARD0008"}
+{"question": "Which document shows the lowest SLA in hr?", "expected_filenames": ["doc_0005_hr_us-east.txt"], "id": "HARD0009"}
+{"question": "Need the report for Helios Media Group / Orion in US West (2023-Q4).", "expected_filenames": ["doc_0004_finance_us-west.txt"], "id": "HARD0010"}
+{"question": "Need the report for Blue Delta Logistics / Zenith in AP South (2024-Q1).", "expected_filenames": ["doc_0002_finance_ap-south.txt"], "id": "HARD0011"}
+{"question": "Need the report for Nova Security Systems / Orion in EU North (2024-Q3).", "expected_filenames": ["doc_0003_compliance_eu-north.txt"], "id": "HARD0012"}
+{"question": "Need the report for Apex Bio Labs / Quasar in US East (2025-Q2).", "expected_filenames": ["doc_0005_hr_us-east.txt"], "id": "HARD0013"}
+{"question": "Need the report for Apex Bio Labs / Orion in US West (2023-Q3).", "expected_filenames": ["doc_0001_sales_us-west.txt"], "id": "HARD0014"}
+{"question": "Need the report for Helios Media Group / Atlas in US West (2025-Q3).", "expected_filenames": ["doc_0006_compliance_us-west.txt"], "id": "HARD0015"}

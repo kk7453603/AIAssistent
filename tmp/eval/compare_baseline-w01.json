@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-15T23:10:19Z",
+  "generated_at": "2026-03-15T23:22:36Z",
   "reports": {
     "semantic": "./tmp/eval/report_baseline-w01_semantic.json",
     "hybrid": "./tmp/eval/report_baseline-w01_hybrid.json",
@@ -14,7 +14,7 @@
     "hybrid": {
       "precision_at_k": 0.20000000,
       "recall_at_k": 1.00000000,
-      "mrr_at_k": 0.92083333
+      "mrr_at_k": 0.93333333
     },
     "hybrid_rerank": {
       "precision_at_k": 0.20000000,
@@ -26,7 +26,7 @@
     "hybrid": {
       "precision_at_k": 0E-8,
       "recall_at_k": 0E-8,
-      "mrr_at_k": 0.07208333
+      "mrr_at_k": 0.08458333
     },
     "hybrid_rerank": {
       "precision_at_k": 0E-8,

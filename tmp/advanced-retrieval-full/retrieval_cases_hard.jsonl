@@ -1,0 +1,32 @@
+{"question": "Which documents relate to product Pulse in US West region?", "expected_filenames": ["doc_0004_compliance_us-west.txt", "doc_0005_risk_us-west.txt"], "id": "HARD0001"}
+{"question": "Which documents relate to product Atlas in EU North region?", "expected_filenames": ["doc_0002_compliance_eu-north.txt", "doc_0008_finance_eu-north.txt"], "id": "HARD0002"}
+{"question": "Which documents relate to product Quasar in Latam region?", "expected_filenames": ["doc_0006_ops_latam.txt", "doc_0007_ops_latam.txt"], "id": "HARD0003"}
+{"question": "Find documents with incident renewal-risk and risk high.", "expected_filenames": ["doc_0005_risk_us-west.txt", "doc_0010_sales_latam.txt"], "id": "HARD0004"}
+{"question": "Find documents with incident renewal-risk and risk critical.", "expected_filenames": ["doc_0002_compliance_eu-north.txt", "doc_0014_ops_eu-north.txt"], "id": "HARD0005"}
+{"question": "List documents for risk in US West.", "expected_filenames": ["doc_0003_risk_us-west.txt", "doc_0005_risk_us-west.txt"], "id": "HARD0006"}
+{"question": "List documents for ops in Latam.", "expected_filenames": ["doc_0006_ops_latam.txt", "doc_0007_ops_latam.txt"], "id": "HARD0007"}
+{"question": "In US East, which document has the highest revenue?", "expected_filenames": ["doc_0013_ops_us-east.txt"], "id": "HARD0008"}
+{"question": "In EU North, which document has the highest revenue?", "expected_filenames": ["doc_0008_finance_eu-north.txt"], "id": "HARD0009"}
+{"question": "In US West, which document has the highest revenue?", "expected_filenames": ["doc_0009_ops_us-west.txt"], "id": "HARD0010"}
+{"question": "In Latam, which document has the highest revenue?", "expected_filenames": ["doc_0010_sales_latam.txt"], "id": "HARD0011"}
+{"question": "In AP South, which document has the highest revenue?", "expected_filenames": ["doc_0012_support_ap-south.txt"], "id": "HARD0012"}
+{"question": "Which document shows the lowest SLA in engineering?", "expected_filenames": ["doc_0011_engineering_latam.txt"], "id": "HARD0013"}
+{"question": "Which document shows the lowest SLA in compliance?", "expected_filenames": ["doc_0002_compliance_eu-north.txt"], "id": "HARD0014"}
+{"question": "Which document shows the lowest SLA in risk?", "expected_filenames": ["doc_0005_risk_us-west.txt"], "id": "HARD0015"}
+{"question": "Which document shows the lowest SLA in ops?", "expected_filenames": ["doc_0007_ops_latam.txt"], "id": "HARD0016"}
+{"question": "Which document shows the lowest SLA in finance?", "expected_filenames": ["doc_0008_finance_eu-north.txt"], "id": "HARD0017"}
+{"question": "Which document shows the lowest SLA in sales?", "expected_filenames": ["doc_0010_sales_latam.txt"], "id": "HARD0018"}
+{"question": "Which document shows the lowest SLA in support?", "expected_filenames": ["doc_0012_support_ap-south.txt"], "id": "HARD0019"}
+{"question": "Which document shows the lowest SLA in hr?", "expected_filenames": ["doc_0015_hr_us-west.txt"], "id": "HARD0020"}
+{"question": "Need the report for Granite Finance Hub / Cobalt in EU North (2024-Q1).", "expected_filenames": ["doc_0014_ops_eu-north.txt"], "id": "HARD0021"}
+{"question": "Need the report for Blue Delta Logistics / Nimbus in US East (2024-Q1).", "expected_filenames": ["doc_0013_ops_us-east.txt"], "id": "HARD0022"}
+{"question": "Need the report for Helios Media Group / Pulse in US West (2025-Q2).", "expected_filenames": ["doc_0005_risk_us-west.txt"], "id": "HARD0023"}
+{"question": "Need the report for Arctic Mobility / Nimbus in Latam (2024-Q3).", "expected_filenames": ["doc_0010_sales_latam.txt"], "id": "HARD0024"}
+{"question": "Need the report for Vertex Retail / Quasar in Latam (2025-Q3).", "expected_filenames": ["doc_0006_ops_latam.txt"], "id": "HARD0025"}
+{"question": "Need the report for Apex Bio Labs / Atlas in EU North (2024-Q4).", "expected_filenames": ["doc_0008_finance_eu-north.txt"], "id": "HARD0026"}
+{"question": "Need the report for Arctic Mobility / Quasar in US East (2023-Q3).", "expected_filenames": ["doc_0001_engineering_us-east.txt"], "id": "HARD0027"}
+{"question": "Need the report for Helios Media Group / Quasar in Latam (2025-Q2).", "expected_filenames": ["doc_0007_ops_latam.txt"], "id": "HARD0028"}
+{"question": "Need the report for Nova Security Systems / Pulse in Latam (2024-Q2).", "expected_filenames": ["doc_0011_engineering_latam.txt"], "id": "HARD0029"}
+{"question": "Need the report for Northstar Analytics / Sierra in US West (2025-Q1).", "expected_filenames": ["doc_0009_ops_us-west.txt"], "id": "HARD0030"}
+{"question": "Need the report for Blue Delta Logistics / Atlas in EU North (2024-Q1).", "expected_filenames": ["doc_0002_compliance_eu-north.txt"], "id": "HARD0031"}
+{"question": "Need the report for Granite Finance Hub / Quasar in AP South (2024-Q4).", "expected_filenames": ["doc_0012_support_ap-south.txt"], "id": "HARD0032"}

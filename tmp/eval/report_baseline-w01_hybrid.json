@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-15T23:09:59Z",
+  "generated_at": "2026-03-15T23:21:23Z",
   "api_url": "http://localhost:8080",
   "cases_file": "./tmp/baseline-w01/retrieval_cases.jsonl",
   "top_k": 5,
@@ -9,7 +9,7 @@
     "evaluated_cases": 40,
     "precision_at_k": 0.20000000,
     "recall_at_k": 1.00000000,
-    "mrr_at_k": 0.92083333
+    "mrr_at_k": 0.93333333
   },
   "cases": [
     {
@@ -113,7 +113,7 @@
         "doc_0011_engineering_us-east.txt",
         "doc_0012_hr_eu-central.txt",
         "doc_0004_hr_latam.txt",
-        "doc_0016_finance_us-west.txt"
+        "doc_0014_hr_latam.txt"
       ],
       "relevant_count": 1,
       "reciprocal_rank": 1,
@@ -523,14 +523,14 @@
         "doc_0015_engineering_eu-central.txt"
       ],
       "actual_filenames": [
-        "doc_0005_risk_eu-central.txt",
         "doc_0015_engineering_eu-central.txt",
+        "doc_0005_risk_eu-central.txt",
         "doc_0018_sales_eu-central.txt",
         "doc_0012_hr_eu-central.txt",
         "doc_0001_sales_eu-central.txt"
       ],
       "relevant_count": 1,
-      "reciprocal_rank": 0.5,
+      "reciprocal_rank": 1,
       "precision_at_k": 0.20000000,
       "recall_at_k": 1.00000000
     },
@@ -578,8 +578,8 @@
       ],
       "actual_filenames": [
         "doc_0016_finance_us-west.txt",
-        "doc_0020_ops_us-west.txt",
         "doc_0002_finance_latam.txt",
+        "doc_0020_ops_us-west.txt",
         "doc_0011_engineering_us-east.txt",
         "doc_0009_engineering_us-west.txt"
       ],

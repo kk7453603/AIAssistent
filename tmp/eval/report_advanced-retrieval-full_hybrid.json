@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-15T23:14:24Z",
+  "generated_at": "2026-03-15T23:29:14Z",
   "api_url": "http://localhost:8080",
   "cases_file": "./tmp/advanced-retrieval-full/retrieval_cases.jsonl",
   "top_k": 5,
@@ -58,8 +58,8 @@
         "doc_0002_compliance_eu-north.txt",
         "doc_0014_ops_eu-north.txt",
         "doc_0008_finance_eu-north.txt",
-        "doc_0003_risk_us-west.txt",
-        "doc_0004_compliance_us-west.txt"
+        "doc_0004_compliance_us-west.txt",
+        "doc_0003_risk_us-west.txt"
       ],
       "relevant_count": 1,
       "reciprocal_rank": 1,
@@ -112,8 +112,8 @@
         "doc_0003_risk_us-west.txt",
         "doc_0005_risk_us-west.txt",
         "doc_0015_hr_us-west.txt",
-        "doc_0009_ops_us-west.txt",
-        "doc_0004_compliance_us-west.txt"
+        "doc_0004_compliance_us-west.txt",
+        "doc_0009_ops_us-west.txt"
       ],
       "relevant_count": 1,
       "reciprocal_rank": 1,
@@ -436,8 +436,8 @@
         "doc_0012_support_ap-south.txt",
         "doc_0008_finance_eu-north.txt",
         "doc_0013_ops_us-east.txt",
-        "doc_0015_hr_us-west.txt",
-        "doc_0004_compliance_us-west.txt"
+        "doc_0004_compliance_us-west.txt",
+        "doc_0015_hr_us-west.txt"
       ],
       "relevant_count": 1,
       "reciprocal_rank": 1,

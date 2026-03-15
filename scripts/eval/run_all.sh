@@ -16,11 +16,14 @@ RAG_RERANK_TOP_N="${RAG_RERANK_TOP_N:-12}"
 WARMUP_MODEL="${WARMUP_MODEL:-llama3.2:1b}"
 OLLAMA_PROXY_URL="${OLLAMA_PROXY_URL:-http://localhost:11435}"
 UPLOAD_RETRIES="${UPLOAD_RETRIES:-2}"
+HARD_CASES="${HARD_CASES:-0}"
 PRESERVE_ENV="${PRESERVE_ENV:-0}"
 
 COMPOSE_FILES=(-f docker-compose.yml -f docker-compose.host-gpu.yml)
 SUMMARY_CSV="${REPORT_DIR}/summary_all.csv"
 COMPARE_CSV="${REPORT_DIR}/summary_compare.csv"
+SUMMARY_HARD_CSV="${REPORT_DIR}/summary_hard.csv"
+COMPARE_HARD_CSV="${REPORT_DIR}/summary_compare_hard.csv"
 
 require_cmd() {
   if ! command -v "$1" >/dev/null 2>&1; then
@@ -150,6 +153,10 @@ require_cmd docker
 mkdir -p "$REPORT_DIR"
 echo "dataset,mode,precision_at_k,recall_at_k,mrr_at_k,total_cases,failed_cases" > "$SUMMARY_CSV"
 echo "dataset,semantic_mrr,hybrid_mrr,hybrid_rerank_mrr,hybrid_mrr_delta,hybrid_rerank_mrr_delta" > "$COMPARE_CSV"
+if [[ "$HARD_CASES" == "1" ]]; then
+  echo "dataset,mode,precision_at_k,recall_at_k,mrr_at_k,total_cases,failed_cases" > "$SUMMARY_HARD_CSV"
+  echo "dataset,semantic_mrr,hybrid_mrr,hybrid_rerank_mrr,hybrid_mrr_delta,hybrid_rerank_mrr_delta" > "$COMPARE_HARD_CSV"
+fi
 
 if [[ "$PRESERVE_ENV" != "1" && -f "$ENV_FILE" ]]; then
   cp "$ENV_FILE" "${ENV_FILE}.eval.bak"
@@ -159,6 +166,7 @@ fi
 for dataset in "${DATASETS[@]}"; do
   dataset_dir="${ROOT_DIR}/${dataset}"
   cases_file="${dataset_dir}/retrieval_cases.jsonl"
+  hard_cases_file="${dataset_dir}/retrieval_cases_hard.jsonl"
   upload_log="${REPORT_DIR}/upload_${dataset}.csv"
 
   if [[ ! -d "$dataset_dir/documents" || ! -f "$cases_file" ]]; then
@@ -167,6 +175,11 @@ for dataset in "${DATASETS[@]}"; do
   fi
   if [[ ! -s "$cases_file" && -f "$dataset_dir/manifest.csv" ]]; then
     scripts/eval/generate_cases_from_manifest.sh --manifest "$dataset_dir/manifest.csv" --out "$cases_file"
+  fi
+  if [[ "$HARD_CASES" == "1" && -f "$dataset_dir/manifest.csv" ]]; then
+    if [[ ! -s "$hard_cases_file" ]]; then
+      scripts/eval/generate_hard_cases_from_manifest.sh --manifest "$dataset_dir/manifest.csv" --out "$hard_cases_file"
+    fi
   fi
 
   apply_rag_params
@@ -183,6 +196,13 @@ for dataset in "${DATASETS[@]}"; do
     jq -r --arg ds "$dataset" --arg md "$mode" \
       '[ $ds, $md, .summary.precision_at_k, .summary.recall_at_k, .summary.mrr_at_k, .summary.total_cases, .summary.failed_cases ] | @csv' \
       "$report_file" >> "$SUMMARY_CSV"
+    if [[ "$HARD_CASES" == "1" && -s "$hard_cases_file" ]]; then
+      hard_report_file="${REPORT_DIR}/report_${dataset}_${mode_key}_hard.json"
+      EVAL_K="$EVAL_K" EVAL_CASES="$hard_cases_file" EVAL_REPORT="$hard_report_file" make eval
+      jq -r --arg ds "$dataset" --arg md "$mode" \
+        '[ $ds, $md, .summary.precision_at_k, .summary.recall_at_k, .summary.mrr_at_k, .summary.total_cases, .summary.failed_cases ] | @csv' \
+        "$hard_report_file" >> "$SUMMARY_HARD_CSV"
+    fi
   done
 
   if has_mode "semantic" && has_mode "hybrid" && has_mode "hybrid+rerank"; then
@@ -203,8 +223,31 @@ for dataset in "${DATASETS[@]}"; do
          .deltas_vs_semantic.hybrid.mrr_at_k,
          .deltas_vs_semantic.hybrid_rerank.mrr_at_k ] | @csv' \
       "$compare_file" >> "$COMPARE_CSV"
+    if [[ "$HARD_CASES" == "1" && -s "$hard_cases_file" ]]; then
+      semantic_report="${REPORT_DIR}/report_${dataset}_semantic_hard.json"
+      hybrid_report="${REPORT_DIR}/report_${dataset}_hybrid_hard.json"
+      hybrid_rerank_report="${REPORT_DIR}/report_${dataset}_hybrid_rerank_hard.json"
+      compare_file="${REPORT_DIR}/compare_${dataset}_hard.json"
+      scripts/eval/compare_modes.sh \
+        --semantic "$semantic_report" \
+        --hybrid "$hybrid_report" \
+        --hybrid-rerank "$hybrid_rerank_report" \
+        --out "$compare_file" >/dev/null
+      jq -r --arg ds "$dataset" \
+        '[ $ds,
+           .metrics.semantic.mrr_at_k,
+           .metrics.hybrid.mrr_at_k,
+           .metrics.hybrid_rerank.mrr_at_k,
+           .deltas_vs_semantic.hybrid.mrr_at_k,
+           .deltas_vs_semantic.hybrid_rerank.mrr_at_k ] | @csv' \
+        "$compare_file" >> "$COMPARE_HARD_CSV"
+    fi
   fi
 done
 
 echo "Summary saved to: $SUMMARY_CSV"
 echo "Mode comparison summary saved to: $COMPARE_CSV"
+if [[ "$HARD_CASES" == "1" ]]; then
+  echo "Hard-case summary saved to: $SUMMARY_HARD_CSV"
+  echo "Hard-case mode comparison summary saved to: $COMPARE_HARD_CSV"
+fi

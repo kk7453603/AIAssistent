@@ -14,8 +14,10 @@
 ## Подтвержденные gap'ы (по коду)
 - [x] Добавлены базовые продуктовые метрики и тех. observability (latency/error/token usage, queue lag).
 - [x] Добавлен evaluation-framework для retrieval quality (`scripts/eval`, `make eval`).
-- [ ] Retrieval пока semantic-only (без hybrid BM25 + rerank).
+- [x] Retrieval не semantic-only: hybrid + rerank доступны через конфиг.
 - [x] Добавлен agent loop (итеративный tool-use) и долгосрочная память диалогов.
+- [ ] Ingest нестабилен из-за LLM-классификации (ошибки JSON ломают обработку).
+- [ ] Reranker недостаточно устойчив к RU (ASCII-токенизация).
 
 ## Приоритизация
 - `P0` (критично): observability + evaluation + agent skeleton.
@@ -46,6 +48,25 @@ Definition of Done:
 Definition of Done:
 - На eval-наборе `hybrid+rerank` улучшает `MRR`/`precision@k` против semantic-only. (подтверждено на smoke-наборе; полный прогон 30-50 кейсов запланирован отдельно)
 - Режим retrieval переключается без изменения бизнес-логики adapter слоя.
+
+### Этап 2.5 (Недели 4-5): Stabilize Ingest + Multilingual Rerank
+- [ ] Убрать LLM-классификацию из ingest: перейти на детерминированное извлечение метаданных (frontmatter/путь/файл) и сделать классификацию best-effort/async.
+- [ ] Унифицировать токенизацию для reranker и sparse: Unicode-aware токены (RU/EN), общий helper.
+- [ ] Расширить метаданные документа: `source_type`, `source_id`, `path`, `tags`, `headers`, `created_at`, `updated_at`.
+- [ ] Ввести `SourceAdapter`/`Ingestor` интерфейс под будущие источники (Obsidian, веб, файлы, базы знаний).
+
+Definition of Done:
+- Ingest не падает из-за LLM-ответов; все документы проходят векторизацию.
+- Rerank адекватно работает на RU/EN (подтверждено на hard-case eval).
+- Метаданные унифицированы и пригодны для multi-source фильтров.
+
+### Этап 2.6 (Недели 5-6): Multi-Source Ready RAG
+- [ ] Единый контракт на метаданные и схему фильтров (source, tags, path, time).
+- [ ] Векторная коллекция с namespace/tenant-изолированием по источнику.
+- [ ] Конфигurable chunking на источник (md headers для Obsidian, plain/fixed для файлов).
+
+Definition of Done:
+- Добавление нового источника не требует изменений в retrieval core.
 
 ### Этап 3 (Недели 5-6): Agent Loop + Memory
 - [x] Добавить доменную модель агента (итерации, лимиты, план шагов).
@@ -78,6 +99,8 @@ Definition of Done:
 - `internal/infrastructure/vector/qdrant/`: hybrid search + rerank adapters.
 - `internal/infrastructure/llm/ollama/`: telemetry по inference, retries/timeouts.
 - `scripts/eval/`: генерация/запуск eval-кейсов и экспорт отчетов.
+- `internal/core/usecase/process.go`: заменить LLM-классификацию на детерминированный extractor.
+- `internal/infrastructure/extractor/`: frontmatter/path/tag parser для Obsidian + shared metadata schema.
 
 ## Риски и решения
 - Риск: рост latency из-за reranking.

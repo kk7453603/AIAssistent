@@ -1,0 +1,37 @@
+{
+  "generated_at": "2026-03-15T23:30:11Z",
+  "reports": {
+    "semantic": "./tmp/eval/report_advanced-retrieval-full_semantic_hard.json",
+    "hybrid": "./tmp/eval/report_advanced-retrieval-full_hybrid_hard.json",
+    "hybrid_rerank": "./tmp/eval/report_advanced-retrieval-full_hybrid_rerank_hard.json"
+  },
+  "metrics": {
+    "semantic": {
+      "precision_at_k": 0.18750000,
+      "recall_at_k": 0.76562500,
+      "mrr_at_k": 0.48750000
+    },
+    "hybrid": {
+      "precision_at_k": 0.21875000,
+      "recall_at_k": 0.92187500,
+      "mrr_at_k": 0.73958333
+    },
+    "hybrid_rerank": {
+      "precision_at_k": 0.23125000,
+      "recall_at_k": 0.95312500,
+      "mrr_at_k": 0.80468750
+    }
+  },
+  "deltas_vs_semantic": {
+    "hybrid": {
+      "precision_at_k": 0.03125000,
+      "recall_at_k": 0.15625000,
+      "mrr_at_k": 0.25208333
+    },
+    "hybrid_rerank": {
+      "precision_at_k": 0.04375000,
+      "recall_at_k": 0.18750000,
+      "mrr_at_k": 0.31718750
+    }
+  }
+}
