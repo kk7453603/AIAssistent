@@ -86,9 +86,8 @@ func tokenizeAlphaNum(s string) []string {
 	out := make([]string, 0, 24)
 	var b strings.Builder
 	for _, r := range s {
-		r = unicode.ToLower(r)
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
-			b.WriteRune(r)
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			b.WriteRune(unicode.ToLower(r))
 			continue
 		}
 		if b.Len() > 0 {

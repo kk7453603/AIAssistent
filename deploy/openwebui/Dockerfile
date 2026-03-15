@@ -32,9 +32,12 @@ new_token_block = """    # PAI_COOKIE_FALLBACK_PATCH: preserve valid cookie sess
         raise HTTPException(status_code=401, detail="Not authenticated")
 """
 
-if old_token_block not in source:
-    raise SystemExit("failed to patch auth.py: token selection block not found")
-source = source.replace(old_token_block, new_token_block, 1)
+patched = False
+if old_token_block in source:
+    source = source.replace(old_token_block, new_token_block, 1)
+    patched = True
+else:
+    print("auth.py token selection block not found; skipping token patch")
 
 old_except_block = """    except Exception as e:
         # Delete the token cookie
@@ -77,10 +80,15 @@ new_except_block = """    except Exception as e:
         raise e
 """
 
-if old_except_block not in source:
-    raise SystemExit("failed to patch auth.py: exception block not found")
-source = source.replace(old_except_block, new_except_block, 1)
+if old_except_block in source:
+    source = source.replace(old_except_block, new_except_block, 1)
+    patched = True
+else:
+    print("auth.py exception block not found; skipping exception patch")
 
-path.write_text(source)
-print("patched auth.py with cookie fallback")
+if patched:
+    path.write_text(source)
+    print("patched auth.py with cookie fallback")
+else:
+    print("auth.py unchanged")
 PY

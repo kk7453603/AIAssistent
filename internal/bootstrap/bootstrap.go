@@ -89,7 +89,16 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 	memoryVector := qdrant.NewMemoryClientWithOptions(cfg.QdrantURL, cfg.QdrantMemoryCollection, qdrant.Options{
 		ResilienceExecutor: resilienceExecutor,
 	})
-	chunker := chunking.NewSplitter(cfg.ChunkSize, cfg.ChunkOverlap)
+	chunkStrategy := strings.ToLower(strings.TrimSpace(cfg.ChunkStrategy))
+	var chunker ports.Chunker = chunking.NewSplitter(cfg.ChunkSize, cfg.ChunkOverlap)
+	switch chunkStrategy {
+	case "", "fixed":
+		// default splitter
+	case "markdown", "md":
+		chunker = chunking.NewMarkdownSplitter(cfg.ChunkSize, cfg.ChunkOverlap)
+	default:
+		return nil, fmt.Errorf("unsupported CHUNK_STRATEGY=%q: use fixed or markdown", cfg.ChunkStrategy)
+	}
 	extractor := plaintext.NewExtractor(storage)
 
 	fusionStrategy := domain.FusionStrategy(strings.ToLower(strings.TrimSpace(cfg.RAGFusionStrategy)))

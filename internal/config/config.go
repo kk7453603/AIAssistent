@@ -25,8 +25,16 @@ type Config struct {
 
 	StoragePath string
 
+	ObsidianConfigPath             string
+	ObsidianStateDir               string
+	ObsidianVaultsRoot             string
+	ObsidianDefaultIntervalMinutes int
+	ObsidianSyncTimeoutSeconds     int
+	ObsidianSyncPollSeconds        int
+
 	ChunkSize           int
 	ChunkOverlap        int
+	ChunkStrategy       string
 	RAGTopK             int
 	RAGRetrievalMode    string
 	RAGHybridCandidates int
@@ -94,8 +102,16 @@ func Load() Config {
 
 		StoragePath: mustEnv("STORAGE_PATH", "./data/storage"),
 
+		ObsidianConfigPath:             mustEnv("ASSISTANT_OBSIDIAN_CONFIG_PATH", "/app/backend/data/assistant/obsidian_vaults.json"),
+		ObsidianStateDir:               mustEnv("ASSISTANT_OBSIDIAN_STATE_DIR", "/app/backend/data/assistant/obsidian_state"),
+		ObsidianVaultsRoot:             mustEnv("ASSISTANT_OBSIDIAN_VAULTS_ROOT", "/vaults"),
+		ObsidianDefaultIntervalMinutes: mustEnvInt("ASSISTANT_OBSIDIAN_DEFAULT_INTERVAL_MINUTES", 15),
+		ObsidianSyncTimeoutSeconds:     mustEnvInt("ASSISTANT_OBSIDIAN_SYNC_TIMEOUT_SECONDS", 120),
+		ObsidianSyncPollSeconds:        mustEnvInt("ASSISTANT_OBSIDIAN_SYNC_POLL_SECONDS", 2),
+
 		ChunkSize:           mustEnvInt("CHUNK_SIZE", 900),
 		ChunkOverlap:        mustEnvInt("CHUNK_OVERLAP", 150),
+		ChunkStrategy:       mustEnv("CHUNK_STRATEGY", "fixed"),
 		RAGTopK:             mustEnvInt("RAG_TOP_K", 5),
 		RAGRetrievalMode:    mustEnv("RAG_RETRIEVAL_MODE", "semantic"),
 		RAGHybridCandidates: mustEnvInt("RAG_HYBRID_CANDIDATES", 30),

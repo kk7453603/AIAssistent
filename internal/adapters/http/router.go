@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -39,6 +40,14 @@ type Router struct {
 	apiRateLimiter               *rate.Limiter
 	apiBackpressureMaxInFlight   int
 	apiBackpressureWaitTimeout   time.Duration
+
+	obsidianConfigPath             string
+	obsidianStateDir               string
+	obsidianVaultsRoot             string
+	obsidianDefaultIntervalMinutes int
+	obsidianSyncTimeout            time.Duration
+	obsidianSyncPoll               time.Duration
+	obsidianMu                     sync.Mutex
 }
 
 func NewRouter(
@@ -84,6 +93,18 @@ func NewRouter(
 	if cfg.APIBackpressureWaitMS < 0 {
 		apiBackpressureWait = 0
 	}
+	obsidianDefaultInterval := cfg.ObsidianDefaultIntervalMinutes
+	if obsidianDefaultInterval <= 0 {
+		obsidianDefaultInterval = 15
+	}
+	obsidianSyncTimeout := time.Duration(cfg.ObsidianSyncTimeoutSeconds) * time.Second
+	if obsidianSyncTimeout <= 0 {
+		obsidianSyncTimeout = 120 * time.Second
+	}
+	obsidianSyncPoll := time.Duration(cfg.ObsidianSyncPollSeconds) * time.Second
+	if obsidianSyncPoll <= 0 {
+		obsidianSyncPoll = 2 * time.Second
+	}
 
 	return &Router{
 		ingestor: ingestor,
@@ -102,6 +123,13 @@ func NewRouter(
 		apiRateLimiter:               apiRateLimiter,
 		apiBackpressureMaxInFlight:   cfg.APIBackpressureMaxInFlight,
 		apiBackpressureWaitTimeout:   apiBackpressureWait,
+
+		obsidianConfigPath:             cfg.ObsidianConfigPath,
+		obsidianStateDir:               cfg.ObsidianStateDir,
+		obsidianVaultsRoot:             cfg.ObsidianVaultsRoot,
+		obsidianDefaultIntervalMinutes: obsidianDefaultInterval,
+		obsidianSyncTimeout:            obsidianSyncTimeout,
+		obsidianSyncPoll:               obsidianSyncPoll,
 	}
 }
 
@@ -109,6 +137,12 @@ func (rt *Router) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /openapi.json", serveOpenAPISpecJSON)
 	mux.Handle("GET /metrics", rt.httpMetrics.Handler())
+	mux.HandleFunc("GET /ui/obsidian", rt.handleObsidianUI)
+	mux.HandleFunc("GET /ui/obsidian/", rt.handleObsidianUI)
+	mux.HandleFunc("GET /v1/obsidian/vaults", rt.handleObsidianList)
+	mux.HandleFunc("POST /v1/obsidian/vaults", rt.handleObsidianUpsert)
+	mux.HandleFunc("DELETE /v1/obsidian/vaults/{id}", rt.handleObsidianRemove)
+	mux.HandleFunc("POST /v1/obsidian/vaults/{id}/sync", rt.handleObsidianSync)
 
 	strict := apigen.NewStrictHandlerWithOptions(rt, []apigen.StrictMiddlewareFunc{
 		rt.openAICompatAuthMiddleware,

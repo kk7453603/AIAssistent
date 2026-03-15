@@ -69,6 +69,35 @@ MVP-сервис для:
    - дождется `ready` по `GET /v1/documents/{id}`,
    - выполнит `POST /v1/rag/query`.
 
+### Obsidian vault (синхронизация заметок)
+Для индексации заметок из Obsidian используйте скрипт синхронизации:
+```bash
+scripts/obsidian/sync_vault.sh --vault /path/to/vault --api-url http://localhost:8080 --wait-ready
+```
+Рекомендуемые настройки для markdown-заметок:
+- `CHUNK_STRATEGY=markdown`
+- `RAG_RETRIEVAL_MODE=hybrid` (особенно полезно для русскоязычных заметок)
+
+### Obsidian vault (настройка через OpenWebUI + авто‑sync)
+1. Подключите vaults на хосте через `OBSIDIAN_VAULTS_HOST_PATH` (см. `.env` ниже). Внутри контейнеров они будут доступны как `/vaults`.
+2. В OpenWebUI используйте инструмент `Assistant Obsidian Vaults`:
+   - `obsidian_vault_upsert(name, path, enabled, interval_minutes)`
+   - `obsidian_vault_list()`
+   - `obsidian_vault_sync_now(name, wait_ready)`
+   - `obsidian_vault_remove(name)`
+3. Сервис `obsidian-sync` подхватит конфиг и будет выполнять авто‑синхронизацию по интервалу.
+4. Отдельная страница управления: `http://localhost:8080/ui/obsidian`.
+
+Пример:
+```text
+obsidian_vault_upsert(name="work", path="WorkVault", enabled=true, interval_minutes=15)
+```
+Для ручного синка:
+```text
+obsidian_vault_sync_now(name="work", wait_ready=true)
+```
+`path` может быть абсолютным (внутри контейнера) или относительным относительно `/vaults`.
+
 ## API
 
 OpenAPI JSON:
@@ -423,6 +452,7 @@ scripts/rag/generate_test_data.sh \
 - `STORAGE_PATH`
 - `CHUNK_SIZE`
 - `CHUNK_OVERLAP`
+- `CHUNK_STRATEGY` (`fixed`, `markdown`)
 - `RAG_TOP_K`
 - `RAG_RETRIEVAL_MODE` (`semantic`, `hybrid`, `hybrid+rerank`)
 - `RAG_HYBRID_CANDIDATES`
@@ -430,6 +460,12 @@ scripts/rag/generate_test_data.sh \
 - `RAG_FUSION_RRF_K`
 - `RAG_RERANK_TOP_N`
 - `WORKER_METRICS_PORT`
+- `OBSIDIAN_VAULTS_HOST_PATH` (путь на хосте к каталогу с vaults, монтируется в `/vaults`)
+- `ASSISTANT_OBSIDIAN_DEFAULT_INTERVAL_MINUTES` (по умолчанию: `15`)
+- `ASSISTANT_OBSIDIAN_POLL_SECONDS` (по умолчанию: `30`)
+- `ASSISTANT_OBSIDIAN_WAIT_READY` (по умолчанию: `true`)
+- `ASSISTANT_OBSIDIAN_SYNC_TIMEOUT_SECONDS` (по умолчанию: `120`, для ручного sync через UI/API)
+- `ASSISTANT_OBSIDIAN_SYNC_POLL_SECONDS` (по умолчанию: `2`, для ручного sync через UI/API)
 
 ### Слой OpenAI-compatible API
 - `OPENAI_COMPAT_API_KEY` (опционально; если пусто, `/v1/models` и `/v1/chat/completions` работают без авторизации)

@@ -3,6 +3,8 @@ qdrant_data
 ollama_data
 minio_data
 storage_data
+obsidian_vaults
+tmp/obsidian-sync
 *.txt
 __pycache__/
 *.pyc

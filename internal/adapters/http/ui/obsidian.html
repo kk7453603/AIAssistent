@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Obsidian Vaults</title>
+    <style>
+      :root {
+        --bg-1: #f8f0e5;
+        --bg-2: #dceeff;
+        --ink: #1b1b1b;
+        --muted: #5d6b79;
+        --accent: #2c7da0;
+        --accent-2: #1b4965;
+        --card: rgba(255, 255, 255, 0.85);
+        --border: rgba(0, 0, 0, 0.08);
+        --shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+        --radius: 14px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Fira Sans", "Noto Sans", "Liberation Sans", sans-serif;
+        color: var(--ink);
+        background: radial-gradient(circle at 10% 10%, var(--bg-2), transparent 55%),
+          radial-gradient(circle at 90% 20%, #fff1cc, transparent 50%),
+          linear-gradient(135deg, var(--bg-1), #ffffff 60%);
+        min-height: 100vh;
+      }
+
+      header {
+        padding: 28px 40px 8px;
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      header h1 {
+        font-size: 30px;
+        margin: 0;
+        letter-spacing: -0.02em;
+      }
+
+      header p {
+        margin: 6px 0 0;
+        color: var(--muted);
+      }
+
+      main {
+        display: grid;
+        grid-template-columns: minmax(280px, 360px) 1fr;
+        gap: 24px;
+        padding: 24px 40px 40px;
+      }
+
+      .panel {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        padding: 20px;
+        backdrop-filter: blur(6px);
+      }
+
+      .panel h2 {
+        margin: 0 0 16px;
+        font-size: 18px;
+      }
+
+      label {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+      }
+
+      input[type="text"],
+      input[type="number"] {
+        width: 100%;
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        margin-top: 6px;
+        font-size: 14px;
+      }
+
+      .row {
+        display: grid;
+        gap: 12px;
+        margin-bottom: 14px;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      button {
+        border: none;
+        padding: 10px 14px;
+        border-radius: 10px;
+        cursor: pointer;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+      }
+
+      .primary {
+        background: var(--accent);
+        color: white;
+      }
+
+      .secondary {
+        background: #e8eef2;
+        color: var(--accent-2);
+      }
+
+      .ghost {
+        background: transparent;
+        color: var(--accent-2);
+        border: 1px solid var(--border);
+      }
+
+      .status {
+        margin-top: 14px;
+        font-size: 13px;
+        color: var(--muted);
+        white-space: pre-wrap;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+      }
+
+      th,
+      td {
+        padding: 12px 10px;
+        text-align: left;
+        border-bottom: 1px solid var(--border);
+        vertical-align: top;
+      }
+
+      th {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+      }
+
+      .tag {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 999px;
+        background: #eef6f8;
+        color: var(--accent-2);
+        font-size: 12px;
+        margin-top: 4px;
+      }
+
+      .table-actions button {
+        margin-right: 6px;
+      }
+
+      @media (max-width: 960px) {
+        main {
+          grid-template-columns: 1fr;
+          padding: 20px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>Obsidian Vaults</h1>
+        <p>Manage vaults and trigger sync without touching OpenWebUI internals.</p>
+      </div>
+      <div class="actions">
+        <button class="secondary" id="refreshBtn">Refresh</button>
+        <button class="ghost" id="syncAllBtn">Sync All</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="panel">
+        <h2>Add or Update Vault</h2>
+        <div class="row">
+          <label for="vaultName">Name</label>
+          <input id="vaultName" type="text" placeholder="work" />
+        </div>
+        <div class="row">
+          <label for="vaultPath">Path</label>
+          <input id="vaultPath" type="text" placeholder="WorkVault or /vaults/WorkVault" />
+        </div>
+        <div class="row">
+          <label for="vaultInterval">Interval (minutes)</label>
+          <input id="vaultInterval" type="number" min="1" placeholder="15" />
+        </div>
+        <div class="row">
+          <label>
+            <input id="vaultEnabled" type="checkbox" checked />
+            Enabled
+          </label>
+        </div>
+        <div class="actions">
+          <button class="primary" id="saveBtn">Save</button>
+          <button class="ghost" id="syncBtn">Sync Now</button>
+        </div>
+        <div class="status" id="statusBox"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Configured Vaults</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Vault</th>
+              <th>Path</th>
+              <th>Sync</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="vaultTable"></tbody>
+        </table>
+      </section>
+    </main>
+
+    <script>
+      const statusBox = document.getElementById("statusBox");
+      const vaultTable = document.getElementById("vaultTable");
+      const vaultName = document.getElementById("vaultName");
+      const vaultPath = document.getElementById("vaultPath");
+      const vaultInterval = document.getElementById("vaultInterval");
+      const vaultEnabled = document.getElementById("vaultEnabled");
+
+      function setStatus(message) {
+        statusBox.textContent = message;
+      }
+
+      function formatTime(epoch) {
+        if (!epoch) return "never";
+        const date = new Date(epoch * 1000);
+        return date.toLocaleString();
+      }
+
+      async function api(path, options = {}) {
+        const response = await fetch(path, {
+          headers: { "Content-Type": "application/json" },
+          ...options,
+        });
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(text || response.statusText);
+        }
+        return response.json();
+      }
+
+      async function loadVaults() {
+        setStatus("Loading vaults...");
+        try {
+          const data = await api("/v1/obsidian/vaults");
+          vaultTable.innerHTML = "";
+          (data.vaults || []).forEach((vault) => {
+            const row = document.createElement("tr");
+            row.innerHTML = `
+              <td>
+                <strong>${vault.name}</strong>
+                <div class="tag">${vault.enabled ? "enabled" : "disabled"}</div>
+              </td>
+              <td>${vault.path || ""}</td>
+              <td>
+                <div>Last: ${formatTime(vault.last_sync_epoch)}</div>
+                <div>Status: ${vault.last_status || "n/a"}</div>
+                <div>${vault.last_error ? "Error: " + vault.last_error : ""}</div>
+              </td>
+              <td class="table-actions">
+                <button class="secondary" data-action="sync" data-id="${vault.id}">Sync</button>
+                <button class="ghost" data-action="edit" data-id="${vault.id}">Edit</button>
+                <button class="ghost" data-action="remove" data-id="${vault.id}">Remove</button>
+              </td>
+            `;
+            vaultTable.appendChild(row);
+          });
+          setStatus("Ready.");
+        } catch (err) {
+          setStatus(`Error: ${err.message}`);
+        }
+      }
+
+      async function saveVault() {
+        const payload = {
+          name: vaultName.value.trim(),
+          path: vaultPath.value.trim(),
+          enabled: vaultEnabled.checked,
+        };
+        if (vaultInterval.value.trim() !== "") {
+          payload.interval_minutes = parseInt(vaultInterval.value, 10);
+        }
+        setStatus("Saving...");
+        try {
+          await api("/v1/obsidian/vaults", {
+            method: "POST",
+            body: JSON.stringify(payload),
+          });
+          setStatus("Saved.");
+          await loadVaults();
+        } catch (err) {
+          setStatus(`Error: ${err.message}`);
+        }
+      }
+
+      async function syncVault(id) {
+        setStatus(`Syncing ${id}...`);
+        try {
+          const safeId = encodeURIComponent(id);
+          const result = await api(`/v1/obsidian/vaults/${safeId}/sync`, {
+            method: "POST",
+            body: JSON.stringify({ wait_ready: true }),
+          });
+          setStatus(JSON.stringify(result, null, 2));
+          await loadVaults();
+        } catch (err) {
+          setStatus(`Error: ${err.message}`);
+        }
+      }
+
+      async function removeVault(id) {
+        if (!confirm(`Remove vault '${id}'?`)) return;
+        setStatus("Removing...");
+        try {
+          const safeId = encodeURIComponent(id);
+          await api(`/v1/obsidian/vaults/${safeId}`, { method: "DELETE" });
+          setStatus("Removed.");
+          await loadVaults();
+        } catch (err) {
+          setStatus(`Error: ${err.message}`);
+        }
+      }
+
+      function hydrateForm(vault) {
+        vaultName.value = vault.name || "";
+        vaultPath.value = vault.path || "";
+        vaultInterval.value = vault.interval_minutes || "";
+        vaultEnabled.checked = vault.enabled !== false;
+      }
+
+      vaultTable.addEventListener("click", (event) => {
+        const button = event.target.closest("button");
+        if (!button) return;
+        const id = button.dataset.id;
+        const action = button.dataset.action;
+        if (action === "sync") {
+          syncVault(id);
+        } else if (action === "remove") {
+          removeVault(id);
+        } else if (action === "edit") {
+          api("/v1/obsidian/vaults").then((data) => {
+            const vault = (data.vaults || []).find((v) => v.id === id);
+            if (vault) hydrateForm(vault);
+          });
+        }
+      });
+
+      document.getElementById("saveBtn").addEventListener("click", saveVault);
+      document.getElementById("syncBtn").addEventListener("click", () => {
+        const name = vaultName.value.trim();
+        if (name) {
+          syncVault(name);
+        } else {
+          syncVault("all");
+        }
+      });
+      document.getElementById("refreshBtn").addEventListener("click", loadVaults);
+      document.getElementById("syncAllBtn").addEventListener("click", () => syncVault("all"));
+
+      loadVaults();
+    </script>
+  </body>
+</html>

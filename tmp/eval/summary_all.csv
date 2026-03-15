@@ -1,0 +1,13 @@
+dataset,mode,precision_at_k,recall_at_k,mrr_at_k,total_cases,failed_cases
+"baseline-w01","semantic",0.20000000,1.00000000,0.84875000,40,0
+"baseline-w01","hybrid",0.20000000,1.00000000,0.92083333,40,0
+"baseline-w01","hybrid+rerank",0.20000000,1.00000000,0.94583333,40,0
+"advanced-retrieval-fast","semantic",0.20000000,1.00000000,1.00000000,12,0
+"advanced-retrieval-fast","hybrid",0.20000000,1.00000000,1.00000000,12,0
+"advanced-retrieval-fast","hybrid+rerank",0.20000000,1.00000000,1.00000000,12,0
+"advanced-retrieval-w02","semantic",0.20000000,1.00000000,0.90208333,40,0
+"advanced-retrieval-w02","hybrid",0.20000000,1.00000000,0.95000000,40,0
+"advanced-retrieval-w02","hybrid+rerank",0.20000000,1.00000000,0.96250000,40,0
+"advanced-retrieval-full","semantic",0.20000000,1.00000000,0.86666667,30,0
+"advanced-retrieval-full","hybrid",0.20000000,1.00000000,0.95000000,30,0
+"advanced-retrieval-full","hybrid+rerank",0.20000000,1.00000000,1.00000000,30,0

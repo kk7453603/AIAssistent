@@ -68,6 +68,8 @@ services:
         condition: service_started
     volumes:
       - storage_data:/data/storage
+      - openwebui_data:/app/backend/data
+      - ${OBSIDIAN_VAULTS_HOST_PATH:-./obsidian_vaults}:/vaults:ro
 
   worker:
     build:
@@ -145,6 +147,10 @@ services:
       WEBUI_SECRET_KEY: "${OPENWEBUI_SECRET_KEY:-replace-with-long-random-secret}"
       WEBUI_AUTH_COOKIE_SECURE: "false"
       WEBUI_AUTH_COOKIE_SAME_SITE: "lax"
+      ASSISTANT_OBSIDIAN_CONFIG_PATH: "/app/backend/data/assistant/obsidian_vaults.json"
+      ASSISTANT_OBSIDIAN_STATE_DIR: "/app/backend/data/assistant/obsidian_state"
+      ASSISTANT_OBSIDIAN_VAULTS_ROOT: "/vaults"
+      ASSISTANT_OBSIDIAN_DEFAULT_INTERVAL_MINUTES: "${ASSISTANT_OBSIDIAN_DEFAULT_INTERVAL_MINUTES:-15}"
       TOOL_SERVER_CONNECTIONS: '[{"url":"http://api:8080","path":"/openapi.json","type":"openapi","auth_type":"none","config":{"enable":true,"function_name_filter_list":"queryRag,getDocumentById"},"info":{"id":"assistant-api","name":"Assistant API","description":"Personal AI Assistant tools"}}]'
     depends_on:
       api:
@@ -153,6 +159,7 @@ services:
         condition: service_started
     volumes:
       - openwebui_data:/app/backend/data
+      - ${OBSIDIAN_VAULTS_HOST_PATH:-./obsidian_vaults}:/vaults:ro
 
   openwebui-tool-bootstrap:
     image: alpine:3.20
@@ -175,6 +182,49 @@ services:
       - ./scripts/openwebui/bootstrap-tool.sh:/bootstrap/bootstrap-tool.sh:ro
       - ./deploy/openwebui/tools/assistant_ingest_and_query.py:/tool/assistant_ingest_and_query.py:ro
     restart: "no"
+
+  openwebui-tool-bootstrap-obsidian:
+    image: alpine:3.20
+    command: >
+      sh -c "apk add --no-cache curl jq >/dev/null && sh /bootstrap/bootstrap-tool.sh"
+    environment:
+      OPENWEBUI_URL: "http://openwebui:8080"
+      OPENWEBUI_ADMIN_EMAIL: "${OPENWEBUI_ADMIN_EMAIL:-admin@example.com}"
+      OPENWEBUI_ADMIN_PASSWORD: "${OPENWEBUI_ADMIN_PASSWORD:-ChangeMeStrongPass123!}"
+      OPENWEBUI_TOOL_ID: "assistant_obsidian_vaults"
+      OPENWEBUI_TOOL_NAME: "Assistant Obsidian Vaults"
+      OPENWEBUI_TOOL_DESCRIPTION: "Manage Obsidian vaults for automatic sync."
+      TOOL_FILE_PATH: "/tool/assistant_obsidian_vaults.py"
+    depends_on:
+      openwebui:
+        condition: service_started
+      api:
+        condition: service_started
+    volumes:
+      - ./scripts/openwebui/bootstrap-tool.sh:/bootstrap/bootstrap-tool.sh:ro
+      - ./deploy/openwebui/tools/assistant_obsidian_vaults.py:/tool/assistant_obsidian_vaults.py:ro
+    restart: "no"
+
+  obsidian-sync:
+    image: alpine:3.20
+    command: >
+      sh -c "apk add --no-cache bash curl jq coreutils findutils >/dev/null && /sync/auto_sync.sh"
+    environment:
+      ASSISTANT_API_URL: "http://api:8080"
+      ASSISTANT_OBSIDIAN_CONFIG_PATH: "/app/backend/data/assistant/obsidian_vaults.json"
+      ASSISTANT_OBSIDIAN_STATE_DIR: "/app/backend/data/assistant/obsidian_state"
+      ASSISTANT_OBSIDIAN_DEFAULT_INTERVAL_MINUTES: "${ASSISTANT_OBSIDIAN_DEFAULT_INTERVAL_MINUTES:-15}"
+      ASSISTANT_OBSIDIAN_POLL_SECONDS: "${ASSISTANT_OBSIDIAN_POLL_SECONDS:-30}"
+      ASSISTANT_OBSIDIAN_WAIT_READY: "${ASSISTANT_OBSIDIAN_WAIT_READY:-true}"
+      ASSISTANT_OBSIDIAN_SYNC_SCRIPT: "/sync/sync_vault.sh"
+    depends_on:
+      api:
+        condition: service_started
+    volumes:
+      - openwebui_data:/app/backend/data
+      - ${OBSIDIAN_VAULTS_HOST_PATH:-./obsidian_vaults}:/vaults:ro
+      - ./scripts/obsidian/auto_sync.sh:/sync/auto_sync.sh:ro
+      - ./scripts/obsidian/sync_vault.sh:/sync/sync_vault.sh:ro
 
 volumes:
   postgres_data:

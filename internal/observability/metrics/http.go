@@ -261,6 +261,10 @@ func normalizePath(path string) string {
 	switch {
 	case strings.HasPrefix(path, "/v1/documents/"):
 		return "/v1/documents/{document_id}"
+	case strings.HasPrefix(path, "/v1/obsidian/vaults/") && strings.HasSuffix(path, "/sync"):
+		return "/v1/obsidian/vaults/{id}/sync"
+	case strings.HasPrefix(path, "/v1/obsidian/vaults/"):
+		return "/v1/obsidian/vaults/{id}"
 	default:
 		return path
 	}
