@@ -1,0 +1,232 @@
+{
+  "generated_at": "2026-03-15T23:24:04Z",
+  "api_url": "http://localhost:8080",
+  "cases_file": "./tmp/advanced-retrieval-fast/retrieval_cases.jsonl",
+  "top_k": 5,
+  "summary": {
+    "total_cases": 12,
+    "failed_cases": 0,
+    "evaluated_cases": 12,
+    "precision_at_k": 0.20000000,
+    "recall_at_k": 1.00000000,
+    "mrr_at_k": 1.00000000
+  },
+  "cases": [
+    {
+      "id": "RET0001",
+      "question": "What is the risk level for document doc_0001_sales_us-west.txt?",
+      "expected_filenames": [
+        "doc_0001_sales_us-west.txt"
+      ],
+      "actual_filenames": [
+        "doc_0001_sales_us-west.txt",
+        "doc_0004_finance_us-west.txt",
+        "doc_0006_compliance_us-west.txt",
+        "doc_0002_finance_ap-south.txt",
+        "doc_0005_hr_us-east.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 1,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "RET0002",
+      "question": "What is the gross margin for document doc_0001_sales_us-west.txt in 2023-Q3?",
+      "expected_filenames": [
+        "doc_0001_sales_us-west.txt"
+      ],
+      "actual_filenames": [
+        "doc_0001_sales_us-west.txt",
+        "doc_0004_finance_us-west.txt",
+        "doc_0006_compliance_us-west.txt",
+        "doc_0003_compliance_eu-north.txt",
+        "doc_0002_finance_ap-south.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 1,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "RET0003",
+      "question": "What is the risk level for document doc_0002_finance_ap-south.txt?",
+      "expected_filenames": [
+        "doc_0002_finance_ap-south.txt"
+      ],
+      "actual_filenames": [
+        "doc_0002_finance_ap-south.txt",
+        "doc_0004_finance_us-west.txt",
+        "doc_0001_sales_us-west.txt",
+        "doc_0005_hr_us-east.txt",
+        "doc_0003_compliance_eu-north.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 1,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "RET0004",
+      "question": "What is the gross margin for document doc_0002_finance_ap-south.txt in 2024-Q1?",
+      "expected_filenames": [
+        "doc_0002_finance_ap-south.txt"
+      ],
+      "actual_filenames": [
+        "doc_0002_finance_ap-south.txt",
+        "doc_0004_finance_us-west.txt",
+        "doc_0003_compliance_eu-north.txt",
+        "doc_0001_sales_us-west.txt",
+        "doc_0006_compliance_us-west.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 1,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "RET0005",
+      "question": "What is the risk level for document doc_0003_compliance_eu-north.txt?",
+      "expected_filenames": [
+        "doc_0003_compliance_eu-north.txt"
+      ],
+      "actual_filenames": [
+        "doc_0003_compliance_eu-north.txt",
+        "doc_0006_compliance_us-west.txt",
+        "doc_0002_finance_ap-south.txt",
+        "doc_0001_sales_us-west.txt",
+        "doc_0004_finance_us-west.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 1,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "RET0006",
+      "question": "What is the gross margin for document doc_0003_compliance_eu-north.txt in 2024-Q3?",
+      "expected_filenames": [
+        "doc_0003_compliance_eu-north.txt"
+      ],
+      "actual_filenames": [
+        "doc_0003_compliance_eu-north.txt",
+        "doc_0006_compliance_us-west.txt",
+        "doc_0002_finance_ap-south.txt",
+        "doc_0001_sales_us-west.txt",
+        "doc_0004_finance_us-west.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 1,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "RET0007",
+      "question": "What is the risk level for document doc_0004_finance_us-west.txt?",
+      "expected_filenames": [
+        "doc_0004_finance_us-west.txt"
+      ],
+      "actual_filenames": [
+        "doc_0004_finance_us-west.txt",
+        "doc_0006_compliance_us-west.txt",
+        "doc_0001_sales_us-west.txt",
+        "doc_0002_finance_ap-south.txt",
+        "doc_0005_hr_us-east.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 1,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "RET0008",
+      "question": "What is the gross margin for document doc_0004_finance_us-west.txt in 2023-Q4?",
+      "expected_filenames": [
+        "doc_0004_finance_us-west.txt"
+      ],
+      "actual_filenames": [
+        "doc_0004_finance_us-west.txt",
+        "doc_0001_sales_us-west.txt",
+        "doc_0002_finance_ap-south.txt",
+        "doc_0006_compliance_us-west.txt",
+        "doc_0005_hr_us-east.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 1,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "RET0009",
+      "question": "What is the risk level for document doc_0005_hr_us-east.txt?",
+      "expected_filenames": [
+        "doc_0005_hr_us-east.txt"
+      ],
+      "actual_filenames": [
+        "doc_0005_hr_us-east.txt",
+        "doc_0001_sales_us-west.txt",
+        "doc_0004_finance_us-west.txt",
+        "doc_0002_finance_ap-south.txt",
+        "doc_0006_compliance_us-west.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 1,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "RET0010",
+      "question": "What is the gross margin for document doc_0005_hr_us-east.txt in 2025-Q2?",
+      "expected_filenames": [
+        "doc_0005_hr_us-east.txt"
+      ],
+      "actual_filenames": [
+        "doc_0005_hr_us-east.txt",
+        "doc_0006_compliance_us-west.txt",
+        "doc_0004_finance_us-west.txt",
+        "doc_0001_sales_us-west.txt",
+        "doc_0002_finance_ap-south.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 1,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "RET0011",
+      "question": "What is the risk level for document doc_0006_compliance_us-west.txt?",
+      "expected_filenames": [
+        "doc_0006_compliance_us-west.txt"
+      ],
+      "actual_filenames": [
+        "doc_0006_compliance_us-west.txt",
+        "doc_0001_sales_us-west.txt",
+        "doc_0004_finance_us-west.txt",
+        "doc_0003_compliance_eu-north.txt",
+        "doc_0002_finance_ap-south.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 1,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "RET0012",
+      "question": "What is the gross margin for document doc_0006_compliance_us-west.txt in 2025-Q3?",
+      "expected_filenames": [
+        "doc_0006_compliance_us-west.txt"
+      ],
+      "actual_filenames": [
+        "doc_0006_compliance_us-west.txt",
+        "doc_0001_sales_us-west.txt",
+        "doc_0004_finance_us-west.txt",
+        "doc_0003_compliance_eu-north.txt",
+        "doc_0005_hr_us-east.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 1,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    }
+  ]
+}

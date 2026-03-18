@@ -99,6 +99,14 @@ func (uc *QueryUseCase) Answer(
 		return nil, err
 	}
 
+	if len(chunks) == 0 {
+		return &domain.Answer{
+			Text:      "В базе знаний пока нет проиндексированных документов. Загрузите документы через API или синхронизируйте Obsidian vault, затем повторите запрос.",
+			Sources:   chunks,
+			Retrieval: meta,
+		}, nil
+	}
+
 	answerText, err := uc.generator.GenerateAnswer(ctx, question, chunks)
 	if err != nil {
 		return nil, fmt.Errorf("generate answer: %w", err)
@@ -246,18 +254,29 @@ Question: %s`, uc.queryExpansionCount, question)
 		return nil, fmt.Errorf("expand query: %w", err)
 	}
 
-	// Try parsing as JSON array.
+	// Try parsing as JSON array or object wrapping an array.
 	var queries []string
 	if err := json.Unmarshal([]byte(respText), &queries); err != nil {
-		// Try extracting array from response.
-		start := strings.Index(respText, "[")
-		end := strings.LastIndex(respText, "]")
-		if start >= 0 && end > start {
-			if err2 := json.Unmarshal([]byte(respText[start:end+1]), &queries); err2 != nil {
+		// Model may return {"queries": [...]} or {"data": [...]}.
+		var wrapped map[string]json.RawMessage
+		if err2 := json.Unmarshal([]byte(respText), &wrapped); err2 == nil {
+			for _, v := range wrapped {
+				if err3 := json.Unmarshal(v, &queries); err3 == nil && len(queries) > 0 {
+					break
+				}
+			}
+		}
+		// Fallback: extract first [...] from response.
+		if len(queries) == 0 {
+			start := strings.Index(respText, "[")
+			end := strings.LastIndex(respText, "]")
+			if start >= 0 && end > start {
+				if err2 := json.Unmarshal([]byte(respText[start:end+1]), &queries); err2 != nil {
+					return nil, fmt.Errorf("parse expanded queries: %w", err)
+				}
+			} else {
 				return nil, fmt.Errorf("parse expanded queries: %w", err)
 			}
-		} else {
-			return nil, fmt.Errorf("parse expanded queries: %w", err)
 		}
 	}
 

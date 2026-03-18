@@ -22,6 +22,12 @@ type Config struct {
 	LLMProvider    string // "ollama" (default), "openai-compat"
 	LLMProviderURL string
 	LLMProviderKey string
+	LLMModel       string // Model name for external LLM providers (if empty, uses OllamaGenModel)
+
+	RerankProvider    string // "fallback" (default), "ollama", "openai-compat"
+	RerankProviderURL string
+	RerankProviderKey string
+	RerankModel       string // Model for reranking (if empty, uses LLMModel → OllamaGenModel)
 
 	EmbedProvider    string // "ollama" (default), "openai-compat"
 	EmbedProviderURL string
@@ -33,6 +39,7 @@ type Config struct {
 	QdrantURL              string
 	QdrantCollection       string
 	QdrantMemoryCollection string
+	QdrantEmbedDim         int
 
 	StoragePath string
 
@@ -110,6 +117,12 @@ func Load() Config {
 		LLMProvider:    mustEnv("LLM_PROVIDER", "ollama"),
 		LLMProviderURL: mustEnv("LLM_PROVIDER_URL", ""),
 		LLMProviderKey: mustEnv("LLM_PROVIDER_KEY", ""),
+		LLMModel:       mustEnv("LLM_MODEL", ""),
+
+		RerankProvider:    mustEnv("RERANKER_PROVIDER", "fallback"),
+		RerankProviderURL: mustEnv("RERANKER_PROVIDER_URL", ""),
+		RerankProviderKey: mustEnv("RERANKER_PROVIDER_KEY", ""),
+		RerankModel:       mustEnv("RERANKER_MODEL", ""),
 
 		EmbedProvider:    mustEnv("EMBED_PROVIDER", "ollama"),
 		EmbedProviderURL: mustEnv("EMBED_PROVIDER_URL", ""),
@@ -121,6 +134,7 @@ func Load() Config {
 		QdrantURL:              mustEnv("QDRANT_URL", "http://localhost:6333"),
 		QdrantCollection:       mustEnv("QDRANT_COLLECTION", "documents"),
 		QdrantMemoryCollection: mustEnv("QDRANT_MEMORY_COLLECTION", "conversation_memory"),
+		QdrantEmbedDim:         mustEnvInt("QDRANT_EMBED_DIM", 0),
 
 		StoragePath: mustEnv("STORAGE_PATH", "./data/storage"),
 

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-15T23:22:36Z",
+  "generated_at": "2026-03-18T20:46:36Z",
   "reports": {
     "semantic": "./tmp/eval/report_baseline-w01_semantic.json",
     "hybrid": "./tmp/eval/report_baseline-w01_hybrid.json",
@@ -7,31 +7,31 @@
   },
   "metrics": {
     "semantic": {
-      "precision_at_k": 0.20000000,
-      "recall_at_k": 1.00000000,
-      "mrr_at_k": 0.84875000
+      "precision_at_k": 0.18918919,
+      "recall_at_k": 0.94594595,
+      "mrr_at_k": 0.82972973
     },
     "hybrid": {
       "precision_at_k": 0.20000000,
       "recall_at_k": 1.00000000,
-      "mrr_at_k": 0.93333333
+      "mrr_at_k": 0.92380952
     },
     "hybrid_rerank": {
       "precision_at_k": 0.20000000,
       "recall_at_k": 1.00000000,
-      "mrr_at_k": 0.94583333
+      "mrr_at_k": 0.93034188
     }
   },
   "deltas_vs_semantic": {
     "hybrid": {
-      "precision_at_k": 0E-8,
-      "recall_at_k": 0E-8,
-      "mrr_at_k": 0.08458333
+      "precision_at_k": 0.01081081,
+      "recall_at_k": 0.05405405,
+      "mrr_at_k": 0.09407979
     },
     "hybrid_rerank": {
-      "precision_at_k": 0E-8,
-      "recall_at_k": 0E-8,
-      "mrr_at_k": 0.09708333
+      "precision_at_k": 0.01081081,
+      "recall_at_k": 0.05405405,
+      "mrr_at_k": 0.10061215
     }
   }
 }

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-15T23:29:52Z",
+  "generated_at": "2026-03-18T17:03:03Z",
   "api_url": "http://localhost:8080",
   "cases_file": "./tmp/advanced-retrieval-full/retrieval_cases.jsonl",
   "top_k": 5,
@@ -7,9 +7,9 @@
     "total_cases": 30,
     "failed_cases": 0,
     "evaluated_cases": 30,
-    "precision_at_k": 0.20000000,
-    "recall_at_k": 1.00000000,
-    "mrr_at_k": 1.00000000
+    "precision_at_k": 0.19333333,
+    "recall_at_k": 0.96666667,
+    "mrr_at_k": 0.71777778
   },
   "cases": [
     {
@@ -20,10 +20,10 @@
       ],
       "actual_filenames": [
         "doc_0001_engineering_us-east.txt",
-        "doc_0003_risk_us-west.txt",
         "doc_0013_ops_us-east.txt",
-        "doc_0005_risk_us-west.txt",
-        "doc_0011_engineering_latam.txt"
+        "doc_0011_engineering_latam.txt",
+        "doc_0003_risk_us-west.txt",
+        "doc_0002_compliance_eu-north.txt"
       ],
       "relevant_count": 1,
       "reciprocal_rank": 1,
@@ -37,14 +37,14 @@
         "doc_0001_engineering_us-east.txt"
       ],
       "actual_filenames": [
+        "doc_0012_support_ap-south.txt",
         "doc_0001_engineering_us-east.txt",
-        "doc_0013_ops_us-east.txt",
         "doc_0003_risk_us-west.txt",
         "doc_0004_compliance_us-west.txt",
-        "doc_0011_engineering_latam.txt"
+        "doc_0013_ops_us-east.txt"
       ],
       "relevant_count": 1,
-      "reciprocal_rank": 1,
+      "reciprocal_rank": 0.5,
       "precision_at_k": 0.20000000,
       "recall_at_k": 1.00000000
     },
@@ -58,8 +58,8 @@
         "doc_0002_compliance_eu-north.txt",
         "doc_0014_ops_eu-north.txt",
         "doc_0008_finance_eu-north.txt",
-        "doc_0004_compliance_us-west.txt",
-        "doc_0003_risk_us-west.txt"
+        "doc_0010_sales_latam.txt",
+        "doc_0013_ops_us-east.txt"
       ],
       "relevant_count": 1,
       "reciprocal_rank": 1,
@@ -73,14 +73,14 @@
         "doc_0002_compliance_eu-north.txt"
       ],
       "actual_filenames": [
+        "doc_0004_compliance_us-west.txt",
         "doc_0002_compliance_eu-north.txt",
         "doc_0014_ops_eu-north.txt",
         "doc_0008_finance_eu-north.txt",
-        "doc_0004_compliance_us-west.txt",
         "doc_0013_ops_us-east.txt"
       ],
       "relevant_count": 1,
-      "reciprocal_rank": 1,
+      "reciprocal_rank": 0.5,
       "precision_at_k": 0.20000000,
       "recall_at_k": 1.00000000
     },
@@ -91,16 +91,16 @@
         "doc_0003_risk_us-west.txt"
       ],
       "actual_filenames": [
-        "doc_0003_risk_us-west.txt",
         "doc_0005_risk_us-west.txt",
         "doc_0004_compliance_us-west.txt",
         "doc_0009_ops_us-west.txt",
-        "doc_0015_hr_us-west.txt"
+        "doc_0006_ops_latam.txt",
+        "doc_0010_sales_latam.txt"
       ],
-      "relevant_count": 1,
-      "reciprocal_rank": 1,
-      "precision_at_k": 0.20000000,
-      "recall_at_k": 1.00000000
+      "relevant_count": 0,
+      "reciprocal_rank": 0,
+      "precision_at_k": 0E-8,
+      "recall_at_k": 0E-8
     },
     {
       "id": "RET0006",
@@ -111,9 +111,9 @@
       "actual_filenames": [
         "doc_0003_risk_us-west.txt",
         "doc_0015_hr_us-west.txt",
+        "doc_0010_sales_latam.txt",
         "doc_0005_risk_us-west.txt",
-        "doc_0004_compliance_us-west.txt",
-        "doc_0009_ops_us-west.txt"
+        "doc_0001_engineering_us-east.txt"
       ],
       "relevant_count": 1,
       "reciprocal_rank": 1,
@@ -127,14 +127,14 @@
         "doc_0004_compliance_us-west.txt"
       ],
       "actual_filenames": [
+        "doc_0002_compliance_eu-north.txt",
         "doc_0004_compliance_us-west.txt",
         "doc_0003_risk_us-west.txt",
-        "doc_0002_compliance_eu-north.txt",
-        "doc_0005_risk_us-west.txt",
-        "doc_0015_hr_us-west.txt"
+        "doc_0015_hr_us-west.txt",
+        "doc_0005_risk_us-west.txt"
       ],
       "relevant_count": 1,
-      "reciprocal_rank": 1,
+      "reciprocal_rank": 0.5,
       "precision_at_k": 0.20000000,
       "recall_at_k": 1.00000000
     },
@@ -146,10 +146,10 @@
       ],
       "actual_filenames": [
         "doc_0004_compliance_us-west.txt",
-        "doc_0002_compliance_eu-north.txt",
-        "doc_0003_risk_us-west.txt",
         "doc_0001_engineering_us-east.txt",
-        "doc_0009_ops_us-west.txt"
+        "doc_0003_risk_us-west.txt",
+        "doc_0002_compliance_eu-north.txt",
+        "doc_0012_support_ap-south.txt"
       ],
       "relevant_count": 1,
       "reciprocal_rank": 1,
@@ -163,14 +163,14 @@
         "doc_0005_risk_us-west.txt"
       ],
       "actual_filenames": [
-        "doc_0005_risk_us-west.txt",
         "doc_0003_risk_us-west.txt",
-        "doc_0009_ops_us-west.txt",
+        "doc_0005_risk_us-west.txt",
         "doc_0015_hr_us-west.txt",
+        "doc_0009_ops_us-west.txt",
         "doc_0004_compliance_us-west.txt"
       ],
       "relevant_count": 1,
-      "reciprocal_rank": 1,
+      "reciprocal_rank": 0.5,
       "precision_at_k": 0.20000000,
       "recall_at_k": 1.00000000
     },
@@ -182,10 +182,10 @@
       ],
       "actual_filenames": [
         "doc_0005_risk_us-west.txt",
-        "doc_0009_ops_us-west.txt",
         "doc_0003_risk_us-west.txt",
-        "doc_0015_hr_us-west.txt",
-        "doc_0004_compliance_us-west.txt"
+        "doc_0007_ops_latam.txt",
+        "doc_0009_ops_us-west.txt",
+        "doc_0015_hr_us-west.txt"
       ],
       "relevant_count": 1,
       "reciprocal_rank": 1,
@@ -199,14 +199,14 @@
         "doc_0006_ops_latam.txt"
       ],
       "actual_filenames": [
+        "doc_0010_sales_latam.txt",
         "doc_0006_ops_latam.txt",
         "doc_0007_ops_latam.txt",
-        "doc_0010_sales_latam.txt",
         "doc_0011_engineering_latam.txt",
-        "doc_0014_ops_eu-north.txt"
+        "doc_0003_risk_us-west.txt"
       ],
       "relevant_count": 1,
-      "reciprocal_rank": 1,
+      "reciprocal_rank": 0.5,
       "precision_at_k": 0.20000000,
       "recall_at_k": 1.00000000
     },
@@ -220,8 +220,8 @@
         "doc_0006_ops_latam.txt",
         "doc_0007_ops_latam.txt",
         "doc_0010_sales_latam.txt",
-        "doc_0009_ops_us-west.txt",
-        "doc_0011_engineering_latam.txt"
+        "doc_0003_risk_us-west.txt",
+        "doc_0009_ops_us-west.txt"
       ],
       "relevant_count": 1,
       "reciprocal_rank": 1,
@@ -235,14 +235,14 @@
         "doc_0007_ops_latam.txt"
       ],
       "actual_filenames": [
-        "doc_0007_ops_latam.txt",
-        "doc_0010_sales_latam.txt",
         "doc_0006_ops_latam.txt",
+        "doc_0007_ops_latam.txt",
         "doc_0011_engineering_latam.txt",
-        "doc_0014_ops_eu-north.txt"
+        "doc_0010_sales_latam.txt",
+        "doc_0002_compliance_eu-north.txt"
       ],
       "relevant_count": 1,
-      "reciprocal_rank": 1,
+      "reciprocal_rank": 0.5,
       "precision_at_k": 0.20000000,
       "recall_at_k": 1.00000000
     },
@@ -255,9 +255,9 @@
       "actual_filenames": [
         "doc_0007_ops_latam.txt",
         "doc_0006_ops_latam.txt",
-        "doc_0011_engineering_latam.txt",
+        "doc_0005_risk_us-west.txt",
         "doc_0010_sales_latam.txt",
-        "doc_0009_ops_us-west.txt"
+        "doc_0011_engineering_latam.txt"
       ],
       "relevant_count": 1,
       "reciprocal_rank": 1,
@@ -271,14 +271,14 @@
         "doc_0008_finance_eu-north.txt"
       ],
       "actual_filenames": [
-        "doc_0008_finance_eu-north.txt",
         "doc_0014_ops_eu-north.txt",
+        "doc_0008_finance_eu-north.txt",
         "doc_0002_compliance_eu-north.txt",
         "doc_0003_risk_us-west.txt",
-        "doc_0005_risk_us-west.txt"
+        "doc_0012_support_ap-south.txt"
       ],
       "relevant_count": 1,
-      "reciprocal_rank": 1,
+      "reciprocal_rank": 0.5,
       "precision_at_k": 0.20000000,
       "recall_at_k": 1.00000000
     },
@@ -289,14 +289,14 @@
         "doc_0008_finance_eu-north.txt"
       ],
       "actual_filenames": [
-        "doc_0008_finance_eu-north.txt",
         "doc_0014_ops_eu-north.txt",
+        "doc_0008_finance_eu-north.txt",
+        "doc_0012_support_ap-south.txt",
         "doc_0002_compliance_eu-north.txt",
-        "doc_0003_risk_us-west.txt",
-        "doc_0013_ops_us-east.txt"
+        "doc_0003_risk_us-west.txt"
       ],
       "relevant_count": 1,
-      "reciprocal_rank": 1,
+      "reciprocal_rank": 0.5,
       "precision_at_k": 0.20000000,
       "recall_at_k": 1.00000000
     },
@@ -307,14 +307,14 @@
         "doc_0009_ops_us-west.txt"
       ],
       "actual_filenames": [
-        "doc_0009_ops_us-west.txt",
-        "doc_0003_risk_us-west.txt",
         "doc_0005_risk_us-west.txt",
-        "doc_0004_compliance_us-west.txt",
-        "doc_0013_ops_us-east.txt"
+        "doc_0009_ops_us-west.txt",
+        "doc_0010_sales_latam.txt",
+        "doc_0008_finance_eu-north.txt",
+        "doc_0012_support_ap-south.txt"
       ],
       "relevant_count": 1,
-      "reciprocal_rank": 1,
+      "reciprocal_rank": 0.5,
       "precision_at_k": 0.20000000,
       "recall_at_k": 1.00000000
     },
@@ -326,10 +326,10 @@
       ],
       "actual_filenames": [
         "doc_0009_ops_us-west.txt",
-        "doc_0005_risk_us-west.txt",
         "doc_0013_ops_us-east.txt",
-        "doc_0003_risk_us-west.txt",
-        "doc_0007_ops_latam.txt"
+        "doc_0005_risk_us-west.txt",
+        "doc_0007_ops_latam.txt",
+        "doc_0015_hr_us-west.txt"
       ],
       "relevant_count": 1,
       "reciprocal_rank": 1,
@@ -344,10 +344,10 @@
       ],
       "actual_filenames": [
         "doc_0010_sales_latam.txt",
+        "doc_0006_ops_latam.txt",
         "doc_0007_ops_latam.txt",
         "doc_0011_engineering_latam.txt",
-        "doc_0006_ops_latam.txt",
-        "doc_0003_risk_us-west.txt"
+        "doc_0002_compliance_eu-north.txt"
       ],
       "relevant_count": 1,
       "reciprocal_rank": 1,
@@ -363,9 +363,9 @@
       "actual_filenames": [
         "doc_0010_sales_latam.txt",
         "doc_0006_ops_latam.txt",
-        "doc_0011_engineering_latam.txt",
-        "doc_0007_ops_latam.txt",
-        "doc_0015_hr_us-west.txt"
+        "doc_0003_risk_us-west.txt",
+        "doc_0015_hr_us-west.txt",
+        "doc_0011_engineering_latam.txt"
       ],
       "relevant_count": 1,
       "reciprocal_rank": 1,
@@ -379,14 +379,14 @@
         "doc_0011_engineering_latam.txt"
       ],
       "actual_filenames": [
-        "doc_0011_engineering_latam.txt",
-        "doc_0010_sales_latam.txt",
+        "doc_0006_ops_latam.txt",
         "doc_0001_engineering_us-east.txt",
-        "doc_0007_ops_latam.txt",
-        "doc_0003_risk_us-west.txt"
+        "doc_0012_support_ap-south.txt",
+        "doc_0004_compliance_us-west.txt",
+        "doc_0011_engineering_latam.txt"
       ],
       "relevant_count": 1,
-      "reciprocal_rank": 1,
+      "reciprocal_rank": 0.2,
       "precision_at_k": 0.20000000,
       "recall_at_k": 1.00000000
     },
@@ -398,10 +398,10 @@
       ],
       "actual_filenames": [
         "doc_0011_engineering_latam.txt",
-        "doc_0007_ops_latam.txt",
         "doc_0010_sales_latam.txt",
+        "doc_0007_ops_latam.txt",
         "doc_0001_engineering_us-east.txt",
-        "doc_0006_ops_latam.txt"
+        "doc_0008_finance_eu-north.txt"
       ],
       "relevant_count": 1,
       "reciprocal_rank": 1,
@@ -416,10 +416,10 @@
       ],
       "actual_filenames": [
         "doc_0012_support_ap-south.txt",
-        "doc_0005_risk_us-west.txt",
-        "doc_0003_risk_us-west.txt",
         "doc_0002_compliance_eu-north.txt",
-        "doc_0010_sales_latam.txt"
+        "doc_0003_risk_us-west.txt",
+        "doc_0010_sales_latam.txt",
+        "doc_0005_risk_us-west.txt"
       ],
       "relevant_count": 1,
       "reciprocal_rank": 1,
@@ -433,14 +433,14 @@
         "doc_0012_support_ap-south.txt"
       ],
       "actual_filenames": [
+        "doc_0015_hr_us-west.txt",
         "doc_0012_support_ap-south.txt",
         "doc_0008_finance_eu-north.txt",
-        "doc_0013_ops_us-east.txt",
-        "doc_0004_compliance_us-west.txt",
-        "doc_0015_hr_us-west.txt"
+        "doc_0010_sales_latam.txt",
+        "doc_0014_ops_eu-north.txt"
       ],
       "relevant_count": 1,
-      "reciprocal_rank": 1,
+      "reciprocal_rank": 0.5,
       "precision_at_k": 0.20000000,
       "recall_at_k": 1.00000000
     },
@@ -452,10 +452,10 @@
       ],
       "actual_filenames": [
         "doc_0013_ops_us-east.txt",
-        "doc_0001_engineering_us-east.txt",
-        "doc_0014_ops_eu-north.txt",
         "doc_0009_ops_us-west.txt",
-        "doc_0003_risk_us-west.txt"
+        "doc_0014_ops_eu-north.txt",
+        "doc_0003_risk_us-west.txt",
+        "doc_0001_engineering_us-east.txt"
       ],
       "relevant_count": 1,
       "reciprocal_rank": 1,
@@ -470,10 +470,10 @@
       ],
       "actual_filenames": [
         "doc_0013_ops_us-east.txt",
-        "doc_0001_engineering_us-east.txt",
-        "doc_0009_ops_us-west.txt",
+        "doc_0003_risk_us-west.txt",
         "doc_0014_ops_eu-north.txt",
-        "doc_0003_risk_us-west.txt"
+        "doc_0002_compliance_eu-north.txt",
+        "doc_0001_engineering_us-east.txt"
       ],
       "relevant_count": 1,
       "reciprocal_rank": 1,
@@ -487,14 +487,14 @@
         "doc_0014_ops_eu-north.txt"
       ],
       "actual_filenames": [
-        "doc_0014_ops_eu-north.txt",
         "doc_0002_compliance_eu-north.txt",
+        "doc_0014_ops_eu-north.txt",
         "doc_0008_finance_eu-north.txt",
         "doc_0013_ops_us-east.txt",
-        "doc_0003_risk_us-west.txt"
+        "doc_0009_ops_us-west.txt"
       ],
       "relevant_count": 1,
-      "reciprocal_rank": 1,
+      "reciprocal_rank": 0.5,
       "precision_at_k": 0.20000000,
       "recall_at_k": 1.00000000
     },
@@ -505,14 +505,14 @@
         "doc_0014_ops_eu-north.txt"
       ],
       "actual_filenames": [
-        "doc_0014_ops_eu-north.txt",
         "doc_0002_compliance_eu-north.txt",
-        "doc_0008_finance_eu-north.txt",
+        "doc_0007_ops_latam.txt",
+        "doc_0014_ops_eu-north.txt",
         "doc_0013_ops_us-east.txt",
-        "doc_0009_ops_us-west.txt"
+        "doc_0008_finance_eu-north.txt"
       ],
       "relevant_count": 1,
-      "reciprocal_rank": 1,
+      "reciprocal_rank": 0.3333333333333333,
       "precision_at_k": 0.20000000,
       "recall_at_k": 1.00000000
     },
@@ -526,8 +526,8 @@
         "doc_0015_hr_us-west.txt",
         "doc_0003_risk_us-west.txt",
         "doc_0005_risk_us-west.txt",
-        "doc_0009_ops_us-west.txt",
-        "doc_0004_compliance_us-west.txt"
+        "doc_0004_compliance_us-west.txt",
+        "doc_0009_ops_us-west.txt"
       ],
       "relevant_count": 1,
       "reciprocal_rank": 1,
@@ -541,14 +541,14 @@
         "doc_0015_hr_us-west.txt"
       ],
       "actual_filenames": [
-        "doc_0015_hr_us-west.txt",
         "doc_0003_risk_us-west.txt",
-        "doc_0009_ops_us-west.txt",
-        "doc_0005_risk_us-west.txt",
-        "doc_0004_compliance_us-west.txt"
+        "doc_0015_hr_us-west.txt",
+        "doc_0010_sales_latam.txt",
+        "doc_0004_compliance_us-west.txt",
+        "doc_0001_engineering_us-east.txt"
       ],
       "relevant_count": 1,
-      "reciprocal_rank": 1,
+      "reciprocal_rank": 0.5,
       "precision_at_k": 0.20000000,
       "recall_at_k": 1.00000000
     }

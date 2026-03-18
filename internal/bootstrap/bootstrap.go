@@ -81,21 +81,41 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		ResilienceExecutor: resilienceExecutor,
 	})
 
-	// Select LLM provider.
+	// Resolve model name for external providers.
+	llmModel := cfg.LLMModel
+	if llmModel == "" {
+		llmModel = cfg.OllamaGenModel
+	}
+
+	// Select LLM provider (generator + classifier).
 	var classifier ports.DocumentClassifier
 	var generator ports.AnswerGenerator
-	var reranker ports.Reranker
 	llmProvider := strings.ToLower(strings.TrimSpace(cfg.LLMProvider))
 	switch llmProvider {
 	case "openai-compat", "groq", "together", "openrouter", "cerebras":
-		oacClient := openaicompat.New(cfg.LLMProviderURL, cfg.LLMProviderKey, cfg.OllamaGenModel)
+		oacClient := openaicompat.New(cfg.LLMProviderURL, cfg.LLMProviderKey, llmModel)
 		classifier = openaicompat.NewClassifier(oacClient)
 		generator = openaicompat.NewGenerator(oacClient)
-		reranker = openaicompat.NewReranker(oacClient)
 	default: // "ollama"
 		classifier = ollama.NewClassifier(ollamaClient)
 		generator = ollama.NewGenerator(ollamaClient)
+	}
+
+	// Select reranker provider (independent from LLM).
+	var reranker ports.Reranker
+	rerankModel := cfg.RerankModel
+	if rerankModel == "" {
+		rerankModel = llmModel
+	}
+	rerankProvider := strings.ToLower(strings.TrimSpace(cfg.RerankProvider))
+	switch rerankProvider {
+	case "openai-compat":
+		oacClient := openaicompat.New(cfg.RerankProviderURL, cfg.RerankProviderKey, rerankModel)
+		reranker = openaicompat.NewReranker(oacClient)
+	case "ollama":
 		reranker = ollama.NewReranker(ollamaClient)
+	default: // "fallback"
+		reranker = usecase.NewFallbackReranker()
 	}
 
 	// Select embedding provider.
@@ -115,6 +135,15 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 	memoryVector := qdrant.NewMemoryClientWithOptions(cfg.QdrantURL, cfg.QdrantMemoryCollection, qdrant.Options{
 		ResilienceExecutor: resilienceExecutor,
 	})
+
+	if cfg.QdrantEmbedDim > 0 {
+		if err := vectorDB.EnsureCollection(ctx, cfg.QdrantEmbedDim); err != nil {
+			return nil, fmt.Errorf("ensure qdrant documents collection: %w", err)
+		}
+		if err := memoryVector.EnsureCollection(ctx, cfg.QdrantEmbedDim); err != nil {
+			return nil, fmt.Errorf("ensure qdrant memory collection: %w", err)
+		}
+	}
 	chunkStrategy := strings.ToLower(strings.TrimSpace(cfg.ChunkStrategy))
 	var chunker ports.Chunker = chunking.NewSplitter(cfg.ChunkSize, cfg.ChunkOverlap)
 	switch chunkStrategy {

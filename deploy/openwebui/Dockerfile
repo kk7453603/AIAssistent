@@ -19,6 +19,10 @@ old_token_block = """    token = None
     if token is None and "token" in request.cookies:
         token = request.cookies.get("token")
 
+    # Fallback to request.state.token (set by middleware, e.g. for x-api-key)
+    if token is None and hasattr(request.state, "token") and request.state.token:
+        token = request.state.token.credentials
+
     if token is None:
         raise HTTPException(status_code=401, detail="Not authenticated")
 """
@@ -27,6 +31,10 @@ new_token_block = """    # PAI_COOKIE_FALLBACK_PATCH: preserve valid cookie sess
     header_token = auth_token.credentials if auth_token is not None else None
     cookie_token = request.cookies.get("token") if "token" in request.cookies else None
     token = header_token if header_token is not None else cookie_token
+
+    # Fallback to request.state.token (set by middleware, e.g. for x-api-key)
+    if token is None and hasattr(request.state, "token") and request.state.token:
+        token = request.state.token.credentials
 
     if token is None:
         raise HTTPException(status_code=401, detail="Not authenticated")

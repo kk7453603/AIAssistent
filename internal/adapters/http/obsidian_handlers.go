@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -641,6 +642,44 @@ func (rt *Router) failSync(vault obsidianVault, vaultID, errMsg string) obsidian
 		Failed: 1,
 		Errors: []obsidianSyncError{{File: "", Error: errMsg}},
 	}
+}
+
+// SyncRegisteredVaults syncs all enabled vaults in background.
+// Called once at API startup so the vector DB is populated automatically.
+func (rt *Router) SyncRegisteredVaults(ctx context.Context) {
+	cfg, err := rt.loadObsidianConfig()
+	if err != nil {
+		slog.Error("obsidian_autosync_config_error", "error", err)
+		return
+	}
+
+	var targets []obsidianVault
+	for _, v := range cfg.Vaults {
+		if v.Enabled {
+			targets = append(targets, v)
+		}
+	}
+	if len(targets) == 0 {
+		return
+	}
+
+	slog.Info("obsidian_autosync_start", "vaults", len(targets))
+	go func() {
+		for _, vault := range targets {
+			if ctx.Err() != nil {
+				return
+			}
+			result := rt.syncObsidianVault(ctx, vault, false)
+			slog.Info("obsidian_autosync_vault_done",
+				"vault", result.Name,
+				"status", result.Status,
+				"uploaded", result.Uploaded,
+				"skipped", result.Skipped,
+				"failed", result.Failed,
+			)
+		}
+		slog.Info("obsidian_autosync_complete")
+	}()
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload any) {

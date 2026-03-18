@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-15T23:30:11Z",
+  "generated_at": "2026-03-18T17:04:27Z",
   "reports": {
     "semantic": "./tmp/eval/report_advanced-retrieval-full_semantic.json",
     "hybrid": "./tmp/eval/report_advanced-retrieval-full_hybrid.json",
@@ -7,31 +7,31 @@
   },
   "metrics": {
     "semantic": {
-      "precision_at_k": 0.20000000,
-      "recall_at_k": 1.00000000,
-      "mrr_at_k": 0.86666667
+      "precision_at_k": 0.16666667,
+      "recall_at_k": 0.83333333,
+      "mrr_at_k": 0.66055556
     },
     "hybrid": {
-      "precision_at_k": 0.20000000,
-      "recall_at_k": 1.00000000,
-      "mrr_at_k": 0.95000000
+      "precision_at_k": 0.18000000,
+      "recall_at_k": 0.90000000,
+      "mrr_at_k": 0.78333333
     },
     "hybrid_rerank": {
-      "precision_at_k": 0.20000000,
-      "recall_at_k": 1.00000000,
-      "mrr_at_k": 1.00000000
+      "precision_at_k": 0.19333333,
+      "recall_at_k": 0.96666667,
+      "mrr_at_k": 0.71777778
     }
   },
   "deltas_vs_semantic": {
     "hybrid": {
-      "precision_at_k": 0E-8,
-      "recall_at_k": 0E-8,
-      "mrr_at_k": 0.08333333
+      "precision_at_k": 0.01333333,
+      "recall_at_k": 0.06666667,
+      "mrr_at_k": 0.12277777
     },
     "hybrid_rerank": {
-      "precision_at_k": 0E-8,
-      "recall_at_k": 0E-8,
-      "mrr_at_k": 0.13333333
+      "precision_at_k": 0.02666666,
+      "recall_at_k": 0.13333334,
+      "mrr_at_k": 0.05722222
     }
   }
 }

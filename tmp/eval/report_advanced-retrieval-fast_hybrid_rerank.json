@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-15T23:24:04Z",
+  "generated_at": "2026-03-18T16:49:36Z",
   "api_url": "http://localhost:8080",
   "cases_file": "./tmp/advanced-retrieval-fast/retrieval_cases.jsonl",
   "top_k": 5,
@@ -9,7 +9,7 @@
     "evaluated_cases": 12,
     "precision_at_k": 0.20000000,
     "recall_at_k": 1.00000000,
-    "mrr_at_k": 1.00000000
+    "mrr_at_k": 0.91666667
   },
   "cases": [
     {
@@ -20,8 +20,8 @@
       ],
       "actual_filenames": [
         "doc_0001_sales_us-west.txt",
-        "doc_0004_finance_us-west.txt",
         "doc_0006_compliance_us-west.txt",
+        "doc_0004_finance_us-west.txt",
         "doc_0002_finance_ap-south.txt",
         "doc_0005_hr_us-east.txt"
       ],
@@ -38,10 +38,10 @@
       ],
       "actual_filenames": [
         "doc_0001_sales_us-west.txt",
-        "doc_0004_finance_us-west.txt",
         "doc_0006_compliance_us-west.txt",
+        "doc_0004_finance_us-west.txt",
         "doc_0003_compliance_eu-north.txt",
-        "doc_0002_finance_ap-south.txt"
+        "doc_0005_hr_us-east.txt"
       ],
       "relevant_count": 1,
       "reciprocal_rank": 1,
@@ -55,14 +55,14 @@
         "doc_0002_finance_ap-south.txt"
       ],
       "actual_filenames": [
+        "doc_0003_compliance_eu-north.txt",
         "doc_0002_finance_ap-south.txt",
-        "doc_0004_finance_us-west.txt",
-        "doc_0001_sales_us-west.txt",
         "doc_0005_hr_us-east.txt",
-        "doc_0003_compliance_eu-north.txt"
+        "doc_0004_finance_us-west.txt",
+        "doc_0001_sales_us-west.txt"
       ],
       "relevant_count": 1,
-      "reciprocal_rank": 1,
+      "reciprocal_rank": 0.5,
       "precision_at_k": 0.20000000,
       "recall_at_k": 1.00000000
     },
@@ -76,8 +76,8 @@
         "doc_0002_finance_ap-south.txt",
         "doc_0004_finance_us-west.txt",
         "doc_0003_compliance_eu-north.txt",
-        "doc_0001_sales_us-west.txt",
-        "doc_0006_compliance_us-west.txt"
+        "doc_0005_hr_us-east.txt",
+        "doc_0001_sales_us-west.txt"
       ],
       "relevant_count": 1,
       "reciprocal_rank": 1,
@@ -91,14 +91,14 @@
         "doc_0003_compliance_eu-north.txt"
       ],
       "actual_filenames": [
+        "doc_0002_finance_ap-south.txt",
         "doc_0003_compliance_eu-north.txt",
         "doc_0006_compliance_us-west.txt",
-        "doc_0002_finance_ap-south.txt",
         "doc_0001_sales_us-west.txt",
-        "doc_0004_finance_us-west.txt"
+        "doc_0005_hr_us-east.txt"
       ],
       "relevant_count": 1,
-      "reciprocal_rank": 1,
+      "reciprocal_rank": 0.5,
       "precision_at_k": 0.20000000,
       "recall_at_k": 1.00000000
     },
@@ -111,8 +111,8 @@
       "actual_filenames": [
         "doc_0003_compliance_eu-north.txt",
         "doc_0006_compliance_us-west.txt",
-        "doc_0002_finance_ap-south.txt",
         "doc_0001_sales_us-west.txt",
+        "doc_0002_finance_ap-south.txt",
         "doc_0004_finance_us-west.txt"
       ],
       "relevant_count": 1,
@@ -128,8 +128,8 @@
       ],
       "actual_filenames": [
         "doc_0004_finance_us-west.txt",
-        "doc_0006_compliance_us-west.txt",
         "doc_0001_sales_us-west.txt",
+        "doc_0006_compliance_us-west.txt",
         "doc_0002_finance_ap-south.txt",
         "doc_0005_hr_us-east.txt"
       ],
@@ -147,9 +147,9 @@
       "actual_filenames": [
         "doc_0004_finance_us-west.txt",
         "doc_0001_sales_us-west.txt",
-        "doc_0002_finance_ap-south.txt",
         "doc_0006_compliance_us-west.txt",
-        "doc_0005_hr_us-east.txt"
+        "doc_0002_finance_ap-south.txt",
+        "doc_0003_compliance_eu-north.txt"
       ],
       "relevant_count": 1,
       "reciprocal_rank": 1,
@@ -164,10 +164,10 @@
       ],
       "actual_filenames": [
         "doc_0005_hr_us-east.txt",
+        "doc_0006_compliance_us-west.txt",
         "doc_0001_sales_us-west.txt",
         "doc_0004_finance_us-west.txt",
-        "doc_0002_finance_ap-south.txt",
-        "doc_0006_compliance_us-west.txt"
+        "doc_0002_finance_ap-south.txt"
       ],
       "relevant_count": 1,
       "reciprocal_rank": 1,
@@ -185,7 +185,7 @@
         "doc_0006_compliance_us-west.txt",
         "doc_0004_finance_us-west.txt",
         "doc_0001_sales_us-west.txt",
-        "doc_0002_finance_ap-south.txt"
+        "doc_0003_compliance_eu-north.txt"
       ],
       "relevant_count": 1,
       "reciprocal_rank": 1,
@@ -202,8 +202,8 @@
         "doc_0006_compliance_us-west.txt",
         "doc_0001_sales_us-west.txt",
         "doc_0004_finance_us-west.txt",
-        "doc_0003_compliance_eu-north.txt",
-        "doc_0002_finance_ap-south.txt"
+        "doc_0005_hr_us-east.txt",
+        "doc_0003_compliance_eu-north.txt"
       ],
       "relevant_count": 1,
       "reciprocal_rank": 1,
@@ -219,9 +219,9 @@
       "actual_filenames": [
         "doc_0006_compliance_us-west.txt",
         "doc_0001_sales_us-west.txt",
-        "doc_0004_finance_us-west.txt",
         "doc_0003_compliance_eu-north.txt",
-        "doc_0005_hr_us-east.txt"
+        "doc_0005_hr_us-east.txt",
+        "doc_0004_finance_us-west.txt"
       ],
       "relevant_count": 1,
       "reciprocal_rank": 1,

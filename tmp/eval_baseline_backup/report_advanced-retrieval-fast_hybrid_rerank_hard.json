@@ -1,0 +1,287 @@
+{
+  "generated_at": "2026-03-15T23:24:13Z",
+  "api_url": "http://localhost:8080",
+  "cases_file": "./tmp/advanced-retrieval-fast/retrieval_cases_hard.jsonl",
+  "top_k": 5,
+  "summary": {
+    "total_cases": 15,
+    "failed_cases": 0,
+    "evaluated_cases": 15,
+    "precision_at_k": 0.21333333,
+    "recall_at_k": 1.00000000,
+    "mrr_at_k": 0.85555556
+  },
+  "cases": [
+    {
+      "id": "HARD0001",
+      "question": "Which documents relate to product Orion in US West region?",
+      "expected_filenames": [
+        "doc_0001_sales_us-west.txt",
+        "doc_0004_finance_us-west.txt"
+      ],
+      "actual_filenames": [
+        "doc_0001_sales_us-west.txt",
+        "doc_0004_finance_us-west.txt",
+        "doc_0006_compliance_us-west.txt",
+        "doc_0003_compliance_eu-north.txt",
+        "doc_0005_hr_us-east.txt"
+      ],
+      "relevant_count": 2,
+      "reciprocal_rank": 1,
+      "precision_at_k": 0.40000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "HARD0002",
+      "question": "In US West, which document has the highest revenue?",
+      "expected_filenames": [
+        "doc_0004_finance_us-west.txt"
+      ],
+      "actual_filenames": [
+        "doc_0001_sales_us-west.txt",
+        "doc_0004_finance_us-west.txt",
+        "doc_0006_compliance_us-west.txt",
+        "doc_0003_compliance_eu-north.txt",
+        "doc_0005_hr_us-east.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 0.5,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "HARD0003",
+      "question": "In AP South, which document has the highest revenue?",
+      "expected_filenames": [
+        "doc_0002_finance_ap-south.txt"
+      ],
+      "actual_filenames": [
+        "doc_0004_finance_us-west.txt",
+        "doc_0002_finance_ap-south.txt",
+        "doc_0003_compliance_eu-north.txt",
+        "doc_0001_sales_us-west.txt",
+        "doc_0005_hr_us-east.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 0.5,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "HARD0004",
+      "question": "In EU North, which document has the highest revenue?",
+      "expected_filenames": [
+        "doc_0003_compliance_eu-north.txt"
+      ],
+      "actual_filenames": [
+        "doc_0003_compliance_eu-north.txt",
+        "doc_0004_finance_us-west.txt",
+        "doc_0002_finance_ap-south.txt",
+        "doc_0001_sales_us-west.txt",
+        "doc_0005_hr_us-east.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 1,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "HARD0005",
+      "question": "In US East, which document has the highest revenue?",
+      "expected_filenames": [
+        "doc_0005_hr_us-east.txt"
+      ],
+      "actual_filenames": [
+        "doc_0004_finance_us-west.txt",
+        "doc_0001_sales_us-west.txt",
+        "doc_0005_hr_us-east.txt",
+        "doc_0006_compliance_us-west.txt",
+        "doc_0003_compliance_eu-north.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 0.3333333333333333,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "HARD0006",
+      "question": "Which document shows the lowest SLA in sales?",
+      "expected_filenames": [
+        "doc_0001_sales_us-west.txt"
+      ],
+      "actual_filenames": [
+        "doc_0001_sales_us-west.txt",
+        "doc_0003_compliance_eu-north.txt",
+        "doc_0004_finance_us-west.txt",
+        "doc_0002_finance_ap-south.txt",
+        "doc_0006_compliance_us-west.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 1,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "HARD0007",
+      "question": "Which document shows the lowest SLA in finance?",
+      "expected_filenames": [
+        "doc_0002_finance_ap-south.txt"
+      ],
+      "actual_filenames": [
+        "doc_0002_finance_ap-south.txt",
+        "doc_0004_finance_us-west.txt",
+        "doc_0006_compliance_us-west.txt",
+        "doc_0005_hr_us-east.txt",
+        "doc_0003_compliance_eu-north.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 1,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "HARD0008",
+      "question": "Which document shows the lowest SLA in compliance?",
+      "expected_filenames": [
+        "doc_0006_compliance_us-west.txt"
+      ],
+      "actual_filenames": [
+        "doc_0003_compliance_eu-north.txt",
+        "doc_0006_compliance_us-west.txt",
+        "doc_0002_finance_ap-south.txt",
+        "doc_0004_finance_us-west.txt",
+        "doc_0005_hr_us-east.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 0.5,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "HARD0009",
+      "question": "Which document shows the lowest SLA in hr?",
+      "expected_filenames": [
+        "doc_0005_hr_us-east.txt"
+      ],
+      "actual_filenames": [
+        "doc_0005_hr_us-east.txt",
+        "doc_0002_finance_ap-south.txt",
+        "doc_0004_finance_us-west.txt",
+        "doc_0006_compliance_us-west.txt",
+        "doc_0003_compliance_eu-north.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 1,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "HARD0010",
+      "question": "Need the report for Helios Media Group / Orion in US West (2023-Q4).",
+      "expected_filenames": [
+        "doc_0004_finance_us-west.txt"
+      ],
+      "actual_filenames": [
+        "doc_0004_finance_us-west.txt",
+        "doc_0001_sales_us-west.txt",
+        "doc_0006_compliance_us-west.txt",
+        "doc_0002_finance_ap-south.txt",
+        "doc_0003_compliance_eu-north.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 1,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "HARD0011",
+      "question": "Need the report for Blue Delta Logistics / Zenith in AP South (2024-Q1).",
+      "expected_filenames": [
+        "doc_0002_finance_ap-south.txt"
+      ],
+      "actual_filenames": [
+        "doc_0002_finance_ap-south.txt",
+        "doc_0004_finance_us-west.txt",
+        "doc_0003_compliance_eu-north.txt",
+        "doc_0005_hr_us-east.txt",
+        "doc_0001_sales_us-west.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 1,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "HARD0012",
+      "question": "Need the report for Nova Security Systems / Orion in EU North (2024-Q3).",
+      "expected_filenames": [
+        "doc_0003_compliance_eu-north.txt"
+      ],
+      "actual_filenames": [
+        "doc_0003_compliance_eu-north.txt",
+        "doc_0002_finance_ap-south.txt",
+        "doc_0004_finance_us-west.txt",
+        "doc_0001_sales_us-west.txt",
+        "doc_0006_compliance_us-west.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 1,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "HARD0013",
+      "question": "Need the report for Apex Bio Labs / Quasar in US East (2025-Q2).",
+      "expected_filenames": [
+        "doc_0005_hr_us-east.txt"
+      ],
+      "actual_filenames": [
+        "doc_0005_hr_us-east.txt",
+        "doc_0006_compliance_us-west.txt",
+        "doc_0001_sales_us-west.txt",
+        "doc_0004_finance_us-west.txt",
+        "doc_0002_finance_ap-south.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 1,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "HARD0014",
+      "question": "Need the report for Apex Bio Labs / Orion in US West (2023-Q3).",
+      "expected_filenames": [
+        "doc_0001_sales_us-west.txt"
+      ],
+      "actual_filenames": [
+        "doc_0001_sales_us-west.txt",
+        "doc_0004_finance_us-west.txt",
+        "doc_0005_hr_us-east.txt",
+        "doc_0006_compliance_us-west.txt",
+        "doc_0002_finance_ap-south.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 1,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "HARD0015",
+      "question": "Need the report for Helios Media Group / Atlas in US West (2025-Q3).",
+      "expected_filenames": [
+        "doc_0006_compliance_us-west.txt"
+      ],
+      "actual_filenames": [
+        "doc_0006_compliance_us-west.txt",
+        "doc_0005_hr_us-east.txt",
+        "doc_0004_finance_us-west.txt",
+        "doc_0001_sales_us-west.txt",
+        "doc_0002_finance_ap-south.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 1,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    }
+  ]
+}

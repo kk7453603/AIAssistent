@@ -1,0 +1,694 @@
+{
+  "generated_at": "2026-03-15T23:22:36Z",
+  "api_url": "http://localhost:8080",
+  "cases_file": "./tmp/baseline-w01/retrieval_cases_hard.jsonl",
+  "top_k": 5,
+  "summary": {
+    "total_cases": 37,
+    "failed_cases": 0,
+    "evaluated_cases": 37,
+    "precision_at_k": 0.23243243,
+    "recall_at_k": 0.89639640,
+    "mrr_at_k": 0.62477477
+  },
+  "cases": [
+    {
+      "id": "HARD0001",
+      "question": "Which documents relate to product Nimbus in EU Central region?",
+      "expected_filenames": [
+        "doc_0015_engineering_eu-central.txt",
+        "doc_0018_sales_eu-central.txt"
+      ],
+      "actual_filenames": [
+        "doc_0013_sales_eu-north.txt",
+        "doc_0001_sales_eu-central.txt",
+        "doc_0018_sales_eu-central.txt",
+        "doc_0019_compliance_eu-north.txt",
+        "doc_0015_engineering_eu-central.txt"
+      ],
+      "relevant_count": 2,
+      "reciprocal_rank": 0.3333333333333333,
+      "precision_at_k": 0.40000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "HARD0002",
+      "question": "Which documents relate to product Zenith in Latam region?",
+      "expected_filenames": [
+        "doc_0002_finance_latam.txt",
+        "doc_0014_hr_latam.txt"
+      ],
+      "actual_filenames": [
+        "doc_0013_sales_eu-north.txt",
+        "doc_0006_sales_latam.txt",
+        "doc_0002_finance_latam.txt",
+        "doc_0011_engineering_us-east.txt",
+        "doc_0007_finance_ap-south.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 0.3333333333333333,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 0.50000000
+    },
+    {
+      "id": "HARD0003",
+      "question": "Which documents relate to product Pulse in Latam region?",
+      "expected_filenames": [
+        "doc_0004_hr_latam.txt",
+        "doc_0006_sales_latam.txt"
+      ],
+      "actual_filenames": [
+        "doc_0009_engineering_us-west.txt",
+        "doc_0006_sales_latam.txt",
+        "doc_0007_finance_ap-south.txt",
+        "doc_0019_compliance_eu-north.txt",
+        "doc_0010_support_latam.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 0.5,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 0.50000000
+    },
+    {
+      "id": "HARD0004",
+      "question": "Which documents relate to product Atlas in US West region?",
+      "expected_filenames": [
+        "doc_0016_finance_us-west.txt",
+        "doc_0020_ops_us-west.txt"
+      ],
+      "actual_filenames": [
+        "doc_0009_engineering_us-west.txt",
+        "doc_0011_engineering_us-east.txt",
+        "doc_0020_ops_us-west.txt",
+        "doc_0003_hr_us-east.txt",
+        "doc_0019_compliance_eu-north.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 0.3333333333333333,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 0.50000000
+    },
+    {
+      "id": "HARD0005",
+      "question": "Which documents relate to product Sierra in EU Central region?",
+      "expected_filenames": [
+        "doc_0001_sales_eu-central.txt",
+        "doc_0012_hr_eu-central.txt",
+        "doc_0017_compliance_eu-central.txt"
+      ],
+      "actual_filenames": [
+        "doc_0001_sales_eu-central.txt",
+        "doc_0013_sales_eu-north.txt",
+        "doc_0019_compliance_eu-north.txt",
+        "doc_0012_hr_eu-central.txt",
+        "doc_0011_engineering_us-east.txt"
+      ],
+      "relevant_count": 2,
+      "reciprocal_rank": 1,
+      "precision_at_k": 0.40000000,
+      "recall_at_k": 0.66666667
+    },
+    {
+      "id": "HARD0006",
+      "question": "Find documents with incident api-latency and risk high.",
+      "expected_filenames": [
+        "doc_0016_finance_us-west.txt",
+        "doc_0017_compliance_eu-central.txt"
+      ],
+      "actual_filenames": [
+        "doc_0017_compliance_eu-central.txt",
+        "doc_0020_ops_us-west.txt",
+        "doc_0016_finance_us-west.txt",
+        "doc_0008_risk_latam.txt",
+        "doc_0005_risk_eu-central.txt"
+      ],
+      "relevant_count": 2,
+      "reciprocal_rank": 1,
+      "precision_at_k": 0.40000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "HARD0007",
+      "question": "Find documents with incident security-alert and risk low.",
+      "expected_filenames": [
+        "doc_0007_finance_ap-south.txt",
+        "doc_0014_hr_latam.txt"
+      ],
+      "actual_filenames": [
+        "doc_0014_hr_latam.txt",
+        "doc_0007_finance_ap-south.txt",
+        "doc_0013_sales_eu-north.txt",
+        "doc_0003_hr_us-east.txt",
+        "doc_0008_risk_latam.txt"
+      ],
+      "relevant_count": 2,
+      "reciprocal_rank": 1,
+      "precision_at_k": 0.40000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "HARD0008",
+      "question": "Find documents with incident none and risk low.",
+      "expected_filenames": [
+        "doc_0002_finance_latam.txt",
+        "doc_0009_engineering_us-west.txt"
+      ],
+      "actual_filenames": [
+        "doc_0002_finance_latam.txt",
+        "doc_0014_hr_latam.txt",
+        "doc_0009_engineering_us-west.txt",
+        "doc_0008_risk_latam.txt",
+        "doc_0007_finance_ap-south.txt"
+      ],
+      "relevant_count": 2,
+      "reciprocal_rank": 1,
+      "precision_at_k": 0.40000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "HARD0009",
+      "question": "Find documents with incident cost-overrun and risk medium.",
+      "expected_filenames": [
+        "doc_0004_hr_latam.txt",
+        "doc_0010_support_latam.txt"
+      ],
+      "actual_filenames": [
+        "doc_0008_risk_latam.txt",
+        "doc_0004_hr_latam.txt",
+        "doc_0010_support_latam.txt",
+        "doc_0001_sales_eu-central.txt",
+        "doc_0005_risk_eu-central.txt"
+      ],
+      "relevant_count": 2,
+      "reciprocal_rank": 0.5,
+      "precision_at_k": 0.40000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "HARD0010",
+      "question": "List documents for hr in Latam.",
+      "expected_filenames": [
+        "doc_0004_hr_latam.txt",
+        "doc_0014_hr_latam.txt"
+      ],
+      "actual_filenames": [
+        "doc_0014_hr_latam.txt",
+        "doc_0003_hr_us-east.txt",
+        "doc_0004_hr_latam.txt",
+        "doc_0012_hr_eu-central.txt",
+        "doc_0008_risk_latam.txt"
+      ],
+      "relevant_count": 2,
+      "reciprocal_rank": 1,
+      "precision_at_k": 0.40000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "HARD0011",
+      "question": "List documents for sales in EU Central.",
+      "expected_filenames": [
+        "doc_0001_sales_eu-central.txt",
+        "doc_0018_sales_eu-central.txt"
+      ],
+      "actual_filenames": [
+        "doc_0018_sales_eu-central.txt",
+        "doc_0013_sales_eu-north.txt",
+        "doc_0001_sales_eu-central.txt",
+        "doc_0006_sales_latam.txt",
+        "doc_0005_risk_eu-central.txt"
+      ],
+      "relevant_count": 2,
+      "reciprocal_rank": 1,
+      "precision_at_k": 0.40000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "HARD0012",
+      "question": "In EU Central, which document has the highest revenue?",
+      "expected_filenames": [
+        "doc_0017_compliance_eu-central.txt"
+      ],
+      "actual_filenames": [
+        "doc_0018_sales_eu-central.txt",
+        "doc_0001_sales_eu-central.txt",
+        "doc_0013_sales_eu-north.txt",
+        "doc_0017_compliance_eu-central.txt",
+        "doc_0012_hr_eu-central.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 0.25,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "HARD0013",
+      "question": "In Latam, which document has the highest revenue?",
+      "expected_filenames": [
+        "doc_0010_support_latam.txt"
+      ],
+      "actual_filenames": [
+        "doc_0002_finance_latam.txt",
+        "doc_0006_sales_latam.txt",
+        "doc_0016_finance_us-west.txt",
+        "doc_0008_risk_latam.txt",
+        "doc_0004_hr_latam.txt"
+      ],
+      "relevant_count": 0,
+      "reciprocal_rank": 0,
+      "precision_at_k": 0E-8,
+      "recall_at_k": 0E-8
+    },
+    {
+      "id": "HARD0014",
+      "question": "In US East, which document has the highest revenue?",
+      "expected_filenames": [
+        "doc_0011_engineering_us-east.txt"
+      ],
+      "actual_filenames": [
+        "doc_0016_finance_us-west.txt",
+        "doc_0011_engineering_us-east.txt",
+        "doc_0003_hr_us-east.txt",
+        "doc_0018_sales_eu-central.txt",
+        "doc_0002_finance_latam.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 0.5,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "HARD0015",
+      "question": "In AP South, which document has the highest revenue?",
+      "expected_filenames": [
+        "doc_0007_finance_ap-south.txt"
+      ],
+      "actual_filenames": [
+        "doc_0018_sales_eu-central.txt",
+        "doc_0002_finance_latam.txt",
+        "doc_0013_sales_eu-north.txt",
+        "doc_0007_finance_ap-south.txt",
+        "doc_0011_engineering_us-east.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 0.25,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "HARD0016",
+      "question": "In US West, which document has the highest revenue?",
+      "expected_filenames": [
+        "doc_0009_engineering_us-west.txt"
+      ],
+      "actual_filenames": [
+        "doc_0016_finance_us-west.txt",
+        "doc_0011_engineering_us-east.txt",
+        "doc_0020_ops_us-west.txt",
+        "doc_0002_finance_latam.txt",
+        "doc_0018_sales_eu-central.txt"
+      ],
+      "relevant_count": 0,
+      "reciprocal_rank": 0,
+      "precision_at_k": 0E-8,
+      "recall_at_k": 0E-8
+    },
+    {
+      "id": "HARD0017",
+      "question": "In EU North, which document has the highest revenue?",
+      "expected_filenames": [
+        "doc_0019_compliance_eu-north.txt"
+      ],
+      "actual_filenames": [
+        "doc_0013_sales_eu-north.txt",
+        "doc_0001_sales_eu-central.txt",
+        "doc_0019_compliance_eu-north.txt",
+        "doc_0018_sales_eu-central.txt",
+        "doc_0017_compliance_eu-central.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 0.3333333333333333,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "HARD0018",
+      "question": "Which document shows the lowest SLA in sales?",
+      "expected_filenames": [
+        "doc_0001_sales_eu-central.txt"
+      ],
+      "actual_filenames": [
+        "doc_0013_sales_eu-north.txt",
+        "doc_0006_sales_latam.txt",
+        "doc_0018_sales_eu-central.txt",
+        "doc_0001_sales_eu-central.txt",
+        "doc_0002_finance_latam.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 0.25,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "HARD0019",
+      "question": "Which document shows the lowest SLA in finance?",
+      "expected_filenames": [
+        "doc_0007_finance_ap-south.txt"
+      ],
+      "actual_filenames": [
+        "doc_0002_finance_latam.txt",
+        "doc_0007_finance_ap-south.txt",
+        "doc_0016_finance_us-west.txt",
+        "doc_0006_sales_latam.txt",
+        "doc_0018_sales_eu-central.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 0.5,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "HARD0020",
+      "question": "Which document shows the lowest SLA in hr?",
+      "expected_filenames": [
+        "doc_0003_hr_us-east.txt"
+      ],
+      "actual_filenames": [
+        "doc_0014_hr_latam.txt",
+        "doc_0012_hr_eu-central.txt",
+        "doc_0003_hr_us-east.txt",
+        "doc_0004_hr_latam.txt",
+        "doc_0002_finance_latam.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 0.3333333333333333,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "HARD0021",
+      "question": "Which document shows the lowest SLA in risk?",
+      "expected_filenames": [
+        "doc_0005_risk_eu-central.txt"
+      ],
+      "actual_filenames": [
+        "doc_0005_risk_eu-central.txt",
+        "doc_0008_risk_latam.txt",
+        "doc_0002_finance_latam.txt",
+        "doc_0018_sales_eu-central.txt",
+        "doc_0014_hr_latam.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 1,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "HARD0022",
+      "question": "Which document shows the lowest SLA in engineering?",
+      "expected_filenames": [
+        "doc_0015_engineering_eu-central.txt"
+      ],
+      "actual_filenames": [
+        "doc_0009_engineering_us-west.txt",
+        "doc_0015_engineering_eu-central.txt",
+        "doc_0011_engineering_us-east.txt",
+        "doc_0002_finance_latam.txt",
+        "doc_0014_hr_latam.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 0.5,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "HARD0023",
+      "question": "Which document shows the lowest SLA in support?",
+      "expected_filenames": [
+        "doc_0010_support_latam.txt"
+      ],
+      "actual_filenames": [
+        "doc_0010_support_latam.txt",
+        "doc_0002_finance_latam.txt",
+        "doc_0014_hr_latam.txt",
+        "doc_0009_engineering_us-west.txt",
+        "doc_0011_engineering_us-east.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 1,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "HARD0024",
+      "question": "Which document shows the lowest SLA in compliance?",
+      "expected_filenames": [
+        "doc_0017_compliance_eu-central.txt"
+      ],
+      "actual_filenames": [
+        "doc_0019_compliance_eu-north.txt",
+        "doc_0017_compliance_eu-central.txt",
+        "doc_0002_finance_latam.txt",
+        "doc_0014_hr_latam.txt",
+        "doc_0010_support_latam.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 0.5,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "HARD0025",
+      "question": "Which document shows the lowest SLA in ops?",
+      "expected_filenames": [
+        "doc_0020_ops_us-west.txt"
+      ],
+      "actual_filenames": [
+        "doc_0020_ops_us-west.txt",
+        "doc_0002_finance_latam.txt",
+        "doc_0009_engineering_us-west.txt",
+        "doc_0011_engineering_us-east.txt",
+        "doc_0013_sales_eu-north.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 1,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "HARD0026",
+      "question": "Need the report for Arctic Mobility / Atlas in EU North (2023-Q4).",
+      "expected_filenames": [
+        "doc_0019_compliance_eu-north.txt"
+      ],
+      "actual_filenames": [
+        "doc_0019_compliance_eu-north.txt",
+        "doc_0013_sales_eu-north.txt",
+        "doc_0001_sales_eu-central.txt",
+        "doc_0003_hr_us-east.txt",
+        "doc_0004_hr_latam.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 1,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "HARD0027",
+      "question": "Need the report for Vertex Retail / Nimbus in EU Central (2024-Q3).",
+      "expected_filenames": [
+        "doc_0015_engineering_eu-central.txt"
+      ],
+      "actual_filenames": [
+        "doc_0018_sales_eu-central.txt",
+        "doc_0014_hr_latam.txt",
+        "doc_0003_hr_us-east.txt",
+        "doc_0015_engineering_eu-central.txt",
+        "doc_0013_sales_eu-north.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 0.25,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "HARD0028",
+      "question": "Need the report for Granite Finance Hub / Orion in US East (2024-Q2).",
+      "expected_filenames": [
+        "doc_0011_engineering_us-east.txt"
+      ],
+      "actual_filenames": [
+        "doc_0003_hr_us-east.txt",
+        "doc_0002_finance_latam.txt",
+        "doc_0018_sales_eu-central.txt",
+        "doc_0011_engineering_us-east.txt",
+        "doc_0016_finance_us-west.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 0.25,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "HARD0029",
+      "question": "Need the report for Nova Security Systems / Atlas in Latam (2024-Q4).",
+      "expected_filenames": [
+        "doc_0008_risk_latam.txt"
+      ],
+      "actual_filenames": [
+        "doc_0003_hr_us-east.txt",
+        "doc_0014_hr_latam.txt",
+        "doc_0002_finance_latam.txt",
+        "doc_0016_finance_us-west.txt",
+        "doc_0008_risk_latam.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 0.2,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "HARD0030",
+      "question": "Need the report for Northstar Analytics / Orion in EU Central (2025-Q2).",
+      "expected_filenames": [
+        "doc_0005_risk_eu-central.txt"
+      ],
+      "actual_filenames": [
+        "doc_0005_risk_eu-central.txt",
+        "doc_0007_finance_ap-south.txt",
+        "doc_0017_compliance_eu-central.txt",
+        "doc_0013_sales_eu-north.txt",
+        "doc_0018_sales_eu-central.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 1,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "HARD0031",
+      "question": "Need the report for Helios Media Group / Cobalt in AP South (2025-Q2).",
+      "expected_filenames": [
+        "doc_0007_finance_ap-south.txt"
+      ],
+      "actual_filenames": [
+        "doc_0007_finance_ap-south.txt",
+        "doc_0005_risk_eu-central.txt",
+        "doc_0006_sales_latam.txt",
+        "doc_0018_sales_eu-central.txt",
+        "doc_0020_ops_us-west.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 1,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "HARD0032",
+      "question": "Need the report for Granite Finance Hub / Pulse in Latam (2025-Q3).",
+      "expected_filenames": [
+        "doc_0006_sales_latam.txt"
+      ],
+      "actual_filenames": [
+        "doc_0006_sales_latam.txt",
+        "doc_0002_finance_latam.txt",
+        "doc_0007_finance_ap-south.txt",
+        "doc_0018_sales_eu-central.txt",
+        "doc_0004_hr_latam.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 1,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "HARD0033",
+      "question": "Need the report for Northstar Analytics / Zenith in EU North (2024-Q1).",
+      "expected_filenames": [
+        "doc_0013_sales_eu-north.txt"
+      ],
+      "actual_filenames": [
+        "doc_0013_sales_eu-north.txt",
+        "doc_0002_finance_latam.txt",
+        "doc_0014_hr_latam.txt",
+        "doc_0016_finance_us-west.txt",
+        "doc_0018_sales_eu-central.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 1,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "HARD0034",
+      "question": "Need the report for Helios Media Group / Sierra in EU Central (2024-Q4).",
+      "expected_filenames": [
+        "doc_0012_hr_eu-central.txt"
+      ],
+      "actual_filenames": [
+        "doc_0007_finance_ap-south.txt",
+        "doc_0012_hr_eu-central.txt",
+        "doc_0018_sales_eu-central.txt",
+        "doc_0020_ops_us-west.txt",
+        "doc_0013_sales_eu-north.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 0.5,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "HARD0035",
+      "question": "Need the report for Northstar Analytics / Atlas in US West (2024-Q4).",
+      "expected_filenames": [
+        "doc_0016_finance_us-west.txt"
+      ],
+      "actual_filenames": [
+        "doc_0016_finance_us-west.txt",
+        "doc_0003_hr_us-east.txt",
+        "doc_0020_ops_us-west.txt",
+        "doc_0013_sales_eu-north.txt",
+        "doc_0004_hr_latam.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 1,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "HARD0036",
+      "question": "Need the report for Apex Bio Labs / Orion in Latam (2024-Q3).",
+      "expected_filenames": [
+        "doc_0010_support_latam.txt"
+      ],
+      "actual_filenames": [
+        "doc_0002_finance_latam.txt",
+        "doc_0010_support_latam.txt",
+        "doc_0014_hr_latam.txt",
+        "doc_0003_hr_us-east.txt",
+        "doc_0006_sales_latam.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 0.5,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    },
+    {
+      "id": "HARD0037",
+      "question": "Need the report for Apex Bio Labs / Pulse in US West (2025-Q1).",
+      "expected_filenames": [
+        "doc_0009_engineering_us-west.txt"
+      ],
+      "actual_filenames": [
+        "doc_0009_engineering_us-west.txt",
+        "doc_0006_sales_latam.txt",
+        "doc_0007_finance_ap-south.txt",
+        "doc_0003_hr_us-east.txt",
+        "doc_0017_compliance_eu-central.txt"
+      ],
+      "relevant_count": 1,
+      "reciprocal_rank": 1,
+      "precision_at_k": 0.20000000,
+      "recall_at_k": 1.00000000
+    }
+  ]
+}

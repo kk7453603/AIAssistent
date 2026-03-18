@@ -1,0 +1,5 @@
+dataset,semantic_mrr,hybrid_mrr,hybrid_rerank_mrr,hybrid_mrr_delta,hybrid_rerank_mrr_delta
+"baseline-w01",0.84875000,0.93333333,0.94583333,0.08458333,0.09708333
+"advanced-retrieval-fast",1.00000000,1.00000000,1.00000000,0E-8,0E-8
+"advanced-retrieval-w02",0.90208333,0.95000000,0.96250000,0.04791667,0.06041667
+"advanced-retrieval-full",0.86666667,0.95000000,1.00000000,0.08333333,0.13333333

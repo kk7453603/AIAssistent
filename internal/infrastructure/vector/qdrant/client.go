@@ -105,6 +105,12 @@ func (c *Client) doRequest(
 	return response, nil
 }
 
+// EnsureCollection creates the collection if it doesn't exist.
+// Call at startup so that search works even before the first document is indexed.
+func (c *Client) EnsureCollection(ctx context.Context, vectorSize int) error {
+	return c.ensureCollection(ctx, vectorSize)
+}
+
 func (c *Client) IndexChunks(ctx context.Context, doc *domain.Document, chunks []string, vectors [][]float32) error {
 	if len(chunks) == 0 || len(vectors) == 0 {
 		return nil

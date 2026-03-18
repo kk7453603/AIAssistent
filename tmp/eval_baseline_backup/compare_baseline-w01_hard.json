@@ -1,0 +1,37 @@
+{
+  "generated_at": "2026-03-15T23:22:36Z",
+  "reports": {
+    "semantic": "./tmp/eval/report_baseline-w01_semantic_hard.json",
+    "hybrid": "./tmp/eval/report_baseline-w01_hybrid_hard.json",
+    "hybrid_rerank": "./tmp/eval/report_baseline-w01_hybrid_rerank_hard.json"
+  },
+  "metrics": {
+    "semantic": {
+      "precision_at_k": 0.12972973,
+      "recall_at_k": 0.50000000,
+      "mrr_at_k": 0.30405405
+    },
+    "hybrid": {
+      "precision_at_k": 0.22162162,
+      "recall_at_k": 0.85585586,
+      "mrr_at_k": 0.55495495
+    },
+    "hybrid_rerank": {
+      "precision_at_k": 0.23243243,
+      "recall_at_k": 0.89639640,
+      "mrr_at_k": 0.62477477
+    }
+  },
+  "deltas_vs_semantic": {
+    "hybrid": {
+      "precision_at_k": 0.09189189,
+      "recall_at_k": 0.35585586,
+      "mrr_at_k": 0.25090090
+    },
+    "hybrid_rerank": {
+      "precision_at_k": 0.10270270,
+      "recall_at_k": 0.39639640,
+      "mrr_at_k": 0.32072072
+    }
+  }
+}

@@ -96,6 +96,11 @@ func (c *MemoryClient) doRequest(
 	return response, nil
 }
 
+// EnsureCollection creates the memory collection if it doesn't exist.
+func (c *MemoryClient) EnsureCollection(ctx context.Context, vectorSize int) error {
+	return c.ensureCollection(ctx, vectorSize)
+}
+
 func (c *MemoryClient) IndexSummary(ctx context.Context, summary domain.MemorySummary, vector []float32) error {
 	if len(vector) == 0 {
 		return nil

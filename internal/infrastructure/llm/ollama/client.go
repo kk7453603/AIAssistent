@@ -139,6 +139,7 @@ func (c *Client) generateJSON(ctx context.Context, prompt string) (string, error
 		"prompt": prompt,
 		"stream": false,
 		"format": "json",
+		"think":  false,
 	}
 	return c.generate(ctx, reqBody)
 }

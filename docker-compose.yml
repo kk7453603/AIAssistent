@@ -31,7 +31,7 @@ services:
       - qdrant_data:/qdrant/storage
 
   ollama:
-    image: ollama/ollama:0.6.0
+    image: ollama/ollama:latest
     ports:
       - "${OLLAMA_PORT:-11435}:11434"
     volumes:
@@ -151,7 +151,6 @@ services:
       ASSISTANT_OBSIDIAN_STATE_DIR: "/app/backend/data/assistant/obsidian_state"
       ASSISTANT_OBSIDIAN_VAULTS_ROOT: "/vaults"
       ASSISTANT_OBSIDIAN_DEFAULT_INTERVAL_MINUTES: "${ASSISTANT_OBSIDIAN_DEFAULT_INTERVAL_MINUTES:-15}"
-      TOOL_SERVER_CONNECTIONS: '[{"url":"http://api:8080","path":"/openapi.json","type":"openapi","auth_type":"none","config":{"enable":true,"function_name_filter_list":"queryRag,getDocumentById"},"info":{"id":"assistant-api","name":"Assistant API","description":"Personal AI Assistant tools"}}]'
     depends_on:
       api:
         condition: service_started
@@ -161,26 +160,26 @@ services:
       - openwebui_data:/app/backend/data
       - ${OBSIDIAN_VAULTS_HOST_PATH:-./obsidian_vaults}:/vaults:ro
 
-  openwebui-tool-bootstrap:
+  openwebui-pipe-bootstrap:
     image: alpine:3.20
     command: >
-      sh -c "apk add --no-cache curl jq >/dev/null && sh /bootstrap/bootstrap-tool.sh"
+      sh -c "apk add --no-cache curl jq >/dev/null && sh /bootstrap/bootstrap-function.sh"
     environment:
       OPENWEBUI_URL: "http://openwebui:8080"
       OPENWEBUI_ADMIN_EMAIL: "${OPENWEBUI_ADMIN_EMAIL:-admin@example.com}"
       OPENWEBUI_ADMIN_PASSWORD: "${OPENWEBUI_ADMIN_PASSWORD:-ChangeMeStrongPass123!}"
-      OPENWEBUI_TOOL_ID: "assistant_ingest_and_query"
-      OPENWEBUI_TOOL_NAME: "Assistant Ingest And Query"
-      OPENWEBUI_TOOL_DESCRIPTION: "Uploads all attached files to Personal AI Assistant and runs RAG query."
-      TOOL_FILE_PATH: "/tool/assistant_ingest_and_query.py"
+      FUNCTION_ID: "paa_rag_pipe"
+      FUNCTION_NAME: "Personal AI Assistant"
+      FUNCTION_TYPE: "pipe"
+      FUNCTION_FILE_PATH: "/function/paa_rag_pipe.py"
     depends_on:
       openwebui:
         condition: service_started
       api:
         condition: service_started
     volumes:
-      - ./scripts/openwebui/bootstrap-tool.sh:/bootstrap/bootstrap-tool.sh:ro
-      - ./deploy/openwebui/tools/assistant_ingest_and_query.py:/tool/assistant_ingest_and_query.py:ro
+      - ./scripts/openwebui/bootstrap-function.sh:/bootstrap/bootstrap-function.sh:ro
+      - ./deploy/openwebui/functions/paa_rag_pipe.py:/function/paa_rag_pipe.py:ro
     restart: "no"
 
   openwebui-tool-bootstrap-obsidian:

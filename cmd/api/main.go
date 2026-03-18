@@ -30,10 +30,12 @@ func main() {
 	}
 	defer app.Close()
 
-	router := httpadapter.NewRouter(cfg, app.IngestUC, app.QueryUC, app.Repo, app.AgentUC).Handler()
+	rt := httpadapter.NewRouter(cfg, app.IngestUC, app.QueryUC, app.Repo, app.AgentUC)
+	rt.SyncRegisteredVaults(ctx)
+	handler := rt.Handler()
 	server := &http.Server{
 		Addr:              ":" + cfg.APIPort,
-		Handler:           router,
+		Handler:           handler,
 		ReadTimeout:       30 * time.Second,
 		ReadHeaderTimeout: 10 * time.Second,
 		// Keep write timeout disabled: /v1/chat/completions may hold SSE responses
