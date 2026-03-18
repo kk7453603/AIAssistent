@@ -143,6 +143,7 @@ func (rt *Router) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/obsidian/vaults", rt.handleObsidianUpsert)
 	mux.HandleFunc("DELETE /v1/obsidian/vaults/{id}", rt.handleObsidianRemove)
 	mux.HandleFunc("POST /v1/obsidian/vaults/{id}/sync", rt.handleObsidianSync)
+	mux.HandleFunc("POST /v1/obsidian/vaults/{id}/notes", rt.handleObsidianCreateNote)
 
 	strict := apigen.NewStrictHandlerWithOptions(rt, []apigen.StrictMiddlewareFunc{
 		rt.openAICompatAuthMiddleware,

@@ -14,6 +14,7 @@ import (
 	apigen "github.com/kirillkom/personal-ai-assistant/internal/adapters/http/openapi"
 	"github.com/kirillkom/personal-ai-assistant/internal/config"
 	"github.com/kirillkom/personal-ai-assistant/internal/core/domain"
+	"github.com/kirillkom/personal-ai-assistant/internal/core/ports"
 	"github.com/kirillkom/personal-ai-assistant/internal/core/usecase"
 )
 
@@ -85,6 +86,8 @@ type fakeAgentService struct {
 	err    error
 	called bool
 }
+
+func (f *fakeAgentService) SetObsidianWriter(_ ports.ObsidianNoteWriter) {}
 
 func (f *fakeAgentService) Complete(context.Context, domain.AgentChatRequest) (*domain.AgentRunResult, error) {
 	f.called = true

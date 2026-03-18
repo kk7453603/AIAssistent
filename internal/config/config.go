@@ -76,6 +76,10 @@ type Config struct {
 	AgentMemoryTopK            int
 	AgentKnowledgeTopK         int
 
+	WebSearchEnabled bool
+	WebSearchURL     string
+	WebSearchLimit   int
+
 	WorkerMetricsPort string
 
 	APIRateLimitRPS            float64
@@ -169,6 +173,10 @@ func Load() Config {
 		AgentSummaryEveryTurns:          mustEnvInt("AGENT_SUMMARY_EVERY_TURNS", 6),
 		AgentMemoryTopK:                 mustEnvInt("AGENT_MEMORY_TOP_K", 4),
 		AgentKnowledgeTopK:              mustEnvInt("AGENT_KNOWLEDGE_TOP_K", 5),
+
+		WebSearchEnabled: mustEnvBool("WEB_SEARCH_ENABLED", false),
+		WebSearchURL:     mustEnv("WEB_SEARCH_URL", "http://searxng:8888"),
+		WebSearchLimit:   mustEnvInt("WEB_SEARCH_LIMIT", 5),
 
 		WorkerMetricsPort: mustEnv("WORKER_METRICS_PORT", "9090"),
 

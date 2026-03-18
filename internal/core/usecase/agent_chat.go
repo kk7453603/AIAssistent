@@ -17,17 +17,21 @@ import (
 
 const (
 	agentToolKnowledgeSearch = "knowledge_search"
+	agentToolWebSearch       = "web_search"
+	agentToolObsidianWrite   = "obsidian_write"
 	agentToolTask            = "task_tool"
 )
 
 type AgentChatUseCase struct {
-	querySvc      ports.DocumentQueryService
-	embedder      ports.Embedder
-	conversations ports.ConversationStore
-	tasks         ports.TaskStore
-	memories      ports.MemoryStore
-	memoryVector  ports.MemoryVectorStore
-	limits        domain.AgentLimits
+	querySvc       ports.DocumentQueryService
+	embedder       ports.Embedder
+	conversations  ports.ConversationStore
+	tasks          ports.TaskStore
+	memories       ports.MemoryStore
+	memoryVector   ports.MemoryVectorStore
+	webSearcher    ports.WebSearcher
+	obsidianWriter ports.ObsidianNoteWriter
+	limits         domain.AgentLimits
 }
 
 func NewAgentChatUseCase(
@@ -37,6 +41,8 @@ func NewAgentChatUseCase(
 	tasks ports.TaskStore,
 	memories ports.MemoryStore,
 	memoryVector ports.MemoryVectorStore,
+	webSearcher ports.WebSearcher,
+	obsidianWriter ports.ObsidianNoteWriter,
 	limits domain.AgentLimits,
 ) *AgentChatUseCase {
 	if limits.MaxIterations <= 0 {
@@ -65,14 +71,21 @@ func NewAgentChatUseCase(
 	}
 
 	return &AgentChatUseCase{
-		querySvc:      querySvc,
-		embedder:      embedder,
-		conversations: conversations,
-		tasks:         tasks,
-		memories:      memories,
-		memoryVector:  memoryVector,
-		limits:        limits,
+		querySvc:       querySvc,
+		embedder:       embedder,
+		conversations:  conversations,
+		tasks:          tasks,
+		memories:       memories,
+		memoryVector:   memoryVector,
+		webSearcher:    webSearcher,
+		obsidianWriter: obsidianWriter,
+		limits:         limits,
 	}
+}
+
+// SetObsidianWriter sets the ObsidianNoteWriter after construction (to break circular dependency with Router).
+func (uc *AgentChatUseCase) SetObsidianWriter(w ports.ObsidianNoteWriter) {
+	uc.obsidianWriter = w
 }
 
 func (uc *AgentChatUseCase) Complete(ctx context.Context, req domain.AgentChatRequest) (*domain.AgentRunResult, error) {
@@ -130,12 +143,15 @@ func (uc *AgentChatUseCase) Complete(ctx context.Context, req domain.AgentChatRe
 	defer cancel()
 
 	scratchpad := make([]string, 0, uc.limits.MaxIterations)
+	thinkingLines := make([]string, 0, uc.limits.MaxIterations)
 	toolEvents := make([]domain.AgentToolEvent, 0, uc.limits.MaxIterations)
 	toolsInvoked := make([]string, 0, uc.limits.MaxIterations)
 	toolSet := make(map[string]struct{})
 	finalAnswer := ""
 	fallbackReason := ""
 	iterations := 0
+
+	webSearchAvailable := uc.webSearcher != nil
 
 	for i := 1; i <= uc.limits.MaxIterations; i++ {
 		if loopCtx.Err() != nil {
@@ -145,7 +161,7 @@ func (uc *AgentChatUseCase) Complete(ctx context.Context, req domain.AgentChatRe
 
 		iterations = i
 		plannerCtx, plannerCancel := context.WithTimeout(loopCtx, uc.limits.PlannerTimeout)
-		planRaw, err := uc.querySvc.GenerateJSONFromPrompt(plannerCtx, buildPlannerPrompt(lastUserMessage, shortMemory, memoryHits, scratchpad))
+		planRaw, err := uc.querySvc.GenerateJSONFromPrompt(plannerCtx, buildPlannerPrompt(lastUserMessage, shortMemory, memoryHits, scratchpad, webSearchAvailable))
 		plannerCancel()
 		if err != nil {
 			if isAgentTimeoutError(err) {
@@ -176,6 +192,10 @@ func (uc *AgentChatUseCase) Complete(ctx context.Context, req domain.AgentChatRe
 			}
 		}
 
+		if thinking := strings.TrimSpace(step.Thinking); thinking != "" {
+			thinkingLines = append(thinkingLines, thinking)
+		}
+
 		switch strings.ToLower(strings.TrimSpace(step.Type)) {
 		case "final":
 			finalAnswer = strings.TrimSpace(step.Answer)
@@ -184,6 +204,7 @@ func (uc *AgentChatUseCase) Complete(ctx context.Context, req domain.AgentChatRe
 				fallbackReason = "empty_final_answer"
 			}
 		case "tool":
+			thinkingLines = append(thinkingLines, fmt.Sprintf("→ Using tool: %s", step.Tool))
 			toolCtx, toolCancel := context.WithTimeout(loopCtx, uc.limits.ToolTimeout)
 			event, execErr := uc.executeTool(toolCtx, userID, step, lastUserMessage)
 			toolCancel()
@@ -197,6 +218,9 @@ func (uc *AgentChatUseCase) Complete(ctx context.Context, req domain.AgentChatRe
 					Status: "error",
 					Output: string(errorPayload),
 				}
+				thinkingLines = append(thinkingLines, fmt.Sprintf("✗ Tool %s error: %s", step.Tool, execErr.Error()))
+			} else {
+				thinkingLines = append(thinkingLines, fmt.Sprintf("✓ Tool %s: ok", event.Tool))
 			}
 			toolEvents = append(toolEvents, event)
 			if event.Tool != "" {
@@ -222,6 +246,7 @@ func (uc *AgentChatUseCase) Complete(ctx context.Context, req domain.AgentChatRe
 		fallbackReason = "max_iterations"
 	}
 	if finalAnswer == "" && shouldFallbackToRAG(fallbackReason) {
+		thinkingLines = append(thinkingLines, "Fallback: searching knowledge base directly")
 		fallbackAnswer, fallbackErr := uc.answerFromKnowledgeFallback(ctx, lastUserMessage)
 		if fallbackErr == nil && strings.TrimSpace(fallbackAnswer) != "" {
 			finalAnswer = fallbackAnswer
@@ -229,6 +254,11 @@ func (uc *AgentChatUseCase) Complete(ctx context.Context, req domain.AgentChatRe
 	}
 	if finalAnswer == "" {
 		finalAnswer = "I reached the current execution limits. Please refine the request and try again."
+	}
+
+	thinkingContent := strings.Join(thinkingLines, "\n")
+	if thinkingContent != "" {
+		finalAnswer = fmt.Sprintf("<think>\n%s\n</think>\n\n%s", thinkingContent, finalAnswer)
 	}
 
 	for _, event := range toolEvents {
@@ -266,6 +296,7 @@ func (uc *AgentChatUseCase) Complete(ctx context.Context, req domain.AgentChatRe
 	return &domain.AgentRunResult{
 		ConversationID: conversationID,
 		Answer:         finalAnswer,
+		Thinking:       thinkingContent,
 		Iterations:     iterations,
 		MemoryHits:     len(memoryHits),
 		SummaryCreated: summaryCreated,
@@ -330,7 +361,7 @@ func parseAgentStep(raw string) (domain.AgentPlanStep, error) {
 	return step, nil
 }
 
-func buildPlannerPrompt(userMessage string, shortMemory []domain.ConversationMessage, memoryHits []domain.MemoryHit, scratchpad []string) string {
+func buildPlannerPrompt(userMessage string, shortMemory []domain.ConversationMessage, memoryHits []domain.MemoryHit, scratchpad []string, webSearchAvailable bool) string {
 	shortLines := make([]string, 0, len(shortMemory))
 	for _, msg := range shortMemory {
 		role := strings.TrimSpace(msg.Role)
@@ -354,14 +385,31 @@ func buildPlannerPrompt(userMessage string, shortMemory []domain.ConversationMes
 		scratchpad = append(scratchpad, "(no tool outputs yet)")
 	}
 
-	return fmt.Sprintf(`You are a planning component for a backend assistant.
-Return ONLY valid JSON object with one step.
-Schema:
-{"type":"tool","tool":"knowledge_search","input":{"question":"...","limit":5}}
-or
-{"type":"tool","tool":"task_tool","action":"create|list|get|update|delete|complete","input":{...}}
-or
-{"type":"final","answer":"..."}
+	webSearchSchema := ""
+	if webSearchAvailable {
+		webSearchSchema = `
+{"type":"tool","tool":"web_search","thinking":"why searching the web","input":{"query":"search query","limit":5}}
+`
+	}
+
+	return fmt.Sprintf(`You are a planning component for a personal AI assistant.
+Your goal: FIND information by any means necessary. Follow this strict cascade:
+
+STRATEGY:
+1. ALWAYS start with knowledge_search — search the knowledge base (Obsidian vaults, uploaded documents)
+2. If knowledge_search returned empty or irrelevant results — give a final answer from your own knowledge, but ALWAYS note: "В базе знаний информация не найдена. Отвечаю из общих знаний."
+3. If you also don't know the answer — use web_search to find it online
+4. After web_search finds useful information — include it in the final answer AND suggest: "Хотите сохранить эту информацию в Obsidian vault?"
+5. If the user explicitly asks to save/write to Obsidian — use obsidian_write tool
+
+Return ONLY a valid JSON object with one step per response.
+ALWAYS include a "thinking" field explaining your reasoning.
+
+Available tool schemas:
+{"type":"tool","tool":"knowledge_search","thinking":"why searching KB","input":{"question":"...","limit":5}}
+%s{"type":"tool","tool":"obsidian_write","thinking":"why writing","input":{"vault":"vault_id","title":"Note Title","content":"markdown content","folder":"optional/subfolder"}}
+{"type":"tool","tool":"task_tool","thinking":"why managing task","action":"create|list|get|update|delete|complete","input":{...}}
+{"type":"final","thinking":"reasoning about the answer","answer":"the final answer text"}
 
 Conversation short memory:
 %s
@@ -374,14 +422,16 @@ Scratchpad with previous tool outputs:
 
 Current user request:
 %s
-`, strings.Join(shortLines, "\n"), strings.Join(hitLines, "\n"), strings.Join(scratchpad, "\n"), userMessage)
+`, webSearchSchema, strings.Join(shortLines, "\n"), strings.Join(hitLines, "\n"), strings.Join(scratchpad, "\n"), userMessage)
 }
 
 func buildPlannerRepairPrompt(raw string) string {
 	return fmt.Sprintf(`Convert the following text into a valid JSON object for this schema:
-{"type":"tool","tool":"knowledge_search","input":{"question":"...","limit":5}}
-or {"type":"tool","tool":"task_tool","action":"create|list|get|update|delete|complete","input":{...}}
-or {"type":"final","answer":"..."}
+{"type":"tool","tool":"knowledge_search","thinking":"...","input":{"question":"...","limit":5}}
+or {"type":"tool","tool":"web_search","thinking":"...","input":{"query":"...","limit":5}}
+or {"type":"tool","tool":"obsidian_write","thinking":"...","input":{"vault":"...","title":"...","content":"...","folder":"..."}}
+or {"type":"tool","tool":"task_tool","thinking":"...","action":"create|list|get|update|delete|complete","input":{...}}
+or {"type":"final","thinking":"...","answer":"..."}
 Return only JSON.
 Text:
 %s`, raw)
@@ -406,11 +456,68 @@ func (uc *AgentChatUseCase) executeTool(ctx context.Context, userID string, step
 			Status: "ok",
 			Output: string(payload),
 		}, nil
+	case agentToolWebSearch:
+		return uc.executeWebSearch(ctx, step, fallbackQuestion)
+	case agentToolObsidianWrite:
+		return uc.executeObsidianWrite(ctx, step)
 	case agentToolTask:
 		return uc.executeTaskTool(ctx, userID, step)
 	default:
 		return domain.AgentToolEvent{}, fmt.Errorf("unsupported tool: %s", step.Tool)
 	}
+}
+
+func (uc *AgentChatUseCase) executeWebSearch(ctx context.Context, step domain.AgentPlanStep, fallbackQuestion string) (domain.AgentToolEvent, error) {
+	if uc.webSearcher == nil {
+		return domain.AgentToolEvent{}, fmt.Errorf("web search is not configured")
+	}
+	query := stringInput(step.Input, "query", fallbackQuestion)
+	limit := intInput(step.Input, "limit", 5)
+	results, err := uc.webSearcher.Search(ctx, query, limit)
+	if err != nil {
+		return domain.AgentToolEvent{}, fmt.Errorf("web search: %w", err)
+	}
+	payload, _ := json.Marshal(map[string]interface{}{
+		"query":   query,
+		"results": results,
+		"count":   len(results),
+	})
+	return domain.AgentToolEvent{
+		Tool:   agentToolWebSearch,
+		Status: "ok",
+		Output: string(payload),
+	}, nil
+}
+
+func (uc *AgentChatUseCase) executeObsidianWrite(ctx context.Context, step domain.AgentPlanStep) (domain.AgentToolEvent, error) {
+	if uc.obsidianWriter == nil {
+		return domain.AgentToolEvent{}, fmt.Errorf("obsidian write is not configured")
+	}
+	vaultID := stringInput(step.Input, "vault", "")
+	title := stringInput(step.Input, "title", "")
+	content := stringInput(step.Input, "content", "")
+	folder := stringInput(step.Input, "folder", "")
+	if title == "" {
+		return domain.AgentToolEvent{}, fmt.Errorf("obsidian_write requires title")
+	}
+	if content == "" {
+		return domain.AgentToolEvent{}, fmt.Errorf("obsidian_write requires content")
+	}
+	path, err := uc.obsidianWriter.CreateNote(ctx, vaultID, title, content, folder)
+	if err != nil {
+		return domain.AgentToolEvent{}, fmt.Errorf("obsidian write: %w", err)
+	}
+	payload, _ := json.Marshal(map[string]string{
+		"status": "created",
+		"vault":  vaultID,
+		"title":  title,
+		"path":   path,
+	})
+	return domain.AgentToolEvent{
+		Tool:   agentToolObsidianWrite,
+		Status: "ok",
+		Output: string(payload),
+	}, nil
 }
 
 func (uc *AgentChatUseCase) executeTaskTool(ctx context.Context, userID string, step domain.AgentPlanStep) (domain.AgentToolEvent, error) {

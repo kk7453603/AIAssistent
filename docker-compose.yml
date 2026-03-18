@@ -69,7 +69,7 @@ services:
     volumes:
       - storage_data:/data/storage
       - openwebui_data:/app/backend/data
-      - ${OBSIDIAN_VAULTS_HOST_PATH:-./obsidian_vaults}:/vaults:ro
+      - ${OBSIDIAN_VAULTS_HOST_PATH:-./obsidian_vaults}:/vaults
 
   worker:
     build:
@@ -151,6 +151,7 @@ services:
       ASSISTANT_OBSIDIAN_STATE_DIR: "/app/backend/data/assistant/obsidian_state"
       ASSISTANT_OBSIDIAN_VAULTS_ROOT: "/vaults"
       ASSISTANT_OBSIDIAN_DEFAULT_INTERVAL_MINUTES: "${ASSISTANT_OBSIDIAN_DEFAULT_INTERVAL_MINUTES:-15}"
+      ENABLE_DIRECT_CONNECTIONS: "true"
     depends_on:
       api:
         condition: service_started
@@ -158,7 +159,7 @@ services:
         condition: service_started
     volumes:
       - openwebui_data:/app/backend/data
-      - ${OBSIDIAN_VAULTS_HOST_PATH:-./obsidian_vaults}:/vaults:ro
+      - ${OBSIDIAN_VAULTS_HOST_PATH:-./obsidian_vaults}:/vaults
 
   openwebui-pipe-bootstrap:
     image: alpine:3.20
@@ -221,9 +222,18 @@ services:
         condition: service_started
     volumes:
       - openwebui_data:/app/backend/data
-      - ${OBSIDIAN_VAULTS_HOST_PATH:-./obsidian_vaults}:/vaults:ro
+      - ${OBSIDIAN_VAULTS_HOST_PATH:-./obsidian_vaults}:/vaults
       - ./scripts/obsidian/auto_sync.sh:/sync/auto_sync.sh:ro
       - ./scripts/obsidian/sync_vault.sh:/sync/sync_vault.sh:ro
+
+  searxng:
+    image: searxng/searxng:latest
+    environment:
+      SEARXNG_BASE_URL: "http://searxng:8888/"
+    volumes:
+      - ./deploy/searxng/settings.yml:/etc/searxng/settings.yml:ro
+    ports:
+      - "8888:8888"
 
 volumes:
   postgres_data:

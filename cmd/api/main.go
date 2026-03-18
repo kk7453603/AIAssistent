@@ -31,6 +31,7 @@ func main() {
 	defer app.Close()
 
 	rt := httpadapter.NewRouter(cfg, app.IngestUC, app.QueryUC, app.Repo, app.AgentUC)
+	app.AgentUC.SetObsidianWriter(rt)
 	rt.SyncRegisteredVaults(ctx)
 	handler := rt.Handler()
 	server := &http.Server{

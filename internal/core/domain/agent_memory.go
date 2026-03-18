@@ -88,6 +88,7 @@ type AgentToolEvent struct {
 type AgentRunResult struct {
 	ConversationID string           `json:"conversation_id"`
 	Answer         string           `json:"answer"`
+	Thinking       string           `json:"thinking,omitempty"`
 	Iterations     int              `json:"iterations"`
 	MemoryHits     int              `json:"memory_hits"`
 	SummaryCreated bool             `json:"summary_created"`
@@ -97,9 +98,17 @@ type AgentRunResult struct {
 }
 
 type AgentPlanStep struct {
-	Type   string                 `json:"type"`
-	Tool   string                 `json:"tool,omitempty"`
-	Action string                 `json:"action,omitempty"`
-	Answer string                 `json:"answer,omitempty"`
-	Input  map[string]interface{} `json:"input,omitempty"`
+	Type     string                 `json:"type"`
+	Tool     string                 `json:"tool,omitempty"`
+	Action   string                 `json:"action,omitempty"`
+	Answer   string                 `json:"answer,omitempty"`
+	Thinking string                 `json:"thinking,omitempty"`
+	Input    map[string]interface{} `json:"input,omitempty"`
+}
+
+// WebSearchResult represents a single result from a web search engine.
+type WebSearchResult struct {
+	Title   string `json:"title"`
+	URL     string `json:"url"`
+	Snippet string `json:"snippet"`
 }

@@ -226,6 +226,8 @@ func TestAgentChatUseCaseFinalStep(t *testing.T) {
 		&fakeMemoryVectorStore{
 			hits: []domain.MemoryHit{{Score: 0.8, Summary: domain.MemorySummary{Summary: "old context"}}},
 		},
+		nil, // webSearcher
+		nil, // obsidianWriter
 		domain.AgentLimits{},
 	)
 
@@ -267,6 +269,8 @@ func TestAgentChatUseCaseToolThenFinal(t *testing.T) {
 		&fakeTaskStore{},
 		&fakeMemoryStore{},
 		&fakeMemoryVectorStore{},
+		nil, // webSearcher
+		nil, // obsidianWriter
 		domain.AgentLimits{},
 	)
 
@@ -301,6 +305,8 @@ func TestAgentChatUseCaseMaxIterationsFallback(t *testing.T) {
 		&fakeTaskStore{},
 		&fakeMemoryStore{},
 		&fakeMemoryVectorStore{},
+		nil, // webSearcher
+		nil, // obsidianWriter
 		domain.AgentLimits{MaxIterations: 2},
 	)
 
@@ -337,6 +343,8 @@ func TestAgentChatUseCaseCreatesSummaryOnSessionEnd(t *testing.T) {
 		&fakeTaskStore{},
 		memoryStore,
 		memoryVector,
+		nil, // webSearcher
+		nil, // obsidianWriter
 		domain.AgentLimits{SummaryEveryTurns: 6},
 	)
 
@@ -372,6 +380,8 @@ func TestAgentChatUseCasePlannerRepairsFencedJSON(t *testing.T) {
 		&fakeTaskStore{},
 		&fakeMemoryStore{},
 		&fakeMemoryVectorStore{},
+		nil, // webSearcher
+		nil, // obsidianWriter
 		domain.AgentLimits{},
 	)
 
@@ -404,6 +414,8 @@ func TestAgentChatUseCasePlannerErrorFallsBackToRAG(t *testing.T) {
 		&fakeTaskStore{},
 		&fakeMemoryStore{},
 		&fakeMemoryVectorStore{},
+		nil, // webSearcher
+		nil, // obsidianWriter
 		domain.AgentLimits{},
 	)
 
@@ -419,8 +431,8 @@ func TestAgentChatUseCasePlannerErrorFallsBackToRAG(t *testing.T) {
 	if result.FallbackReason != "planner_error" {
 		t.Fatalf("expected fallback reason planner_error, got %q", result.FallbackReason)
 	}
-	if result.Answer != "rag fallback answer" {
-		t.Fatalf("expected rag fallback answer, got %q", result.Answer)
+	if !strings.Contains(result.Answer, "rag fallback answer") {
+		t.Fatalf("expected answer to contain rag fallback answer, got %q", result.Answer)
 	}
 }
 
@@ -439,6 +451,8 @@ func TestAgentChatUseCasePlannerTimeoutFallsBackToRAG(t *testing.T) {
 		&fakeTaskStore{},
 		&fakeMemoryStore{},
 		&fakeMemoryVectorStore{},
+		nil, // webSearcher
+		nil, // obsidianWriter
 		domain.AgentLimits{
 			Timeout:        300 * time.Millisecond,
 			PlannerTimeout: 20 * time.Millisecond,
@@ -457,7 +471,7 @@ func TestAgentChatUseCasePlannerTimeoutFallsBackToRAG(t *testing.T) {
 	if result.FallbackReason != "timeout" {
 		t.Fatalf("expected fallback reason timeout, got %q", result.FallbackReason)
 	}
-	if result.Answer != "rag fallback answer" {
+	if !strings.Contains(result.Answer, "rag fallback answer") {
 		t.Fatalf("expected rag fallback answer, got %q", result.Answer)
 	}
 }

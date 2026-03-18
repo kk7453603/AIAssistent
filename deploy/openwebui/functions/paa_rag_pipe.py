@@ -160,10 +160,18 @@ class Pipe:
         if self.valves.ASSISTANT_API_KEY:
             headers["Authorization"] = f"Bearer {self.valves.ASSISTANT_API_KEY}"
 
+        user_id = "default"
+        if __user__:
+            user_id = __user__.get("id") or __user__.get("email") or "default"
+
         payload = {
             "model": self.valves.ASSISTANT_MODEL_ID,
             "messages": body.get("messages", []),
             "stream": body.get("stream", True),
+            "metadata": {
+                "user_id": user_id,
+                "conversation_id": body.get("chat_id", ""),
+            },
         }
 
         if body.get("stream", True):

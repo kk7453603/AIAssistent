@@ -1,0 +1,44 @@
+use_default_settings: true
+
+general:
+  instance_name: "PAA Search"
+  debug: false
+
+search:
+  safe_search: 0
+  autocomplete: ""
+  default_lang: "ru-RU"
+  formats:
+    - html
+    - json
+
+server:
+  port: 8888
+  bind_address: "0.0.0.0"
+  secret_key: "paa-searxng-secret-change-me"
+  limiter: false
+  image_proxy: false
+
+ui:
+  static_use_hash: true
+
+engines:
+  - name: google
+    engine: google
+    shortcut: g
+    disabled: false
+
+  - name: duckduckgo
+    engine: duckduckgo
+    shortcut: ddg
+    disabled: false
+
+  - name: wikipedia
+    engine: wikipedia
+    shortcut: wp
+    disabled: false
+
+  - name: bing
+    engine: bing
+    shortcut: bi
+    disabled: false

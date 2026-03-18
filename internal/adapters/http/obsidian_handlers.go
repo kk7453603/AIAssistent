@@ -644,6 +644,128 @@ func (rt *Router) failSync(vault obsidianVault, vaultID, errMsg string) obsidian
 	}
 }
 
+type obsidianCreateNoteRequest struct {
+	Title   string `json:"title"`
+	Content string `json:"content"`
+	Folder  string `json:"folder,omitempty"`
+}
+
+func (rt *Router) handleObsidianCreateNote(w http.ResponseWriter, r *http.Request) {
+	id := strings.TrimSpace(r.PathValue("id"))
+	if id == "" {
+		writeError(w, http.StatusBadRequest, errors.New("vault id is required"))
+		return
+	}
+
+	var req obsidianCreateNoteRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	req.Title = strings.TrimSpace(req.Title)
+	req.Content = strings.TrimSpace(req.Content)
+	if req.Title == "" {
+		writeError(w, http.StatusBadRequest, errors.New("title is required"))
+		return
+	}
+	if req.Content == "" {
+		writeError(w, http.StatusBadRequest, errors.New("content is required"))
+		return
+	}
+
+	notePath, err := rt.createObsidianNote(r.Context(), id, req.Title, req.Content, req.Folder)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			writeError(w, http.StatusNotFound, err)
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, map[string]any{
+		"status": "created",
+		"vault":  id,
+		"title":  req.Title,
+		"path":   notePath,
+	})
+}
+
+func (rt *Router) createObsidianNote(ctx context.Context, vaultID, title, content, folder string) (string, error) {
+	cfg, err := rt.loadObsidianConfig()
+	if err != nil {
+		return "", fmt.Errorf("load obsidian config: %w", err)
+	}
+
+	var vault *obsidianVault
+	for _, v := range cfg.Vaults {
+		if v.ID == vaultID || v.Name == vaultID {
+			vCopy := v
+			vault = &vCopy
+			break
+		}
+	}
+	if vault == nil {
+		return "", fmt.Errorf("vault not found: %s", vaultID)
+	}
+
+	vaultPath, err := rt.resolveVaultPath(vault.Path)
+	if err != nil {
+		return "", fmt.Errorf("resolve vault path: %w", err)
+	}
+
+	targetDir := vaultPath
+	if folder != "" {
+		targetDir = filepath.Join(vaultPath, filepath.Clean(folder))
+	}
+
+	if err := os.MkdirAll(targetDir, 0o755); err != nil {
+		return "", fmt.Errorf("create folder: %w", err)
+	}
+
+	sanitized := sanitizeFilename(title)
+	if sanitized == "" {
+		sanitized = "note"
+	}
+	notePath := filepath.Join(targetDir, sanitized+".md")
+
+	// Avoid overwriting existing files.
+	if _, err := os.Stat(notePath); err == nil {
+		notePath = filepath.Join(targetDir, fmt.Sprintf("%s_%d.md", sanitized, time.Now().UnixMilli()))
+	}
+
+	if err := os.WriteFile(notePath, []byte(content), 0o644); err != nil {
+		return "", fmt.Errorf("write note: %w", err)
+	}
+
+	// Ingest into Qdrant.
+	if _, ingestErr := rt.ingestFile(ctx, notePath, false); ingestErr != nil {
+		slog.Warn("obsidian_note_ingest_failed", "path", notePath, "error", ingestErr)
+	}
+
+	rel, _ := filepath.Rel(vaultPath, notePath)
+	return rel, nil
+}
+
+// CreateNote implements ports.ObsidianNoteWriter for use by the agent.
+func (rt *Router) CreateNote(ctx context.Context, vaultID, title, content, folder string) (string, error) {
+	return rt.createObsidianNote(ctx, vaultID, title, content, folder)
+}
+
+func sanitizeFilename(name string) string {
+	name = strings.TrimSpace(name)
+	name = strings.Map(func(r rune) rune {
+		if r == '/' || r == '\\' || r == ':' || r == '*' || r == '?' || r == '"' || r == '<' || r == '>' || r == '|' {
+			return '_'
+		}
+		return r
+	}, name)
+	if len(name) > 200 {
+		name = name[:200]
+	}
+	return name
+}
+
 // SyncRegisteredVaults syncs all enabled vaults in background.
 // Called once at API startup so the vector DB is populated automatically.
 func (rt *Router) SyncRegisteredVaults(ctx context.Context) {

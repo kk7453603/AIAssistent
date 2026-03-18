@@ -97,3 +97,13 @@ type MemoryVectorStore interface {
 	IndexSummary(ctx context.Context, summary domain.MemorySummary, vector []float32) error
 	SearchSummaries(ctx context.Context, userID, conversationID string, queryVector []float32, limit int) ([]domain.MemoryHit, error)
 }
+
+// WebSearcher performs web searches via an external search engine.
+type WebSearcher interface {
+	Search(ctx context.Context, query string, limit int) ([]domain.WebSearchResult, error)
+}
+
+// ObsidianNoteWriter creates notes in Obsidian vaults.
+type ObsidianNoteWriter interface {
+	CreateNote(ctx context.Context, vaultID, title, content, folder string) (string, error)
+}

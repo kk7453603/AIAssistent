@@ -19,6 +19,7 @@ import (
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/resilience"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/storage/localfs"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/vector/qdrant"
+	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/websearch/searxng"
 )
 
 type App struct {
@@ -173,6 +174,12 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		QueryExpansionEnabled: cfg.QueryExpansionEnabled,
 		QueryExpansionCount:   cfg.QueryExpansionCount,
 	})
+	// Web search (optional).
+	var webSearcher ports.WebSearcher
+	if cfg.WebSearchEnabled && cfg.WebSearchURL != "" {
+		webSearcher = searxng.New(cfg.WebSearchURL, cfg.WebSearchLimit)
+	}
+
 	agentUC := usecase.NewAgentChatUseCase(
 		queryUC,
 		embedder,
@@ -180,6 +187,8 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		taskRepo,
 		memoryRepo,
 		memoryVector,
+		webSearcher,
+		nil, // obsidianWriter — set later via SetObsidianWriter after Router is created
 		domain.AgentLimits{
 			MaxIterations:       cfg.AgentMaxIterations,
 			Timeout:             time.Duration(cfg.AgentTimeoutSeconds) * time.Second,
