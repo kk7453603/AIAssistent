@@ -9,3 +9,4 @@ tmp/obsidian-sync
 __pycache__/
 *.pyc
 .env
+CLAUDE.md

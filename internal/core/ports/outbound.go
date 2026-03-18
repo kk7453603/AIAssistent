@@ -62,6 +62,11 @@ type AnswerGenerator interface {
 	GenerateJSONFromPrompt(ctx context.Context, prompt string) (string, error)
 }
 
+// Reranker rescores candidate chunks against the query.
+type Reranker interface {
+	Rerank(ctx context.Context, query string, chunks []domain.RetrievedChunk, topN int) ([]domain.RetrievedChunk, error)
+}
+
 // ConversationStore persists conversation state and messages.
 type ConversationStore interface {
 	EnsureConversation(ctx context.Context, userID, conversationID string) (*domain.Conversation, error)

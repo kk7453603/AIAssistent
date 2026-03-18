@@ -19,6 +19,17 @@ type Config struct {
 	OllamaEmbedModel   string
 	OllamaPlannerModel string
 
+	LLMProvider    string // "ollama" (default), "openai-compat"
+	LLMProviderURL string
+	LLMProviderKey string
+
+	EmbedProvider    string // "ollama" (default), "openai-compat"
+	EmbedProviderURL string
+	EmbedProviderKey string
+
+	QueryExpansionEnabled bool
+	QueryExpansionCount   int
+
 	QdrantURL              string
 	QdrantCollection       string
 	QdrantMemoryCollection string
@@ -95,6 +106,17 @@ func Load() Config {
 		OllamaGenModel:     mustEnv("OLLAMA_GEN_MODEL", "llama3.1:8b"),
 		OllamaEmbedModel:   mustEnv("OLLAMA_EMBED_MODEL", "nomic-embed-text"),
 		OllamaPlannerModel: mustEnv("OLLAMA_PLANNER_MODEL", ""),
+
+		LLMProvider:    mustEnv("LLM_PROVIDER", "ollama"),
+		LLMProviderURL: mustEnv("LLM_PROVIDER_URL", ""),
+		LLMProviderKey: mustEnv("LLM_PROVIDER_KEY", ""),
+
+		EmbedProvider:    mustEnv("EMBED_PROVIDER", "ollama"),
+		EmbedProviderURL: mustEnv("EMBED_PROVIDER_URL", ""),
+		EmbedProviderKey: mustEnv("EMBED_PROVIDER_KEY", ""),
+
+		QueryExpansionEnabled: mustEnvBool("QUERY_EXPANSION_ENABLED", false),
+		QueryExpansionCount:   mustEnvInt("QUERY_EXPANSION_COUNT", 3),
 
 		QdrantURL:              mustEnv("QDRANT_URL", "http://localhost:6333"),
 		QdrantCollection:       mustEnv("QDRANT_COLLECTION", "documents"),

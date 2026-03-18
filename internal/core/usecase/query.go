@@ -2,7 +2,9 @@ package usecase
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/kirillkom/personal-ai-assistant/internal/core/domain"
@@ -15,17 +17,25 @@ type QueryOptions struct {
 	FusionStrategy   domain.FusionStrategy
 	FusionRRFK       int
 	RerankTopN       int
+
+	Reranker              ports.Reranker
+	QueryExpansionEnabled bool
+	QueryExpansionCount   int
 }
 
 type QueryUseCase struct {
 	embedder         ports.Embedder
 	vectorDB         ports.VectorStore
 	generator        ports.AnswerGenerator
+	reranker         ports.Reranker
 	retrievalMode    domain.RetrievalMode
 	hybridCandidates int
 	fusionStrategy   domain.FusionStrategy
 	fusionRRFK       int
 	rerankTopN       int
+
+	queryExpansionEnabled bool
+	queryExpansionCount   int
 }
 
 func NewQueryUseCase(
@@ -49,15 +59,28 @@ func NewQueryUseCase(
 		rerankTopN = 20
 	}
 
+	reranker := options.Reranker
+	if reranker == nil {
+		reranker = NewFallbackReranker()
+	}
+
+	expansionCount := options.QueryExpansionCount
+	if expansionCount <= 0 {
+		expansionCount = 3
+	}
+
 	return &QueryUseCase{
-		embedder:         embedder,
-		vectorDB:         vectorDB,
-		generator:        generator,
-		retrievalMode:    mode,
-		hybridCandidates: hybridCandidates,
-		fusionStrategy:   fusion,
-		fusionRRFK:       fusionRRFK,
-		rerankTopN:       rerankTopN,
+		embedder:              embedder,
+		vectorDB:              vectorDB,
+		generator:             generator,
+		reranker:              reranker,
+		retrievalMode:         mode,
+		hybridCandidates:      hybridCandidates,
+		fusionStrategy:        fusion,
+		fusionRRFK:            fusionRRFK,
+		rerankTopN:            rerankTopN,
+		queryExpansionEnabled: options.QueryExpansionEnabled,
+		queryExpansionCount:   expansionCount,
 	}
 }
 
@@ -110,9 +133,19 @@ func (uc *QueryUseCase) retrieveChunks(
 	limit int,
 	filter domain.SearchFilter,
 ) ([]domain.RetrievedChunk, domain.RetrievalMeta, error) {
+	// Query expansion: generate alternative queries and merge results via RRF.
+	queries := []string{question}
+	if uc.queryExpansionEnabled {
+		if expanded, err := uc.expandQuery(ctx, question); err == nil && len(expanded) > 0 {
+			queries = append(queries, expanded...)
+		} else if err != nil {
+			slog.Warn("query expansion failed, using original query", "error", err)
+		}
+	}
+
 	switch uc.retrievalMode {
 	case domain.RetrievalModeSemantic:
-		chunks, err := uc.searchSemantic(ctx, question, limit, filter)
+		chunks, err := uc.searchSemanticMulti(ctx, queries, limit, filter)
 		if err != nil {
 			return nil, domain.RetrievalMeta{}, err
 		}
@@ -126,41 +159,48 @@ func (uc *QueryUseCase) retrieveChunks(
 			candidateLimit = limit
 		}
 
-		queryVector, err := uc.embedder.EmbedQuery(ctx, question)
-		if err != nil {
-			return nil, domain.RetrievalMeta{}, fmt.Errorf("embed query: %w", err)
-		}
-
-		semanticCandidates, err := uc.vectorDB.Search(ctx, queryVector, candidateLimit, filter)
-		if err != nil {
-			return nil, domain.RetrievalMeta{}, fmt.Errorf("search semantic candidates: %w", err)
-		}
-
-		lexicalCandidates, err := uc.vectorDB.SearchLexical(ctx, question, candidateLimit, filter)
-		if err != nil {
-			return nil, domain.RetrievalMeta{}, fmt.Errorf("search lexical candidates: %w", err)
+		var allSemantic, allLexical []domain.RetrievedChunk
+		for _, q := range queries {
+			queryVector, err := uc.embedder.EmbedQuery(ctx, q)
+			if err != nil {
+				return nil, domain.RetrievalMeta{}, fmt.Errorf("embed query: %w", err)
+			}
+			sem, err := uc.vectorDB.Search(ctx, queryVector, candidateLimit, filter)
+			if err != nil {
+				return nil, domain.RetrievalMeta{}, fmt.Errorf("search semantic candidates: %w", err)
+			}
+			lex, err := uc.vectorDB.SearchLexical(ctx, q, candidateLimit, filter)
+			if err != nil {
+				return nil, domain.RetrievalMeta{}, fmt.Errorf("search lexical candidates: %w", err)
+			}
+			allSemantic = append(allSemantic, sem...)
+			allLexical = append(allLexical, lex...)
 		}
 
 		var fused []domain.RetrievedChunk
 		switch uc.fusionStrategy {
 		case domain.FusionStrategyRRF:
-			fused = fuseCandidatesRRF(semanticCandidates, lexicalCandidates, uc.fusionRRFK)
+			fused = fuseCandidatesRRF(allSemantic, allLexical, uc.fusionRRFK)
 		default:
 			return nil, domain.RetrievalMeta{}, fmt.Errorf("unsupported fusion strategy: %s", uc.fusionStrategy)
 		}
 		if uc.retrievalMode == domain.RetrievalModeHybridRerank && len(fused) > 0 {
-			fused = rerankHybridCandidates(question, fused, uc.rerankTopN)
+			reranked, err := uc.reranker.Rerank(ctx, question, fused, uc.rerankTopN)
+			if err != nil {
+				slog.Warn("reranker failed, using fused results", "error", err)
+			} else {
+				fused = reranked
+			}
 		}
 
 		return trimCandidates(fused, limit), domain.RetrievalMeta{
 			Mode:               uc.retrievalMode,
-			SemanticCandidates: len(semanticCandidates),
-			LexicalCandidates:  len(lexicalCandidates),
+			SemanticCandidates: len(allSemantic),
+			LexicalCandidates:  len(allLexical),
 			RerankApplied:      uc.retrievalMode == domain.RetrievalModeHybridRerank,
 		}, nil
 	default:
-		// Defensive fallback to semantic behavior.
-		chunks, err := uc.searchSemantic(ctx, question, limit, filter)
+		chunks, err := uc.searchSemanticMulti(ctx, queries, limit, filter)
 		if err != nil {
 			return nil, domain.RetrievalMeta{}, err
 		}
@@ -169,6 +209,63 @@ func (uc *QueryUseCase) retrieveChunks(
 			SemanticCandidates: len(chunks),
 		}, nil
 	}
+}
+
+// searchSemanticMulti runs semantic search for multiple queries and fuses via RRF.
+func (uc *QueryUseCase) searchSemanticMulti(
+	ctx context.Context,
+	queries []string,
+	limit int,
+	filter domain.SearchFilter,
+) ([]domain.RetrievedChunk, error) {
+	if len(queries) == 1 {
+		return uc.searchSemantic(ctx, queries[0], limit, filter)
+	}
+
+	var allChunks []domain.RetrievedChunk
+	for _, q := range queries {
+		chunks, err := uc.searchSemantic(ctx, q, limit*2, filter)
+		if err != nil {
+			return nil, err
+		}
+		allChunks = append(allChunks, chunks...)
+	}
+	fused := fuseCandidatesRRF(allChunks, nil, uc.fusionRRFK)
+	return trimCandidates(fused, limit), nil
+}
+
+// expandQuery generates alternative phrasings of the question via LLM.
+func (uc *QueryUseCase) expandQuery(ctx context.Context, question string) ([]string, error) {
+	prompt := fmt.Sprintf(`Generate %d alternative search queries for the following question.
+Return ONLY a JSON array of strings, no other text.
+
+Question: %s`, uc.queryExpansionCount, question)
+
+	respText, err := uc.generator.GenerateJSONFromPrompt(ctx, prompt)
+	if err != nil {
+		return nil, fmt.Errorf("expand query: %w", err)
+	}
+
+	// Try parsing as JSON array.
+	var queries []string
+	if err := json.Unmarshal([]byte(respText), &queries); err != nil {
+		// Try extracting array from response.
+		start := strings.Index(respText, "[")
+		end := strings.LastIndex(respText, "]")
+		if start >= 0 && end > start {
+			if err2 := json.Unmarshal([]byte(respText[start:end+1]), &queries); err2 != nil {
+				return nil, fmt.Errorf("parse expanded queries: %w", err)
+			}
+		} else {
+			return nil, fmt.Errorf("parse expanded queries: %w", err)
+		}
+	}
+
+	// Limit count.
+	if len(queries) > uc.queryExpansionCount {
+		queries = queries[:uc.queryExpansionCount]
+	}
+	return queries, nil
 }
 
 func (uc *QueryUseCase) searchSemantic(

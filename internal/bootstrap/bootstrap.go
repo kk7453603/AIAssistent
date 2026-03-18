@@ -13,6 +13,7 @@ import (
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/chunking"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/extractor/plaintext"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/llm/ollama"
+	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/llm/openaicompat"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/queue/nats"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/repository/postgres"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/resilience"
@@ -79,9 +80,34 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		PlannerModel:       cfg.OllamaPlannerModel,
 		ResilienceExecutor: resilienceExecutor,
 	})
-	classifier := ollama.NewClassifier(ollamaClient)
-	embedder := ollama.NewEmbedder(ollamaClient)
-	generator := ollama.NewGenerator(ollamaClient)
+
+	// Select LLM provider.
+	var classifier ports.DocumentClassifier
+	var generator ports.AnswerGenerator
+	var reranker ports.Reranker
+	llmProvider := strings.ToLower(strings.TrimSpace(cfg.LLMProvider))
+	switch llmProvider {
+	case "openai-compat", "groq", "together", "openrouter", "cerebras":
+		oacClient := openaicompat.New(cfg.LLMProviderURL, cfg.LLMProviderKey, cfg.OllamaGenModel)
+		classifier = openaicompat.NewClassifier(oacClient)
+		generator = openaicompat.NewGenerator(oacClient)
+		reranker = openaicompat.NewReranker(oacClient)
+	default: // "ollama"
+		classifier = ollama.NewClassifier(ollamaClient)
+		generator = ollama.NewGenerator(ollamaClient)
+		reranker = ollama.NewReranker(ollamaClient)
+	}
+
+	// Select embedding provider.
+	var embedder ports.Embedder
+	embedProvider := strings.ToLower(strings.TrimSpace(cfg.EmbedProvider))
+	switch embedProvider {
+	case "openai-compat":
+		oacClient := openaicompat.New(cfg.EmbedProviderURL, cfg.EmbedProviderKey, cfg.OllamaEmbedModel)
+		embedder = openaicompat.NewEmbedder(oacClient, cfg.OllamaEmbedModel)
+	default: // "ollama"
+		embedder = ollama.NewEmbedder(ollamaClient)
+	}
 
 	vectorDB := qdrant.NewWithOptions(cfg.QdrantURL, cfg.QdrantCollection, qdrant.Options{
 		ResilienceExecutor: resilienceExecutor,
@@ -109,11 +135,14 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 	ingestUC := usecase.NewIngestDocumentUseCase(repo, storage, queue)
 	processUC := usecase.NewProcessDocumentUseCase(repo, extractor, classifier, chunker, embedder, vectorDB)
 	queryUC := usecase.NewQueryUseCase(embedder, vectorDB, generator, usecase.QueryOptions{
-		RetrievalMode:    domain.RetrievalMode(strings.ToLower(strings.TrimSpace(cfg.RAGRetrievalMode))),
-		HybridCandidates: cfg.RAGHybridCandidates,
-		FusionStrategy:   fusionStrategy,
-		FusionRRFK:       cfg.RAGFusionRRFK,
-		RerankTopN:       cfg.RAGRerankTopN,
+		RetrievalMode:         domain.RetrievalMode(strings.ToLower(strings.TrimSpace(cfg.RAGRetrievalMode))),
+		HybridCandidates:      cfg.RAGHybridCandidates,
+		FusionStrategy:        fusionStrategy,
+		FusionRRFK:            cfg.RAGFusionRRFK,
+		RerankTopN:            cfg.RAGRerankTopN,
+		Reranker:              reranker,
+		QueryExpansionEnabled: cfg.QueryExpansionEnabled,
+		QueryExpansionCount:   cfg.QueryExpansionCount,
 	})
 	agentUC := usecase.NewAgentChatUseCase(
 		queryUC,
