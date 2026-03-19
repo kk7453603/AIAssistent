@@ -74,4 +74,22 @@ curl -fsS -X POST "$OPENWEBUI_URL$endpoint" \
   -H "Content-Type: application/json" \
   -d "$payload" >/tmp/fn_upsert.json
 
+# OpenWebUI ignores is_active/is_global in create/update payload.
+# Ensure the function is active and global via toggle endpoints.
+is_active=$(curl -sS -H "Authorization: Bearer $token" \
+  "$OPENWEBUI_URL/api/v1/functions/id/$FUNCTION_ID" | jq -r '.is_active')
+if [ "$is_active" != "true" ]; then
+  echo "Activating function '$FUNCTION_ID'..."
+  curl -fsS -X POST "$OPENWEBUI_URL/api/v1/functions/id/$FUNCTION_ID/toggle" \
+    -H "Authorization: Bearer $token" >/dev/null
+fi
+
+is_global=$(curl -sS -H "Authorization: Bearer $token" \
+  "$OPENWEBUI_URL/api/v1/functions/id/$FUNCTION_ID" | jq -r '.is_global')
+if [ "$is_global" != "true" ]; then
+  echo "Setting function '$FUNCTION_ID' as global..."
+  curl -fsS -X POST "$OPENWEBUI_URL/api/v1/functions/id/$FUNCTION_ID/toggle/global" \
+    -H "Authorization: Bearer $token" >/dev/null
+fi
+
 echo "Function bootstrap completed: $FUNCTION_NAME ($FUNCTION_ID)"

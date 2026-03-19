@@ -149,6 +149,7 @@ func (c *Client) generateText(ctx context.Context, prompt string) (string, error
 		"model":  c.genModel,
 		"prompt": prompt,
 		"stream": false,
+		"think":  false,
 	}
 	return c.generate(ctx, reqBody)
 }

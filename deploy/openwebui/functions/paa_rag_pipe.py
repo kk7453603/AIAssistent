@@ -195,12 +195,26 @@ class Pipe:
                         yield f"Error from PAA API: {resp.status} {text}"
                         return
 
-                    async for line in resp.content:
-                        decoded = line.decode("utf-8", errors="replace").strip()
-                        if decoded:
-                            yield decoded + "\n"
+                    buffer = ""
+                    async for chunk in resp.content.iter_any():
+                        buffer += chunk.decode("utf-8", errors="replace")
+                        while "\n" in buffer:
+                            line, buffer = buffer.split("\n", 1)
+                            line = line.strip()
+                            if not line or not line.startswith("data:"):
+                                continue
+                            data = line[len("data:"):].strip()
+                            if data == "[DONE]":
+                                return
+                            try:
+                                obj = json.loads(data)
+                                content = obj["choices"][0]["delta"].get("content", "")
+                                if content:
+                                    yield content
+                            except (json.JSONDecodeError, KeyError, IndexError):
+                                continue
         except Exception as exc:
-            yield f"data: {json.dumps({'error': str(exc)})}\n\n"
+            yield f"Error: {exc}"
 
     async def _blocking_response(
         self, api_url: str, headers: dict, payload: dict

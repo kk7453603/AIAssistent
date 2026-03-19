@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strconv"
 	"strings"
 	"time"
@@ -234,6 +235,7 @@ func (uc *AgentChatUseCase) Complete(ctx context.Context, req domain.AgentChatRe
 				break
 			}
 		default:
+			slog.Warn("unsupported_step_type", "raw", planRaw, "parsed_type", step.Type, "parsed_tool", step.Tool, "parsed_action", step.Action, "parsed_answer_len", len(step.Answer))
 			fallbackReason = "unsupported_step_type"
 		}
 
@@ -346,18 +348,79 @@ func latestUserInput(messages []domain.AgentInputMessage) (string, bool) {
 	return "", false
 }
 
+// knownTools is the set of tool names the agent supports.
+var knownTools = map[string]bool{
+	"knowledge_search": true,
+	"web_search":       true,
+	"obsidian_write":   true,
+	"task_tool":        true,
+}
+
 func parseAgentStep(raw string) (domain.AgentPlanStep, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
 		return domain.AgentPlanStep{}, fmt.Errorf("empty planner response")
 	}
+
+	// Parse into both typed struct and generic map for flexible extraction.
 	var step domain.AgentPlanStep
 	if err := json.Unmarshal([]byte(raw), &step); err != nil {
 		return domain.AgentPlanStep{}, fmt.Errorf("unmarshal planner json: %w", err)
 	}
+
+	var generic map[string]any
+	_ = json.Unmarshal([]byte(raw), &generic)
+
 	step.Type = strings.ToLower(strings.TrimSpace(step.Type))
 	step.Tool = strings.ToLower(strings.TrimSpace(step.Tool))
 	step.Action = strings.ToLower(strings.TrimSpace(step.Action))
+
+	// Try to find a tool name anywhere in known fields if step.Tool is empty.
+	if step.Tool == "" {
+		for _, key := range []string{"tool", "tool_name", "name", "function"} {
+			if v, ok := generic[key]; ok {
+				if s, ok := v.(string); ok {
+					s = strings.ToLower(strings.TrimSpace(s))
+					if knownTools[s] {
+						step.Tool = s
+						break
+					}
+				}
+			}
+		}
+	}
+
+	// Infer step.Type when the model omits it.
+	if step.Type == "" {
+		switch {
+		case step.Tool != "" && knownTools[step.Tool]:
+			step.Type = "tool"
+		case step.Action == "tool" || step.Action == "search":
+			step.Type = "tool"
+		case knownTools[step.Action]:
+			step.Type = "tool"
+			step.Tool = step.Action
+			step.Action = ""
+		case strings.TrimSpace(step.Answer) != "":
+			step.Type = "final"
+		case step.Action == "final" || step.Action == "answer" || step.Action == "respond":
+			step.Type = "final"
+		}
+	}
+
+	// Scan generic map for answer under alternate keys.
+	if step.Type == "" {
+		for _, key := range []string{"answer", "response", "result", "reply", "text"} {
+			if v, ok := generic[key]; ok {
+				if s, ok := v.(string); ok && strings.TrimSpace(s) != "" {
+					step.Type = "final"
+					step.Answer = s
+					break
+				}
+			}
+		}
+	}
+
 	return step, nil
 }
 
@@ -393,23 +456,26 @@ func buildPlannerPrompt(userMessage string, shortMemory []domain.ConversationMes
 	}
 
 	return fmt.Sprintf(`You are a planning component for a personal AI assistant.
-Your goal: FIND information by any means necessary. Follow this strict cascade:
+Your task: decide the SINGLE next step. Return ONE JSON object per call.
 
-STRATEGY:
-1. ALWAYS start with knowledge_search — search the knowledge base (Obsidian vaults, uploaded documents)
-2. If knowledge_search returned empty or irrelevant results — give a final answer from your own knowledge, but ALWAYS note: "В базе знаний информация не найдена. Отвечаю из общих знаний."
-3. If you also don't know the answer — use web_search to find it online
-4. After web_search finds useful information — include it in the final answer AND suggest: "Хотите сохранить эту информацию в Obsidian vault?"
-5. If the user explicitly asks to save/write to Obsidian — use obsidian_write tool
+RULES:
+- If scratchpad already contains tool output — you MUST return a "final" step with the answer. Do NOT call the same tool again.
+- If scratchpad is empty — follow the cascade below.
+- ALWAYS respond in Russian (except JSON keys).
+- ALWAYS include a "thinking" field (in Russian).
 
-Return ONLY a valid JSON object with one step per response.
-ALWAYS include a "thinking" field explaining your reasoning.
+CASCADE STRATEGY (follow in order):
+1. knowledge_search — search the knowledge base first
+2. If knowledge_search returned nothing useful — return "final" answer from your own knowledge, noting: "В базе знаний информация не найдена. Отвечаю из общих знаний."
+3. If you don't know either — use web_search
+4. After web_search — return "final" with the answer AND suggest: "Хотите сохранить эту информацию в Obsidian vault?"
+5. Only use obsidian_write if the user explicitly asks to save
 
-Available tool schemas:
-{"type":"tool","tool":"knowledge_search","thinking":"why searching KB","input":{"question":"...","limit":5}}
-%s{"type":"tool","tool":"obsidian_write","thinking":"why writing","input":{"vault":"vault_id","title":"Note Title","content":"markdown content","folder":"optional/subfolder"}}
-{"type":"tool","tool":"task_tool","thinking":"why managing task","action":"create|list|get|update|delete|complete","input":{...}}
-{"type":"final","thinking":"reasoning about the answer","answer":"the final answer text"}
+JSON schemas (use EXACTLY these field names):
+{"type":"tool","tool":"knowledge_search","thinking":"...","input":{"question":"...","limit":5}}
+%s{"type":"tool","tool":"obsidian_write","thinking":"...","input":{"vault":"...","title":"...","content":"...","folder":"..."}}
+{"type":"tool","tool":"task_tool","thinking":"...","action":"create|list|get|update|delete|complete","input":{...}}
+{"type":"final","thinking":"...","answer":"full answer text in Russian"}
 
 Conversation short memory:
 %s
