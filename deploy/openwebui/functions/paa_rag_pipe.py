@@ -48,9 +48,24 @@ class Pipe:
         self.file_handler = True
 
     def pipes(self) -> list[dict]:
+        try:
+            import requests
+
+            url = f"{self.valves.ASSISTANT_API_URL.rstrip('/')}/v1/models"
+            headers = {}
+            if self.valves.ASSISTANT_API_KEY:
+                headers["Authorization"] = f"Bearer {self.valves.ASSISTANT_API_KEY}"
+            resp = requests.get(url, headers=headers, timeout=5)
+            if resp.ok:
+                data = resp.json().get("data", [])
+                if data:
+                    return [{"id": m["id"], "name": m.get("id", "PAA")} for m in data]
+        except Exception:
+            pass
+        # Fallback — single model as before.
         return [
             {
-                "id": "paa-rag",
+                "id": self.valves.ASSISTANT_MODEL_ID,
                 "name": "Personal AI Assistant",
             }
         ]
@@ -164,8 +179,13 @@ class Pipe:
         if __user__:
             user_id = __user__.get("id") or __user__.get("email") or "default"
 
+        # Use the model selected in the UI dropdown (strip pipe prefix added by OpenWebUI).
+        selected_model = body.get("model", self.valves.ASSISTANT_MODEL_ID)
+        if selected_model and "." in selected_model:
+            selected_model = selected_model.split(".", 1)[1]
+
         payload = {
-            "model": self.valves.ASSISTANT_MODEL_ID,
+            "model": selected_model or self.valves.ASSISTANT_MODEL_ID,
             "messages": body.get("messages", []),
             "stream": body.get("stream", True),
             "metadata": {

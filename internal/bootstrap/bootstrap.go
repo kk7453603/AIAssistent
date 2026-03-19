@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -12,8 +13,10 @@ import (
 	"github.com/kirillkom/personal-ai-assistant/internal/core/usecase"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/chunking"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/extractor/plaintext"
+	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/llm/fallback"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/llm/ollama"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/llm/openaicompat"
+	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/llm/routing"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/queue/nats"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/repository/postgres"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/resilience"
@@ -25,12 +28,13 @@ import (
 type App struct {
 	Config config.Config
 
-	Queue     ports.MessageQueue
-	Repo      ports.DocumentRepository
-	IngestUC  ports.DocumentIngestor
-	ProcessUC ports.DocumentProcessor
-	QueryUC   ports.DocumentQueryService
-	AgentUC   ports.AgentChatService
+	Queue            ports.MessageQueue
+	Repo             ports.DocumentRepository
+	IngestUC         ports.DocumentIngestor
+	ProcessUC        ports.DocumentProcessor
+	QueryUC          ports.DocumentQueryService
+	AgentUC          ports.AgentChatService
+	ModelProviderMap map[string]string // model ID → provider name (e.g., "paa-huggingface" → "huggingface")
 
 	closeFn func()
 }
@@ -92,14 +96,70 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 	var classifier ports.DocumentClassifier
 	var generator ports.AnswerGenerator
 	llmProvider := strings.ToLower(strings.TrimSpace(cfg.LLMProvider))
+	llmURL := resolveProviderURL(llmProvider, cfg.LLMProviderURL)
 	switch llmProvider {
-	case "openai-compat", "groq", "together", "openrouter", "cerebras":
-		oacClient := openaicompat.New(cfg.LLMProviderURL, cfg.LLMProviderKey, llmModel)
+	case "openai-compat", "groq", "together", "openrouter", "cerebras", "huggingface":
+		oacClient := openaicompat.New(llmURL, cfg.LLMProviderKey, llmModel,
+			openaicompat.Options{ExtraHeaders: providerHeaders(llmProvider)})
 		classifier = openaicompat.NewClassifier(oacClient)
 		generator = openaicompat.NewGenerator(oacClient)
 	default: // "ollama"
 		classifier = ollama.NewClassifier(ollamaClient)
 		generator = ollama.NewGenerator(ollamaClient)
+	}
+
+	// Fallback LLM (optional).
+	logger := slog.Default()
+	var fbGen ports.AnswerGenerator
+	var fbCls ports.DocumentClassifier
+	if fbProvider := strings.ToLower(strings.TrimSpace(cfg.LLMFallbackProvider)); fbProvider != "" && fbProvider != llmProvider {
+		fbModel := cfg.LLMFallbackModel
+		if fbModel == "" {
+			fbModel = cfg.OllamaGenModel
+		}
+		fbURL := resolveProviderURL(fbProvider, cfg.LLMFallbackURL)
+		switch fbProvider {
+		case "openai-compat", "groq", "together", "openrouter", "cerebras", "huggingface":
+			fbClient := openaicompat.New(fbURL, cfg.LLMFallbackKey, fbModel,
+				openaicompat.Options{ExtraHeaders: providerHeaders(fbProvider)})
+			fbCls = openaicompat.NewClassifier(fbClient)
+			fbGen = openaicompat.NewGenerator(fbClient)
+		default: // "ollama"
+			fbCls = ollama.NewClassifier(ollamaClient)
+			fbGen = ollama.NewGenerator(ollamaClient)
+		}
+		generator = fallback.NewGenerator(generator, fbGen, logger)
+		classifier = fallback.NewClassifier(classifier, fbCls, logger)
+	}
+
+	// Extra LLM providers (model-based routing via UI).
+	modelProviderMap := make(map[string]string)
+	if extras := cfg.ParseExtraProviders(); len(extras) > 0 {
+		generators := map[string]ports.AnswerGenerator{llmProvider: generator}
+		classifiers := map[string]ports.DocumentClassifier{llmProvider: classifier}
+
+		for _, extra := range extras {
+			extraModel := extra.Model
+			if extraModel == "" {
+				extraModel = cfg.OllamaGenModel
+			}
+			url := resolveProviderURL(extra.Name, extra.URL)
+			oacClient := openaicompat.New(url, extra.Key, extraModel,
+				openaicompat.Options{ExtraHeaders: providerHeaders(extra.Name)})
+			var eGen ports.AnswerGenerator = openaicompat.NewGenerator(oacClient)
+			var eCls ports.DocumentClassifier = openaicompat.NewClassifier(oacClient)
+			// Wrap in fallback if configured.
+			if fbGen != nil {
+				eGen = fallback.NewGenerator(eGen, fbGen, logger)
+				eCls = fallback.NewClassifier(eCls, fbCls, logger)
+			}
+			generators[extra.Name] = eGen
+			classifiers[extra.Name] = eCls
+			modelProviderMap["paa-"+extra.Name] = extra.Name
+		}
+
+		generator = routing.NewGenerator(generators, llmProvider, logger)
+		classifier = routing.NewClassifier(classifiers, llmProvider, logger)
 	}
 
 	// Select reranker provider (independent from LLM).
@@ -202,9 +262,10 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 	)
 
 	return &App{
-		Config: cfg,
-		Queue:  queue,
-		Repo:   repo,
+		Config:           cfg,
+		Queue:            queue,
+		Repo:             repo,
+		ModelProviderMap: modelProviderMap,
 
 		IngestUC:  ingestUC,
 		ProcessUC: processUC,
@@ -221,5 +282,36 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 func (a *App) Close() {
 	if a.closeFn != nil {
 		a.closeFn()
+	}
+}
+
+// resolveProviderURL returns the default base URL for known providers when no explicit URL is given.
+func resolveProviderURL(provider, explicitURL string) string {
+	if explicitURL != "" {
+		return explicitURL
+	}
+	switch provider {
+	case "huggingface":
+		return "https://router.huggingface.co/v1"
+	case "openrouter":
+		return "https://openrouter.ai/api/v1"
+	case "groq":
+		return "https://api.groq.com/openai/v1"
+	case "together":
+		return "https://api.together.xyz/v1"
+	case "cerebras":
+		return "https://api.cerebras.ai/v1"
+	default:
+		return explicitURL
+	}
+}
+
+// providerHeaders returns provider-specific HTTP headers.
+func providerHeaders(provider string) map[string]string {
+	switch provider {
+	case "huggingface":
+		return map[string]string{"X-Wait-For-Model": "true"}
+	default:
+		return nil
 	}
 }

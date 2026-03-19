@@ -31,6 +31,7 @@ type Router struct {
 
 	openAICompatAPIKey           string
 	openAICompatModelID          string
+	modelProviderMap             map[string]string // model ID → provider name (e.g., "paa-huggingface" → "huggingface")
 	openAICompatContextMessages  int
 	openAICompatStreamChunkChars int
 	toolTriggerKeywords          []string
@@ -56,6 +57,7 @@ func NewRouter(
 	querySvc ports.DocumentQueryService,
 	docs ports.DocumentReader,
 	agentSvc ports.AgentChatService,
+	modelProviderMap map[string]string,
 ) *Router {
 	contextMessages := cfg.OpenAICompatContextMessages
 	if contextMessages <= 0 {
@@ -114,6 +116,7 @@ func NewRouter(
 
 		openAICompatAPIKey:           cfg.OpenAICompatAPIKey,
 		openAICompatModelID:          cfg.OpenAICompatModelID,
+		modelProviderMap:             modelProviderMap,
 		openAICompatContextMessages:  contextMessages,
 		openAICompatStreamChunkChars: streamChunkChars,
 		toolTriggerKeywords:          toolKeywords,

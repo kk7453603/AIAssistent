@@ -57,6 +57,7 @@ func TestQueryRagMapsDomainInvalidInputTo400(t *testing.T) {
 		queryErrFake{err: domain.WrapError(domain.ErrInvalidInput, "answer", errors.New("bad query"))},
 		docsErrFake{},
 		nil,
+		nil,
 	).Handler()
 
 	payload, _ := json.Marshal(map[string]any{"question": "test"})
@@ -77,6 +78,7 @@ func TestQueryRagMapsDomainTemporaryTo503(t *testing.T) {
 		queryErrFake{err: domain.WrapError(domain.ErrTemporary, "answer", errors.New("qdrant timeout"))},
 		docsErrFake{},
 		nil,
+		nil,
 	).Handler()
 
 	payload, _ := json.Marshal(map[string]any{"question": "test"})
@@ -96,6 +98,7 @@ func TestUploadDocumentMapsDomainTemporaryTo503(t *testing.T) {
 		ingestErrFake{err: domain.WrapError(domain.ErrTemporary, "publish", errors.New("nats unavailable"))},
 		queryErrFake{},
 		docsErrFake{},
+		nil,
 		nil,
 	).Handler()
 
@@ -129,6 +132,7 @@ func TestChatCompletionsMapsDomainTemporaryTo503(t *testing.T) {
 		queryErrFake{err: domain.WrapError(domain.ErrTemporary, "answer", errors.New("ollama unavailable"))},
 		docsErrFake{},
 		nil,
+		nil,
 	).Handler()
 
 	payload, _ := json.Marshal(map[string]any{
@@ -153,6 +157,7 @@ func TestGetDocumentByIDReturns404ForNotFound(t *testing.T) {
 		nil,
 		queryErrFake{},
 		docsErrFake{err: domain.WrapError(domain.ErrDocumentNotFound, "get", errors.New("id=missing"))},
+		nil,
 		nil,
 	).Handler()
 

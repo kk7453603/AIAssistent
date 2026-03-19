@@ -112,7 +112,7 @@ func newTestHandler(cfg config.Config) http.Handler {
 
 func newTestHandlerWithAgent(cfg config.Config, agentSvc *fakeAgentService) http.Handler {
 	queryUC := usecase.NewQueryUseCase(fakeEmbedder{}, fakeVectorStore{}, fakeAnswerGenerator{}, usecase.QueryOptions{})
-	router := NewRouter(cfg, nil, queryUC, fakeDocumentRepo{}, agentSvc)
+	router := NewRouter(cfg, nil, queryUC, fakeDocumentRepo{}, agentSvc, nil)
 	return router.Handler()
 }
 

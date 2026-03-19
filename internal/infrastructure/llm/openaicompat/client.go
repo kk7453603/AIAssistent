@@ -11,28 +11,35 @@ import (
 	"time"
 )
 
-// Client talks to any OpenAI-compatible API (Groq, Together, Cerebras, OpenRouter, etc.).
+// Client talks to any OpenAI-compatible API (Groq, Together, Cerebras, OpenRouter, HuggingFace, etc.).
 type Client struct {
-	baseURL    string
-	apiKey     string
-	model      string
-	httpClient *http.Client
+	baseURL      string
+	apiKey       string
+	model        string
+	httpClient   *http.Client
+	extraHeaders map[string]string
 }
 
 type Options struct {
-	HTTPClient *http.Client
+	HTTPClient   *http.Client
+	ExtraHeaders map[string]string
 }
 
 func New(baseURL, apiKey, model string, opts ...Options) *Client {
 	httpClient := &http.Client{Timeout: 120 * time.Second}
-	if len(opts) > 0 && opts[0].HTTPClient != nil {
-		httpClient = opts[0].HTTPClient
+	var extraHeaders map[string]string
+	if len(opts) > 0 {
+		if opts[0].HTTPClient != nil {
+			httpClient = opts[0].HTTPClient
+		}
+		extraHeaders = opts[0].ExtraHeaders
 	}
 	return &Client{
-		baseURL:    strings.TrimRight(baseURL, "/"),
-		apiKey:     apiKey,
-		model:      model,
-		httpClient: httpClient,
+		baseURL:      strings.TrimRight(baseURL, "/"),
+		apiKey:       apiKey,
+		model:        model,
+		httpClient:   httpClient,
+		extraHeaders: extraHeaders,
 	}
 }
 
@@ -94,6 +101,9 @@ func (c *Client) postJSON(ctx context.Context, path string, payload any, out any
 	if c.apiKey != "" {
 		req.Header.Set("Authorization", "Bearer "+c.apiKey)
 	}
+	for k, v := range c.extraHeaders {
+		req.Header.Set(k, v)
+	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -103,7 +113,11 @@ func (c *Client) postJSON(ctx context.Context, path string, payload any, out any
 
 	if resp.StatusCode >= 300 {
 		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
-		return fmt.Errorf("openaicompat %s status %d: %s", operation, resp.StatusCode, strings.TrimSpace(string(respBody)))
+		return &ProviderError{
+			StatusCode: resp.StatusCode,
+			Body:       strings.TrimSpace(string(respBody)),
+			Operation:  operation,
+		}
 	}
 	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
 		return fmt.Errorf("decode %s response: %w", operation, err)

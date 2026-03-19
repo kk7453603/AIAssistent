@@ -9,6 +9,7 @@ import (
 
 	apigen "github.com/kirillkom/personal-ai-assistant/internal/adapters/http/openapi"
 	"github.com/kirillkom/personal-ai-assistant/internal/core/domain"
+	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/llm/routing"
 )
 
 func (rt *Router) ListModels(_ context.Context, _ apigen.ListModelsRequestObject) (apigen.ListModelsResponseObject, error) {
@@ -18,16 +19,27 @@ func (rt *Router) ListModels(_ context.Context, _ apigen.ListModelsRequestObject
 		modelID = "paa-rag-v1"
 	}
 
+	models := make([]apigen.ModelObject, 0, 1+len(rt.modelProviderMap))
+	// Default model (backward compatible).
+	models = append(models, apigen.ModelObject{
+		Id:      modelID,
+		Object:  "model",
+		OwnedBy: "personal-ai-assistant",
+		Created: &created,
+	})
+	// One model per extra provider.
+	for extraModelID := range rt.modelProviderMap {
+		models = append(models, apigen.ModelObject{
+			Id:      extraModelID,
+			Object:  "model",
+			OwnedBy: "personal-ai-assistant",
+			Created: &created,
+		})
+	}
+
 	return apigen.ListModels200JSONResponse{
 		Object: "list",
-		Data: []apigen.ModelObject{
-			{
-				Id:      modelID,
-				Object:  "model",
-				OwnedBy: "personal-ai-assistant",
-				Created: &created,
-			},
-		},
+		Data:   models,
 	}, nil
 }
 
@@ -45,6 +57,11 @@ func (rt *Router) ChatCompletions(ctx context.Context, request apigen.ChatComple
 	}
 	if modelID == "" {
 		modelID = "paa-rag-v1"
+	}
+
+	// Route to the correct LLM provider based on the model ID.
+	if provider, ok := rt.modelProviderMap[modelID]; ok {
+		ctx = routing.WithProvider(ctx, provider)
 	}
 
 	completionID := newCompletionID()

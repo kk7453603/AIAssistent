@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"strconv"
+	"strings"
 )
 
 type Config struct {
@@ -75,6 +76,13 @@ type Config struct {
 	AgentSummaryEveryTurns     int
 	AgentMemoryTopK            int
 	AgentKnowledgeTopK         int
+
+	LLMFallbackProvider string // fallback provider: "ollama", "openai-compat", "huggingface", etc.
+	LLMFallbackURL      string
+	LLMFallbackKey      string
+	LLMFallbackModel    string
+
+	LLMExtraProviders string // comma-separated list of extra providers: "huggingface,openrouter"
 
 	WebSearchEnabled bool
 	WebSearchURL     string
@@ -174,6 +182,13 @@ func Load() Config {
 		AgentMemoryTopK:                 mustEnvInt("AGENT_MEMORY_TOP_K", 4),
 		AgentKnowledgeTopK:              mustEnvInt("AGENT_KNOWLEDGE_TOP_K", 5),
 
+		LLMFallbackProvider: mustEnv("LLM_FALLBACK_PROVIDER", ""),
+		LLMFallbackURL:      mustEnv("LLM_FALLBACK_URL", ""),
+		LLMFallbackKey:      mustEnv("LLM_FALLBACK_KEY", ""),
+		LLMFallbackModel:    mustEnv("LLM_FALLBACK_MODEL", ""),
+
+		LLMExtraProviders: mustEnv("LLM_EXTRA_PROVIDERS", ""),
+
 		WebSearchEnabled: mustEnvBool("WEB_SEARCH_ENABLED", false),
 		WebSearchURL:     mustEnv("WEB_SEARCH_URL", "http://searxng:8888"),
 		WebSearchLimit:   mustEnvInt("WEB_SEARCH_LIMIT", 5),
@@ -200,6 +215,37 @@ func Load() Config {
 		NATSMaxReconnects:        mustEnvInt("NATS_MAX_RECONNECTS", 60),
 		NATSRetryOnFailedConnect: mustEnvBool("NATS_RETRY_ON_FAILED_CONNECT", true),
 	}
+}
+
+// ExtraLLMProvider holds configuration for an additional LLM provider.
+type ExtraLLMProvider struct {
+	Name  string
+	URL   string
+	Key   string
+	Model string
+}
+
+// ParseExtraProviders parses LLM_EXTRA_PROVIDERS and loads each provider's config
+// from env vars: LLM_<PROVIDER>_URL, LLM_<PROVIDER>_KEY, LLM_<PROVIDER>_MODEL.
+func (c Config) ParseExtraProviders() []ExtraLLMProvider {
+	if c.LLMExtraProviders == "" {
+		return nil
+	}
+	var result []ExtraLLMProvider
+	for _, raw := range strings.Split(c.LLMExtraProviders, ",") {
+		name := strings.ToLower(strings.TrimSpace(raw))
+		if name == "" {
+			continue
+		}
+		prefix := "LLM_" + strings.ToUpper(name) + "_"
+		result = append(result, ExtraLLMProvider{
+			Name:  name,
+			URL:   mustEnv(prefix+"URL", ""),
+			Key:   mustEnv(prefix+"KEY", ""),
+			Model: mustEnv(prefix+"MODEL", ""),
+		})
+	}
+	return result
 }
 
 func mustEnv(key, fallback string) string {
