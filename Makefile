@@ -1,4 +1,4 @@
-.PHONY: generate-openapi generate test vet test-core-cover eval eval-cases eval-compare monitoring-validate
+.PHONY: generate-openapi generate test vet test-core-cover eval eval-ragas eval-cases eval-compare monitoring-validate
 
 EVAL_API_URL ?= http://localhost:8080
 EVAL_CASES ?= scripts/eval/cases.example.jsonl
@@ -28,6 +28,21 @@ test-core-cover:
 
 eval:
 	scripts/eval/run.sh --api-url "$(EVAL_API_URL)" --cases "$(EVAL_CASES)" --k "$(EVAL_K)" --out "$(EVAL_REPORT)"
+
+EVAL_RAGAS_REPORT ?= ./tmp/eval/ragas_report.json
+EVAL_MODE ?= semantic
+EVAL_METRICS ?= all
+EVAL_CONCURRENCY ?= 4
+
+eval-ragas:
+	go run ./cmd/eval \
+		--cases "$(EVAL_CASES)" \
+		--api-url "$(EVAL_API_URL)" \
+		--top-k "$(EVAL_K)" \
+		--mode "$(EVAL_MODE)" \
+		--out "$(EVAL_RAGAS_REPORT)" \
+		--metrics "$(EVAL_METRICS)" \
+		--concurrency "$(EVAL_CONCURRENCY)"
 
 eval-cases:
 	scripts/eval/generate_cases_from_manifest.sh --manifest "$(EVAL_MANIFEST)" --out "$(EVAL_GENERATED_CASES)"
