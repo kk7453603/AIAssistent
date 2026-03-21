@@ -49,6 +49,8 @@ type Router struct {
 	obsidianSyncTimeout            time.Duration
 	obsidianSyncPoll               time.Duration
 	obsidianMu                     sync.Mutex
+
+	mcpHandler http.Handler
 }
 
 func NewRouter(
@@ -136,6 +138,11 @@ func NewRouter(
 	}
 }
 
+// SetMCPHandler sets the MCP server handler to be mounted on /mcp.
+func (rt *Router) SetMCPHandler(h http.Handler) {
+	rt.mcpHandler = h
+}
+
 func (rt *Router) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /openapi.json", serveOpenAPISpecJSON)
@@ -147,6 +154,10 @@ func (rt *Router) Handler() http.Handler {
 	mux.HandleFunc("DELETE /v1/obsidian/vaults/{id}", rt.handleObsidianRemove)
 	mux.HandleFunc("POST /v1/obsidian/vaults/{id}/sync", rt.handleObsidianSync)
 	mux.HandleFunc("POST /v1/obsidian/vaults/{id}/notes", rt.handleObsidianCreateNote)
+
+	if rt.mcpHandler != nil {
+		mux.Handle("/mcp", rt.mcpHandler)
+	}
 
 	strict := apigen.NewStrictHandlerWithOptions(rt, []apigen.StrictMiddlewareFunc{
 		rt.openAICompatAuthMiddleware,

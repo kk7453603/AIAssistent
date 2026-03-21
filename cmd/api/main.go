@@ -12,6 +12,7 @@ import (
 	httpadapter "github.com/kirillkom/personal-ai-assistant/internal/adapters/http"
 	"github.com/kirillkom/personal-ai-assistant/internal/bootstrap"
 	"github.com/kirillkom/personal-ai-assistant/internal/config"
+	paamcp "github.com/kirillkom/personal-ai-assistant/internal/infrastructure/mcp"
 	"github.com/kirillkom/personal-ai-assistant/internal/observability/logging"
 )
 
@@ -32,6 +33,19 @@ func main() {
 
 	rt := httpadapter.NewRouter(cfg, app.IngestUC, app.QueryUC, app.Repo, app.AgentUC, app.ModelProviderMap)
 	app.AgentUC.SetObsidianWriter(rt)
+
+	if cfg.MCPServerEnabled {
+		mcpHandler := paamcp.NewMCPHandler(paamcp.ServerDeps{
+			QuerySvc:       app.QueryUC,
+			WebSearcher:    app.WebSearcher,
+			ObsidianWriter: rt,
+			Tasks:          app.Tasks,
+			KnowledgeTopK:  cfg.AgentKnowledgeTopK,
+		})
+		rt.SetMCPHandler(mcpHandler)
+		logger.Info("mcp_server_enabled", "endpoint", "/mcp")
+	}
+
 	rt.SyncRegisteredVaults(ctx)
 	handler := rt.Handler()
 	server := &http.Server{
