@@ -7,12 +7,14 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/kirillkom/personal-ai-assistant/internal/core/domain"
 	"github.com/kirillkom/personal-ai-assistant/internal/core/ports"
+	"github.com/kirillkom/personal-ai-assistant/internal/observability/metrics"
 )
 
 const (
@@ -23,16 +25,18 @@ const (
 )
 
 type AgentChatUseCase struct {
-	querySvc       ports.DocumentQueryService
-	embedder       ports.Embedder
-	conversations  ports.ConversationStore
-	tasks          ports.TaskStore
-	memories       ports.MemoryStore
-	memoryVector   ports.MemoryVectorStore
-	webSearcher    ports.WebSearcher
-	obsidianWriter ports.ObsidianNoteWriter
-	toolRegistry   ports.MCPToolRegistry
-	limits         domain.AgentLimits
+	querySvc        ports.DocumentQueryService
+	embedder        ports.Embedder
+	conversations   ports.ConversationStore
+	tasks           ports.TaskStore
+	memories        ports.MemoryStore
+	memoryVector    ports.MemoryVectorStore
+	webSearcher     ports.WebSearcher
+	obsidianWriter  ports.ObsidianNoteWriter
+	toolRegistry    ports.MCPToolRegistry
+	limits          domain.AgentLimits
+	toolResultCache *toolCache
+	agentMetrics    *metrics.AgentMetrics
 }
 
 func NewAgentChatUseCase(
@@ -46,6 +50,7 @@ func NewAgentChatUseCase(
 	obsidianWriter ports.ObsidianNoteWriter,
 	toolRegistry ports.MCPToolRegistry,
 	limits domain.AgentLimits,
+	agentMetrics *metrics.AgentMetrics,
 ) *AgentChatUseCase {
 	if limits.MaxIterations <= 0 {
 		limits.MaxIterations = 6
@@ -73,16 +78,18 @@ func NewAgentChatUseCase(
 	}
 
 	return &AgentChatUseCase{
-		querySvc:       querySvc,
-		embedder:       embedder,
-		conversations:  conversations,
-		tasks:          tasks,
-		memories:       memories,
-		memoryVector:   memoryVector,
-		webSearcher:    webSearcher,
-		obsidianWriter: obsidianWriter,
-		toolRegistry:   toolRegistry,
-		limits:         limits,
+		querySvc:        querySvc,
+		embedder:        embedder,
+		conversations:   conversations,
+		tasks:           tasks,
+		memories:        memories,
+		memoryVector:    memoryVector,
+		webSearcher:     webSearcher,
+		obsidianWriter:  obsidianWriter,
+		toolRegistry:    toolRegistry,
+		limits:          limits,
+		toolResultCache: newToolCache(),
+		agentMetrics:    agentMetrics,
 	}
 }
 
@@ -91,7 +98,8 @@ func (uc *AgentChatUseCase) SetObsidianWriter(w ports.ObsidianNoteWriter) {
 	uc.obsidianWriter = w
 }
 
-func (uc *AgentChatUseCase) Complete(ctx context.Context, req domain.AgentChatRequest) (*domain.AgentRunResult, error) {
+func (uc *AgentChatUseCase) Complete(ctx context.Context, req domain.AgentChatRequest, onToolStatus domain.ToolStatusCallback) (*domain.AgentRunResult, error) {
+	requestStart := time.Now()
 	userID := strings.TrimSpace(req.UserID)
 	if userID == "" {
 		return nil, domain.WrapError(domain.ErrInvalidInput, "agent complete", fmt.Errorf("user_id is required"))
@@ -159,8 +167,18 @@ func (uc *AgentChatUseCase) Complete(ctx context.Context, req domain.AgentChatRe
 	intent := IntentGeneral
 	if uc.limits.IntentRouterEnabled {
 		intent = classifyIntentByKeywords(lastUserMessage)
+		if intent == IntentGeneral {
+			classifyCtx, classifyCancel := context.WithTimeout(ctx, 5*time.Second)
+			if classified, err := uc.querySvc.GenerateFromPrompt(classifyCtx, classifyIntentLLMPrompt(lastUserMessage)); err == nil {
+				intent = parseIntent(classified)
+			}
+			classifyCancel()
+		}
 	}
-	systemPrompt := buildSystemPrompt(intent, memoryHits)
+	if uc.agentMetrics != nil {
+		uc.agentMetrics.IntentClassifications.WithLabelValues(string(intent)).Inc()
+	}
+	systemPrompt := buildSystemPrompt(ctx, intent, memoryHits, uc.toolRegistry)
 	toolSchemas := toolSchemasFromRegistry(uc.toolRegistry, webSearchAvailable)
 
 	// Build initial messages
@@ -210,23 +228,110 @@ func (uc *AgentChatUseCase) Complete(ctx context.Context, req domain.AgentChatRe
 				ToolCalls: chatResult.ToolCalls,
 			})
 
-			for _, tc := range chatResult.ToolCalls {
-				thinkingLines = append(thinkingLines, fmt.Sprintf("→ Using tool: %s", tc.Function.Name))
+			var iterEvents []domain.AgentToolEvent
 
-				toolCtx, toolCancel := context.WithTimeout(loopCtx, uc.limits.ToolTimeout)
-				event, execErr := uc.executeToolCall(toolCtx, userID, tc, lastUserMessage)
-				toolCancel()
-
-				if execErr != nil {
-					if isAgentTimeoutError(execErr) {
-						fallbackReason = "timeout"
+			if len(chatResult.ToolCalls) > 1 {
+				// Parallel execution for multiple tool calls
+				iterEvents = make([]domain.AgentToolEvent, len(chatResult.ToolCalls))
+				var wg sync.WaitGroup
+				for i, tc := range chatResult.ToolCalls {
+					wg.Add(1)
+					go func(idx int, call domain.ToolCall) {
+						defer wg.Done()
+						var ev domain.AgentToolEvent
+						ttl := cacheTTLForTool(call.Function.Name)
+						if ttl > 0 {
+							argsKey := argsToKey(call.Function.Arguments)
+							if cached, ok := uc.toolResultCache.get(call.Function.Name, argsKey); ok {
+								iterEvents[idx] = domain.AgentToolEvent{Tool: call.Function.Name, Status: "ok", Output: cached}
+								if onToolStatus != nil {
+									onToolStatus(call.Function.Name, "ok")
+								}
+								return
+							}
+						}
+						if onToolStatus != nil {
+							onToolStatus(call.Function.Name, "running")
+						}
+						toolCtx, toolCancel := context.WithTimeout(loopCtx, uc.limits.ToolTimeout)
+						ev, execErr := uc.executeToolCall(toolCtx, userID, call, lastUserMessage)
+						toolCancel()
+						if execErr != nil {
+							errorPayload, _ := json.Marshal(map[string]string{"error": execErr.Error()})
+							ev = domain.AgentToolEvent{Tool: call.Function.Name, Status: "error", Output: string(errorPayload)}
+						} else if ttl > 0 {
+							uc.toolResultCache.set(call.Function.Name, argsToKey(call.Function.Arguments), ev.Output, ttl)
+						}
+						iterEvents[idx] = ev
+						if onToolStatus != nil {
+							onToolStatus(ev.Tool, ev.Status)
+						}
+					}(i, tc)
+				}
+				wg.Wait()
+			} else {
+				// Single tool call — sequential path
+				tc := chatResult.ToolCalls[0]
+				var event domain.AgentToolEvent
+				cached := false
+				ttl := cacheTTLForTool(tc.Function.Name)
+				if ttl > 0 {
+					argsKey := argsToKey(tc.Function.Arguments)
+					if cachedOutput, ok := uc.toolResultCache.get(tc.Function.Name, argsKey); ok {
+						event = domain.AgentToolEvent{Tool: tc.Function.Name, Status: "ok", Output: cachedOutput}
+						cached = true
+						if onToolStatus != nil {
+							onToolStatus(tc.Function.Name, "ok")
+						}
 					}
-					errorPayload, _ := json.Marshal(map[string]string{"error": execErr.Error()})
-					event = domain.AgentToolEvent{Tool: tc.Function.Name, Status: "error", Output: string(errorPayload)}
-					thinkingLines = append(thinkingLines, fmt.Sprintf("✗ Tool %s error: %s", tc.Function.Name, execErr.Error()))
+				}
+				if !cached {
+					if onToolStatus != nil {
+						onToolStatus(tc.Function.Name, "running")
+					}
+					toolCtx, toolCancel := context.WithTimeout(loopCtx, uc.limits.ToolTimeout)
+					var execErr error
+					event, execErr = uc.executeToolCall(toolCtx, userID, tc, lastUserMessage)
+					toolCancel()
+					if execErr != nil {
+						if isAgentTimeoutError(execErr) {
+							fallbackReason = "timeout"
+						}
+						errorPayload, _ := json.Marshal(map[string]string{"error": execErr.Error()})
+						event = domain.AgentToolEvent{Tool: tc.Function.Name, Status: "error", Output: string(errorPayload)}
+					} else if ttl > 0 {
+						uc.toolResultCache.set(tc.Function.Name, argsToKey(tc.Function.Arguments), event.Output, ttl)
+					}
+					if onToolStatus != nil {
+						onToolStatus(event.Tool, event.Status)
+					}
+				}
+				iterEvents = []domain.AgentToolEvent{event}
+			}
+
+			// Process collected events (thinking lines, FS hints, summarize, track tools, append messages)
+			for idx, event := range iterEvents {
+				tc := chatResult.ToolCalls[idx]
+				if event.Status == "error" {
+					thinkingLines = append(thinkingLines, fmt.Sprintf("✗ Tool %s error: %s", tc.Function.Name, event.Output))
 				} else {
 					thinkingLines = append(thinkingLines, fmt.Sprintf("✓ Tool %s: ok", event.Tool))
 				}
+
+				if uc.agentMetrics != nil {
+					uc.agentMetrics.ToolCallTotal.WithLabelValues(event.Tool, event.Status).Inc()
+				}
+
+				if event.Status == "ok" && len(event.Output) >= 200 {
+					uc.maybePersistToolMemory(loopCtx, userID, conversationID, event)
+				}
+
+				if isRecoverableToolError(event.Output) {
+					fsCtx := probeFilesystemContext(loopCtx, uc.toolRegistry)
+					event.Output = addFSHintToError(event.Output, fsCtx)
+				}
+
+				event.Output = maybeSummarize(event.Output, 2048)
 
 				toolEvents = append(toolEvents, event)
 				if event.Tool != "" {
@@ -236,7 +341,6 @@ func (uc *AgentChatUseCase) Complete(ctx context.Context, req domain.AgentChatRe
 					}
 				}
 
-				// Add tool result as a message for the next iteration
 				chatMessages = append(chatMessages, domain.ChatMessage{
 					Role:       "tool",
 					Content:    event.Output,
@@ -304,6 +408,11 @@ func (uc *AgentChatUseCase) Complete(ctx context.Context, req domain.AgentChatRe
 	summaryCreated, err := uc.maybePersistSummary(ctx, userID, conversationID, turn, req.SessionEnd)
 	if err != nil {
 		return nil, err
+	}
+
+	if uc.agentMetrics != nil {
+		uc.agentMetrics.IterationsPerRequest.Observe(float64(iterations))
+		uc.agentMetrics.RequestDuration.Observe(time.Since(requestStart).Seconds())
 	}
 
 	return &domain.AgentRunResult{
@@ -709,7 +818,7 @@ func toolSchemasFromRegistry(registry ports.MCPToolRegistry, webSearchAvailable 
 
 // buildSystemPrompt builds the system prompt for the function-calling agent loop,
 // incorporating intent-specific guidance and long-term memory.
-func buildSystemPrompt(intent Intent, memoryHits []domain.MemoryHit) string {
+func buildSystemPrompt(ctx context.Context, intent Intent, memoryHits []domain.MemoryHit, registry ports.MCPToolRegistry) string {
 	var sb strings.Builder
 	sb.WriteString(`You are a personal AI assistant. You have access to tools for searching knowledge, executing code, managing files, and more.
 
@@ -732,6 +841,14 @@ RULES:
 		}
 	}
 
+	if registry != nil {
+		if fsCtx := probeFilesystemContext(ctx, registry); fsCtx != "" {
+			sb.WriteString("\n")
+			sb.WriteString(fsCtx)
+			sb.WriteString("\n")
+		}
+	}
+
 	return sb.String()
 }
 
@@ -740,6 +857,14 @@ RULES:
 func (uc *AgentChatUseCase) executeToolCall(ctx context.Context, userID string, tc domain.ToolCall, fallbackQuestion string) (domain.AgentToolEvent, error) {
 	toolName := tc.Function.Name
 	args := tc.Function.Arguments
+
+	// Guardrails for code execution
+	if toolName == "execute_python" || toolName == "execute_bash" {
+		code := stringFromArgs(args, "code", stringFromArgs(args, "command", ""))
+		if err := checkCodeSafety(code); err != nil {
+			return domain.AgentToolEvent{Tool: toolName, Status: "error", Output: err.Error()}, nil
+		}
+	}
 
 	switch toolName {
 	case agentToolKnowledgeSearch:
@@ -772,6 +897,27 @@ func (uc *AgentChatUseCase) executeToolCall(ctx context.Context, userID string, 
 			return domain.AgentToolEvent{Tool: toolName, Status: "ok", Output: output}, nil
 		}
 		return domain.AgentToolEvent{}, fmt.Errorf("unsupported tool: %s", toolName)
+	}
+}
+
+func (uc *AgentChatUseCase) maybePersistToolMemory(ctx context.Context, userID, conversationID string, event domain.AgentToolEvent) {
+	if event.Status != "ok" || len(event.Output) < 200 {
+		return
+	}
+	summary := fmt.Sprintf("Tool %s result: %s", event.Tool, maybeSummarize(event.Output, 500))
+	memSummary := &domain.MemorySummary{
+		ID:             uuid.NewString(),
+		UserID:         userID,
+		ConversationID: conversationID,
+		Summary:        summary,
+		CreatedAt:      time.Now().UTC(),
+	}
+	if err := uc.memories.CreateSummary(ctx, memSummary); err != nil {
+		return
+	}
+	vector, err := uc.embedder.EmbedQuery(ctx, summary)
+	if err == nil && len(vector) > 0 {
+		_ = uc.memoryVector.IndexSummary(ctx, *memSummary, vector)
 	}
 }
 

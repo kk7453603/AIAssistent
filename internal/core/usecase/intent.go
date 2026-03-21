@@ -1,6 +1,9 @@
 package usecase
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 // Intent represents the classified category of a user request.
 type Intent string
@@ -55,6 +58,32 @@ func classifyIntentByKeywords(message string) Intent {
 		}
 	}
 	return IntentGeneral
+}
+
+// classifyIntentLLMPrompt returns a prompt asking the LLM to classify the user
+// request into one of the supported intent categories.
+func classifyIntentLLMPrompt(message string) string {
+	return fmt.Sprintf("Classify this user request into exactly ONE word from: knowledge, code, file, task, web, general\n\nRequest: %s\nCategory:", message)
+}
+
+// parseIntent converts a raw LLM response string into an Intent value.
+// It is tolerant of surrounding whitespace and extra trailing text.
+func parseIntent(raw string) Intent {
+	s := strings.ToLower(strings.TrimSpace(raw))
+	switch {
+	case strings.HasPrefix(s, "knowledge"):
+		return IntentKnowledge
+	case strings.HasPrefix(s, "code"):
+		return IntentCode
+	case strings.HasPrefix(s, "file"):
+		return IntentFile
+	case strings.HasPrefix(s, "task"):
+		return IntentTask
+	case strings.HasPrefix(s, "web"):
+		return IntentWeb
+	default:
+		return IntentGeneral
+	}
 }
 
 // systemPromptForIntent returns an instruction string that guides the LLM

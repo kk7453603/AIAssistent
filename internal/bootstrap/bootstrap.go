@@ -12,6 +12,7 @@ import (
 	"github.com/kirillkom/personal-ai-assistant/internal/core/domain"
 	"github.com/kirillkom/personal-ai-assistant/internal/core/ports"
 	"github.com/kirillkom/personal-ai-assistant/internal/core/usecase"
+	"github.com/kirillkom/personal-ai-assistant/internal/observability/metrics"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/chunking"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/extractor/plaintext"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/llm/fallback"
@@ -277,6 +278,7 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 			KnowledgeTopK:       cfg.AgentKnowledgeTopK,
 			IntentRouterEnabled: cfg.AgentIntentRouterEnabled,
 		},
+		metrics.NewAgentMetrics("agent"),
 	)
 
 	return &App{

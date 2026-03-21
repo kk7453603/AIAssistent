@@ -93,7 +93,7 @@ type fakeAgentService struct {
 
 func (f *fakeAgentService) SetObsidianWriter(_ ports.ObsidianNoteWriter) {}
 
-func (f *fakeAgentService) Complete(context.Context, domain.AgentChatRequest) (*domain.AgentRunResult, error) {
+func (f *fakeAgentService) Complete(_ context.Context, req domain.AgentChatRequest, _ domain.ToolStatusCallback) (*domain.AgentRunResult, error) {
 	f.called = true
 	if f.err != nil {
 		return nil, f.err

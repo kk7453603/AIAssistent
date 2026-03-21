@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"strings"
+	"sync"
 
 	apigen "github.com/kirillkom/personal-ai-assistant/internal/adapters/http/openapi"
 	"github.com/kirillkom/personal-ai-assistant/internal/core/domain"
@@ -24,12 +25,24 @@ func (rt *Router) tryAgentCompletion(
 	}
 
 	inputMessages := toAgentInputMessages(request.Body.Messages)
+
+	var toolStatusEvents []toolStatusEntry
+	var toolStatusMu sync.Mutex
+	var onToolStatus domain.ToolStatusCallback
+	if stream {
+		onToolStatus = func(tool, status string) {
+			toolStatusMu.Lock()
+			toolStatusEvents = append(toolStatusEvents, toolStatusEntry{Tool: tool, Status: status})
+			toolStatusMu.Unlock()
+		}
+	}
+
 	result, err := rt.agentSvc.Complete(ctx, domain.AgentChatRequest{
 		UserID:         userID,
 		ConversationID: conversationID,
 		SessionEnd:     sessionEnd,
 		Messages:       inputMessages,
-	})
+	}, onToolStatus)
 	if err != nil {
 		return nil, true, err
 	}
@@ -91,7 +104,10 @@ func (rt *Router) tryAgentCompletion(
 		"fallback_reason", result.FallbackReason,
 	)
 	if stream {
-		return chatCompletionsSSEResponse{Chunks: buildTextStreamChunks(completionID, created, modelID, result.Answer, rt.openAICompatStreamChunkChars)}, true, nil
+		return agentSSEResponse{
+			ToolEvents: toolStatusEvents,
+			Chunks:     buildTextStreamChunks(completionID, created, modelID, result.Answer, rt.openAICompatStreamChunkChars),
+		}, true, nil
 	}
 	return apigen.ChatCompletions200JSONResponse(response), true, nil
 }

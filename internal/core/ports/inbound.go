@@ -32,6 +32,6 @@ type DocumentProcessor interface {
 
 // AgentChatService orchestrates iterative tool-use and memory-aware chat completion.
 type AgentChatService interface {
-	Complete(ctx context.Context, req domain.AgentChatRequest) (*domain.AgentRunResult, error)
+	Complete(ctx context.Context, req domain.AgentChatRequest, onToolStatus domain.ToolStatusCallback) (*domain.AgentRunResult, error)
 	SetObsidianWriter(w ObsidianNoteWriter)
 }

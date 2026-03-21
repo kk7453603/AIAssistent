@@ -11,8 +11,67 @@ import (
 	apigen "github.com/kirillkom/personal-ai-assistant/internal/adapters/http/openapi"
 )
 
+type toolStatusEntry struct {
+	Tool   string `json:"tool"`
+	Status string `json:"status"`
+}
+
 type chatCompletionsSSEResponse struct {
 	Chunks []apigen.ChatCompletionChunk
+}
+
+// agentSSEResponse writes tool-status SSE events first, then content chunks.
+type agentSSEResponse struct {
+	ToolEvents []toolStatusEntry
+	Chunks     []apigen.ChatCompletionChunk
+}
+
+func (response agentSSEResponse) VisitChatCompletionsResponse(w http.ResponseWriter) error {
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		return fmt.Errorf("streaming is not supported by response writer")
+	}
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.WriteHeader(http.StatusOK)
+
+	// Emit tool-status events before content chunks.
+	for _, te := range response.ToolEvents {
+		toolStatusJSON := fmt.Sprintf(`{"tool":"%s","status":"%s"}`, te.Tool, te.Status)
+		chunk := map[string]any{
+			"id":     "tool-status",
+			"object": "chat.completion.chunk",
+			"choices": []map[string]any{{
+				"index": 0,
+				"delta": map[string]any{"tool_status": toolStatusJSON},
+			}},
+		}
+		data, _ := json.Marshal(chunk)
+		if _, err := fmt.Fprintf(w, "data: %s\n\n", data); err != nil {
+			return err
+		}
+		flusher.Flush()
+	}
+
+	// Emit content chunks.
+	for _, chunk := range response.Chunks {
+		payload, err := json.Marshal(chunk)
+		if err != nil {
+			return err
+		}
+		if _, err := fmt.Fprintf(w, "data: %s\n\n", payload); err != nil {
+			return err
+		}
+		flusher.Flush()
+	}
+
+	if _, err := io.WriteString(w, "data: [DONE]\n\n"); err != nil {
+		return err
+	}
+	flusher.Flush()
+	return nil
 }
 
 func (response chatCompletionsSSEResponse) VisitChatCompletionsResponse(w http.ResponseWriter) error {

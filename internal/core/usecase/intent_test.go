@@ -1,6 +1,9 @@
 package usecase
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestClassifyIntentByKeywords(t *testing.T) {
 	tests := []struct {
@@ -52,5 +55,34 @@ func TestSystemPromptForIntent(t *testing.T) {
 		if prompt == "" {
 			t.Errorf("systemPromptForIntent(%q) returned empty string", intent)
 		}
+	}
+}
+
+func TestClassifyIntentLLMPrompt(t *testing.T) {
+	prompt := classifyIntentLLMPrompt("сравни мой прогресс по модулям")
+	if !strings.Contains(prompt, "knowledge") || !strings.Contains(prompt, "code") {
+		t.Error("prompt should list all categories")
+	}
+}
+
+func TestParseIntent(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected Intent
+	}{
+		{"knowledge", IntentKnowledge},
+		{"  CODE  ", IntentCode},
+		{"file\n", IntentFile},
+		{"task something", IntentTask},
+		{"web", IntentWeb},
+		{"garbage", IntentGeneral},
+		{"", IntentGeneral},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			if got := parseIntent(tt.input); got != tt.expected {
+				t.Errorf("parseIntent(%q) = %q, want %q", tt.input, got, tt.expected)
+			}
+		})
 	}
 }

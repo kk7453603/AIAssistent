@@ -107,6 +107,9 @@ type AgentPlanStep struct {
 	Input    map[string]interface{} `json:"input,omitempty"`
 }
 
+// ToolStatusCallback is called during the agent loop to report tool execution progress.
+type ToolStatusCallback func(toolName string, status string)
+
 // WebSearchResult represents a single result from a web search engine.
 type WebSearchResult struct {
 	Title   string `json:"title"`

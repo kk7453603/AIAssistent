@@ -250,6 +250,7 @@ func TestAgentChatUseCaseFinalStep(t *testing.T) {
 		nil, // obsidianWriter
 		nil, // toolRegistry
 		domain.AgentLimits{},
+		nil, // agentMetrics
 	)
 
 	result, err := uc.Complete(context.Background(), domain.AgentChatRequest{
@@ -257,7 +258,7 @@ func TestAgentChatUseCaseFinalStep(t *testing.T) {
 		Messages: []domain.AgentInputMessage{
 			{Role: "user", Content: "hello"},
 		},
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("Complete() error = %v", err)
 	}
@@ -294,6 +295,7 @@ func TestAgentChatUseCaseToolThenFinal(t *testing.T) {
 		nil, // obsidianWriter
 		nil, // toolRegistry
 		domain.AgentLimits{},
+		nil, // agentMetrics
 	)
 
 	result, err := uc.Complete(context.Background(), domain.AgentChatRequest{
@@ -301,7 +303,7 @@ func TestAgentChatUseCaseToolThenFinal(t *testing.T) {
 		Messages: []domain.AgentInputMessage{
 			{Role: "user", Content: "find info"},
 		},
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("Complete() error = %v", err)
 	}
@@ -331,6 +333,7 @@ func TestAgentChatUseCaseMaxIterationsFallback(t *testing.T) {
 		nil, // obsidianWriter
 		nil, // toolRegistry
 		domain.AgentLimits{MaxIterations: 2},
+		nil, // agentMetrics
 	)
 
 	result, err := uc.Complete(context.Background(), domain.AgentChatRequest{
@@ -338,7 +341,7 @@ func TestAgentChatUseCaseMaxIterationsFallback(t *testing.T) {
 		Messages: []domain.AgentInputMessage{
 			{Role: "user", Content: "loop"},
 		},
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("Complete() error = %v", err)
 	}
@@ -370,6 +373,7 @@ func TestAgentChatUseCaseCreatesSummaryOnSessionEnd(t *testing.T) {
 		nil, // obsidianWriter
 		nil, // toolRegistry
 		domain.AgentLimits{SummaryEveryTurns: 6},
+		nil, // agentMetrics
 	)
 
 	result, err := uc.Complete(context.Background(), domain.AgentChatRequest{
@@ -378,7 +382,7 @@ func TestAgentChatUseCaseCreatesSummaryOnSessionEnd(t *testing.T) {
 		Messages: []domain.AgentInputMessage{
 			{Role: "user", Content: "wrap up"},
 		},
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("Complete() error = %v", err)
 	}
@@ -407,6 +411,7 @@ func TestAgentChatUseCaseEmptyResponseFallback(t *testing.T) {
 		nil, // obsidianWriter
 		nil, // toolRegistry
 		domain.AgentLimits{},
+		nil, // agentMetrics
 	)
 
 	result, err := uc.Complete(context.Background(), domain.AgentChatRequest{
@@ -414,7 +419,7 @@ func TestAgentChatUseCaseEmptyResponseFallback(t *testing.T) {
 		Messages: []domain.AgentInputMessage{
 			{Role: "user", Content: "hello"},
 		},
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("Complete() error = %v", err)
 	}
@@ -439,6 +444,7 @@ func TestAgentChatUseCasePlannerErrorFallsBackToRAG(t *testing.T) {
 		nil, // obsidianWriter
 		nil, // toolRegistry
 		domain.AgentLimits{},
+		nil, // agentMetrics
 	)
 
 	result, err := uc.Complete(context.Background(), domain.AgentChatRequest{
@@ -446,7 +452,7 @@ func TestAgentChatUseCasePlannerErrorFallsBackToRAG(t *testing.T) {
 		Messages: []domain.AgentInputMessage{
 			{Role: "user", Content: "hello"},
 		},
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("Complete() error = %v", err)
 	}
@@ -480,6 +486,7 @@ func TestAgentChatUseCasePlannerTimeoutFallsBackToRAG(t *testing.T) {
 			Timeout:        300 * time.Millisecond,
 			PlannerTimeout: 20 * time.Millisecond,
 		},
+		nil, // agentMetrics
 	)
 
 	result, err := uc.Complete(context.Background(), domain.AgentChatRequest{
@@ -487,7 +494,7 @@ func TestAgentChatUseCasePlannerTimeoutFallsBackToRAG(t *testing.T) {
 		Messages: []domain.AgentInputMessage{
 			{Role: "user", Content: "hello"},
 		},
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("Complete() error = %v", err)
 	}
