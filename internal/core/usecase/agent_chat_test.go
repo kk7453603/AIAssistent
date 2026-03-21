@@ -18,6 +18,11 @@ type fakeAgentQueryService struct {
 	answerErr             error
 	generateJSONErr       error
 	generateJSONHook      func(context.Context, string) (string, error)
+
+	// ChatWithTools support
+	chatToolsResponses []domain.ChatToolsResult
+	chatToolsErr       error
+	chatToolsHook      func(context.Context, []domain.ChatMessage, []domain.ToolSchema) (*domain.ChatToolsResult, error)
 }
 
 func (f *fakeAgentQueryService) Answer(_ context.Context, _ string, _ int, _ domain.SearchFilter) (*domain.Answer, error) {
@@ -58,6 +63,21 @@ func (f *fakeAgentQueryService) GenerateJSONFromPrompt(ctx context.Context, _ st
 	out := f.generateResponses[0]
 	f.generateResponses = f.generateResponses[1:]
 	return out, nil
+}
+
+func (f *fakeAgentQueryService) ChatWithTools(ctx context.Context, msgs []domain.ChatMessage, tools []domain.ToolSchema) (*domain.ChatToolsResult, error) {
+	if f.chatToolsHook != nil {
+		return f.chatToolsHook(ctx, msgs, tools)
+	}
+	if f.chatToolsErr != nil {
+		return nil, f.chatToolsErr
+	}
+	if len(f.chatToolsResponses) > 0 {
+		out := f.chatToolsResponses[0]
+		f.chatToolsResponses = f.chatToolsResponses[1:]
+		return &out, nil
+	}
+	return &domain.ChatToolsResult{Content: "stub"}, nil
 }
 
 type fakeAgentEmbedder struct{}
@@ -212,8 +232,8 @@ func (f *fakeMemoryVectorStore) SearchSummaries(_ context.Context, _, _ string, 
 
 func TestAgentChatUseCaseFinalStep(t *testing.T) {
 	query := &fakeAgentQueryService{
-		generateResponses: []string{
-			`{"type":"final","answer":"done"}`,
+		chatToolsResponses: []domain.ChatToolsResult{
+			{Content: "done"},
 		},
 	}
 	conversations := &fakeConversationStore{}
@@ -228,6 +248,7 @@ func TestAgentChatUseCaseFinalStep(t *testing.T) {
 		},
 		nil, // webSearcher
 		nil, // obsidianWriter
+		nil, // toolRegistry
 		domain.AgentLimits{},
 	)
 
@@ -256,9 +277,9 @@ func TestAgentChatUseCaseFinalStep(t *testing.T) {
 
 func TestAgentChatUseCaseToolThenFinal(t *testing.T) {
 	query := &fakeAgentQueryService{
-		generateResponses: []string{
-			`{"type":"tool","tool":"knowledge_search","input":{"question":"q"}}`,
-			`{"type":"final","answer":"knowledge merged"}`,
+		chatToolsResponses: []domain.ChatToolsResult{
+			{ToolCalls: []domain.ToolCall{{ID: "call-1", Function: domain.ToolCallFunc{Name: "knowledge_search", Arguments: map[string]any{"question": "q"}}}}},
+			{Content: "knowledge merged"},
 		},
 	}
 	conversations := &fakeConversationStore{}
@@ -271,6 +292,7 @@ func TestAgentChatUseCaseToolThenFinal(t *testing.T) {
 		&fakeMemoryVectorStore{},
 		nil, // webSearcher
 		nil, // obsidianWriter
+		nil, // toolRegistry
 		domain.AgentLimits{},
 	)
 
@@ -293,9 +315,9 @@ func TestAgentChatUseCaseToolThenFinal(t *testing.T) {
 
 func TestAgentChatUseCaseMaxIterationsFallback(t *testing.T) {
 	query := &fakeAgentQueryService{
-		generateResponses: []string{
-			`{"type":"tool","tool":"task_tool","action":"list","input":{}}`,
-			`{"type":"tool","tool":"task_tool","action":"list","input":{}}`,
+		chatToolsResponses: []domain.ChatToolsResult{
+			{ToolCalls: []domain.ToolCall{{ID: "call-1", Function: domain.ToolCallFunc{Name: "task_tool", Arguments: map[string]any{"action": "list"}}}}},
+			{ToolCalls: []domain.ToolCall{{ID: "call-2", Function: domain.ToolCallFunc{Name: "task_tool", Arguments: map[string]any{"action": "list"}}}}},
 		},
 	}
 	uc := NewAgentChatUseCase(
@@ -307,6 +329,7 @@ func TestAgentChatUseCaseMaxIterationsFallback(t *testing.T) {
 		&fakeMemoryVectorStore{},
 		nil, // webSearcher
 		nil, // obsidianWriter
+		nil, // toolRegistry
 		domain.AgentLimits{MaxIterations: 2},
 	)
 
@@ -329,8 +352,8 @@ func TestAgentChatUseCaseMaxIterationsFallback(t *testing.T) {
 
 func TestAgentChatUseCaseCreatesSummaryOnSessionEnd(t *testing.T) {
 	query := &fakeAgentQueryService{
-		generateResponses: []string{
-			`{"type":"final","answer":"done"}`,
+		chatToolsResponses: []domain.ChatToolsResult{
+			{Content: "done"},
 		},
 		generateTextResponses: []string{"summary text"},
 	}
@@ -345,6 +368,7 @@ func TestAgentChatUseCaseCreatesSummaryOnSessionEnd(t *testing.T) {
 		memoryVector,
 		nil, // webSearcher
 		nil, // obsidianWriter
+		nil, // toolRegistry
 		domain.AgentLimits{SummaryEveryTurns: 6},
 	)
 
@@ -366,11 +390,10 @@ func TestAgentChatUseCaseCreatesSummaryOnSessionEnd(t *testing.T) {
 	}
 }
 
-func TestAgentChatUseCasePlannerRepairsFencedJSON(t *testing.T) {
+func TestAgentChatUseCaseEmptyResponseFallback(t *testing.T) {
 	query := &fakeAgentQueryService{
-		generateResponses: []string{
-			"```json\n{\"type\":\"final\",\"answer\":\"done\"}\n```",
-			`{"type":"final","answer":"done"}`,
+		chatToolsResponses: []domain.ChatToolsResult{
+			{Content: "", ToolCalls: nil}, // empty response — neither content nor tool calls
 		},
 	}
 	uc := NewAgentChatUseCase(
@@ -382,6 +405,7 @@ func TestAgentChatUseCasePlannerRepairsFencedJSON(t *testing.T) {
 		&fakeMemoryVectorStore{},
 		nil, // webSearcher
 		nil, // obsidianWriter
+		nil, // toolRegistry
 		domain.AgentLimits{},
 	)
 
@@ -394,18 +418,15 @@ func TestAgentChatUseCasePlannerRepairsFencedJSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Complete() error = %v", err)
 	}
-	if result.FallbackReason != "" {
-		t.Fatalf("expected no fallback reason after repair, got %q", result.FallbackReason)
-	}
-	if result.Answer != "done" {
-		t.Fatalf("expected repaired final answer, got %q", result.Answer)
+	if result.FallbackReason != "empty_response" {
+		t.Fatalf("expected fallback reason empty_response, got %q", result.FallbackReason)
 	}
 }
 
 func TestAgentChatUseCasePlannerErrorFallsBackToRAG(t *testing.T) {
 	query := &fakeAgentQueryService{
-		generateJSONErr: errors.New("planner unavailable"),
-		answerText:      "rag fallback answer",
+		chatToolsErr: errors.New("planner unavailable"),
+		answerText:   "rag fallback answer",
 	}
 	uc := NewAgentChatUseCase(
 		query,
@@ -416,6 +437,7 @@ func TestAgentChatUseCasePlannerErrorFallsBackToRAG(t *testing.T) {
 		&fakeMemoryVectorStore{},
 		nil, // webSearcher
 		nil, // obsidianWriter
+		nil, // toolRegistry
 		domain.AgentLimits{},
 	)
 
@@ -439,9 +461,9 @@ func TestAgentChatUseCasePlannerErrorFallsBackToRAG(t *testing.T) {
 func TestAgentChatUseCasePlannerTimeoutFallsBackToRAG(t *testing.T) {
 	query := &fakeAgentQueryService{
 		answerText: "rag fallback answer",
-		generateJSONHook: func(ctx context.Context, _ string) (string, error) {
+		chatToolsHook: func(ctx context.Context, _ []domain.ChatMessage, _ []domain.ToolSchema) (*domain.ChatToolsResult, error) {
 			<-ctx.Done()
-			return "", ctx.Err()
+			return nil, ctx.Err()
 		},
 	}
 	uc := NewAgentChatUseCase(
@@ -453,6 +475,7 @@ func TestAgentChatUseCasePlannerTimeoutFallsBackToRAG(t *testing.T) {
 		&fakeMemoryVectorStore{},
 		nil, // webSearcher
 		nil, // obsidianWriter
+		nil, // toolRegistry
 		domain.AgentLimits{
 			Timeout:        300 * time.Millisecond,
 			PlannerTimeout: 20 * time.Millisecond,

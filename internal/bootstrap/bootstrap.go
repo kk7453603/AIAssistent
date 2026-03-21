@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -17,6 +18,7 @@ import (
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/llm/ollama"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/llm/openaicompat"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/llm/routing"
+	paamcp "github.com/kirillkom/personal-ai-assistant/internal/infrastructure/mcp"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/queue/nats"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/repository/postgres"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/resilience"
@@ -34,6 +36,10 @@ type App struct {
 	ProcessUC        ports.DocumentProcessor
 	QueryUC          ports.DocumentQueryService
 	AgentUC          ports.AgentChatService
+	ToolRegistry     *paamcp.ToolRegistry
+	MCPClientMgr     *paamcp.ClientManager
+	WebSearcher      ports.WebSearcher
+	Tasks            ports.TaskStore
 	ModelProviderMap map[string]string // model ID → provider name (e.g., "paa-huggingface" → "huggingface")
 
 	closeFn func()
@@ -240,6 +246,16 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		webSearcher = searxng.New(cfg.WebSearchURL, cfg.WebSearchLimit)
 	}
 
+	// MCP client manager (connects to external MCP servers).
+	var mcpConfigs []paamcp.ServerConfig
+	if cfg.MCPServers != "" {
+		if err := json.Unmarshal([]byte(cfg.MCPServers), &mcpConfigs); err != nil {
+			slog.Warn("mcp_servers_config_parse_error", "err", err, "raw", cfg.MCPServers)
+		}
+	}
+	mcpClientMgr := paamcp.NewClientManager(ctx, mcpConfigs)
+	toolRegistry := paamcp.NewToolRegistry(mcpClientMgr)
+
 	agentUC := usecase.NewAgentChatUseCase(
 		queryUC,
 		embedder,
@@ -249,6 +265,7 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		memoryVector,
 		webSearcher,
 		nil, // obsidianWriter — set later via SetObsidianWriter after Router is created
+		toolRegistry,
 		domain.AgentLimits{
 			MaxIterations:       cfg.AgentMaxIterations,
 			Timeout:             time.Duration(cfg.AgentTimeoutSeconds) * time.Second,
@@ -258,6 +275,7 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 			SummaryEveryTurns:   cfg.AgentSummaryEveryTurns,
 			MemoryTopK:          cfg.AgentMemoryTopK,
 			KnowledgeTopK:       cfg.AgentKnowledgeTopK,
+			IntentRouterEnabled: cfg.AgentIntentRouterEnabled,
 		},
 	)
 
@@ -267,12 +285,17 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		Repo:             repo,
 		ModelProviderMap: modelProviderMap,
 
-		IngestUC:  ingestUC,
-		ProcessUC: processUC,
-		QueryUC:   queryUC,
-		AgentUC:   agentUC,
+		IngestUC:       ingestUC,
+		ProcessUC:      processUC,
+		QueryUC:        queryUC,
+		AgentUC:        agentUC,
+		ToolRegistry:   toolRegistry,
+		MCPClientMgr:   mcpClientMgr,
+		WebSearcher:    webSearcher,
+		Tasks:          taskRepo,
 
 		closeFn: func() {
+			toolRegistry.Close()
 			queue.Close()
 			_ = db.Close()
 		},

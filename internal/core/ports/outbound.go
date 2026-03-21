@@ -60,6 +60,7 @@ type AnswerGenerator interface {
 	GenerateAnswer(ctx context.Context, question string, chunks []domain.RetrievedChunk) (string, error)
 	GenerateFromPrompt(ctx context.Context, prompt string) (string, error)
 	GenerateJSONFromPrompt(ctx context.Context, prompt string) (string, error)
+	ChatWithTools(ctx context.Context, messages []domain.ChatMessage, tools []domain.ToolSchema) (*domain.ChatToolsResult, error)
 }
 
 // Reranker rescores candidate chunks against the query.

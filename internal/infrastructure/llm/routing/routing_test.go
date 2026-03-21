@@ -38,6 +38,13 @@ func (s *stubGenerator) GenerateJSONFromPrompt(_ context.Context, _ string) (str
 	return "json-from-" + s.name, nil
 }
 
+func (s *stubGenerator) ChatWithTools(_ context.Context, _ []domain.ChatMessage, _ []domain.ToolSchema) (*domain.ChatToolsResult, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	return &domain.ChatToolsResult{Content: "tools-from-" + s.name}, nil
+}
+
 // --- stub classifier ---
 
 type stubClassifier struct {

@@ -79,6 +79,10 @@ func (f *queryGeneratorFake) GenerateJSONFromPrompt(_ context.Context, prompt st
 	return prompt, nil
 }
 
+func (f *queryGeneratorFake) ChatWithTools(_ context.Context, _ []domain.ChatMessage, _ []domain.ToolSchema) (*domain.ChatToolsResult, error) {
+	return &domain.ChatToolsResult{Content: "stub"}, nil
+}
+
 func TestQueryUseCaseAnswerDefaultLimit(t *testing.T) {
 	embedder := &queryEmbedderFake{}
 	vector := &queryVectorFake{}

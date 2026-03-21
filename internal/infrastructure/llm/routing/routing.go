@@ -46,6 +46,10 @@ func (g *Generator) GenerateJSONFromPrompt(ctx context.Context, prompt string) (
 	return g.resolve(ctx).GenerateJSONFromPrompt(ctx, prompt)
 }
 
+func (g *Generator) ChatWithTools(ctx context.Context, messages []domain.ChatMessage, tools []domain.ToolSchema) (*domain.ChatToolsResult, error) {
+	return g.resolve(ctx).ChatWithTools(ctx, messages, tools)
+}
+
 // Classifier implements ports.DocumentClassifier — routes to the appropriate provider
 // based on the provider name in context.
 type Classifier struct {

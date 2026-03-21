@@ -17,6 +17,7 @@ type DocumentQueryService interface {
 	Answer(ctx context.Context, question string, limit int, filter domain.SearchFilter) (*domain.Answer, error)
 	GenerateFromPrompt(ctx context.Context, prompt string) (string, error)
 	GenerateJSONFromPrompt(ctx context.Context, prompt string) (string, error)
+	ChatWithTools(ctx context.Context, messages []domain.ChatMessage, tools []domain.ToolSchema) (*domain.ChatToolsResult, error)
 }
 
 // DocumentReader is the inbound read model for document metadata/state.

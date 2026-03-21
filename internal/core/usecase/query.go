@@ -135,6 +135,10 @@ func (uc *QueryUseCase) GenerateJSONFromPrompt(ctx context.Context, prompt strin
 	return answerText, nil
 }
 
+func (uc *QueryUseCase) ChatWithTools(ctx context.Context, messages []domain.ChatMessage, tools []domain.ToolSchema) (*domain.ChatToolsResult, error) {
+	return uc.generator.ChatWithTools(ctx, messages, tools)
+}
+
 func (uc *QueryUseCase) retrieveChunks(
 	ctx context.Context,
 	question string,

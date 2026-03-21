@@ -27,6 +27,10 @@ func (m *mockGenerator) GenerateJSONFromPrompt(_ context.Context, _ string) (str
 	return m.answer, m.err
 }
 
+func (m *mockGenerator) ChatWithTools(_ context.Context, _ []domain.ChatMessage, _ []domain.ToolSchema) (*domain.ChatToolsResult, error) {
+	return &domain.ChatToolsResult{Content: m.answer}, m.err
+}
+
 // --- mock classifier ---
 
 type mockClassifier struct {

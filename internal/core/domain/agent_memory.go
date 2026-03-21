@@ -65,6 +65,7 @@ type AgentLimits struct {
 	SummaryEveryTurns   int           `json:"summary_every_turns"`
 	MemoryTopK          int           `json:"memory_top_k"`
 	KnowledgeTopK       int           `json:"knowledge_top_k"`
+	IntentRouterEnabled bool          `json:"intent_router_enabled"`
 }
 
 type AgentInputMessage struct {
@@ -111,4 +112,41 @@ type WebSearchResult struct {
 	Title   string `json:"title"`
 	URL     string `json:"url"`
 	Snippet string `json:"snippet"`
+}
+
+// ChatMessage represents a message in the LLM chat format.
+type ChatMessage struct {
+	Role       string     `json:"role"`    // "system", "user", "assistant", "tool"
+	Content    string     `json:"content"`
+	ToolCalls  []ToolCall `json:"tool_calls,omitempty"`
+	ToolCallID string     `json:"tool_call_id,omitempty"`
+}
+
+// ToolCall represents a structured tool invocation from the LLM.
+type ToolCall struct {
+	ID       string       `json:"id,omitempty"`
+	Function ToolCallFunc `json:"function"`
+}
+
+type ToolCallFunc struct {
+	Name      string         `json:"name"`
+	Arguments map[string]any `json:"arguments"`
+}
+
+// ToolSchema defines a tool for the LLM function calling API.
+type ToolSchema struct {
+	Type     string         `json:"type"` // "function"
+	Function FunctionSchema `json:"function"`
+}
+
+type FunctionSchema struct {
+	Name        string         `json:"name"`
+	Description string         `json:"description"`
+	Parameters  map[string]any `json:"parameters,omitempty"`
+}
+
+// ChatToolsResult is the parsed response from ChatWithTools.
+type ChatToolsResult struct {
+	Content   string     // text response (final answer)
+	ToolCalls []ToolCall // tool invocations (empty if final)
 }

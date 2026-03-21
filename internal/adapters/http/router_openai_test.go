@@ -81,6 +81,10 @@ func (f fakeAnswerGenerator) GenerateJSONFromPrompt(context.Context, string) (st
 	return `{"type":"final","answer":"post processed answer"}`, nil
 }
 
+func (f fakeAnswerGenerator) ChatWithTools(_ context.Context, _ []domain.ChatMessage, _ []domain.ToolSchema) (*domain.ChatToolsResult, error) {
+	return &domain.ChatToolsResult{Content: "stub"}, nil
+}
+
 type fakeAgentService struct {
 	result *domain.AgentRunResult
 	err    error

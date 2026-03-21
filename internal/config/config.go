@@ -76,6 +76,7 @@ type Config struct {
 	AgentSummaryEveryTurns     int
 	AgentMemoryTopK            int
 	AgentKnowledgeTopK         int
+	AgentIntentRouterEnabled   bool
 
 	LLMFallbackProvider string // fallback provider: "ollama", "openai-compat", "huggingface", etc.
 	LLMFallbackURL      string
@@ -87,6 +88,9 @@ type Config struct {
 	WebSearchEnabled bool
 	WebSearchURL     string
 	WebSearchLimit   int
+
+	MCPServerEnabled bool
+	MCPServers       string // JSON array of external MCP server configs
 
 	WorkerMetricsPort string
 
@@ -173,7 +177,7 @@ func Load() Config {
 		OpenAICompatStreamChunkChars:    mustEnvInt("OPENAI_COMPAT_STREAM_CHUNK_CHARS", 120),
 		OpenAICompatToolTriggerKeywords: mustEnv("OPENAI_COMPAT_TOOL_TRIGGER_KEYWORDS", "file,document,upload,attach,документ,файл,загрузи,вложение"),
 		AgentModeEnabled:                mustEnvBool("AGENT_MODE_ENABLED", false),
-		AgentMaxIterations:              mustEnvInt("AGENT_MAX_ITERATIONS", 6),
+		AgentMaxIterations:              mustEnvInt("AGENT_MAX_ITERATIONS", 10),
 		AgentTimeoutSeconds:             mustEnvInt("AGENT_TIMEOUT_SECONDS", 90),
 		AgentPlannerTimeoutSeconds:      mustEnvInt("AGENT_PLANNER_TIMEOUT_SECONDS", 20),
 		AgentToolTimeoutSeconds:         mustEnvInt("AGENT_TOOL_TIMEOUT_SECONDS", 30),
@@ -181,6 +185,7 @@ func Load() Config {
 		AgentSummaryEveryTurns:          mustEnvInt("AGENT_SUMMARY_EVERY_TURNS", 6),
 		AgentMemoryTopK:                 mustEnvInt("AGENT_MEMORY_TOP_K", 4),
 		AgentKnowledgeTopK:              mustEnvInt("AGENT_KNOWLEDGE_TOP_K", 5),
+		AgentIntentRouterEnabled:        mustEnvBool("AGENT_INTENT_ROUTER_ENABLED", true),
 
 		LLMFallbackProvider: mustEnv("LLM_FALLBACK_PROVIDER", ""),
 		LLMFallbackURL:      mustEnv("LLM_FALLBACK_URL", ""),
@@ -192,6 +197,9 @@ func Load() Config {
 		WebSearchEnabled: mustEnvBool("WEB_SEARCH_ENABLED", false),
 		WebSearchURL:     mustEnv("WEB_SEARCH_URL", "http://searxng:8888"),
 		WebSearchLimit:   mustEnvInt("WEB_SEARCH_LIMIT", 5),
+
+		MCPServerEnabled: mustEnvBool("MCP_SERVER_ENABLED", true),
+		MCPServers:       mustEnv("MCP_SERVERS", ""),
 
 		WorkerMetricsPort: mustEnv("WORKER_METRICS_PORT", "9090"),
 

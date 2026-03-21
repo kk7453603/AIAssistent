@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
 	"strconv"
 	"strings"
 	"time"
@@ -32,6 +31,7 @@ type AgentChatUseCase struct {
 	memoryVector   ports.MemoryVectorStore
 	webSearcher    ports.WebSearcher
 	obsidianWriter ports.ObsidianNoteWriter
+	toolRegistry   ports.MCPToolRegistry
 	limits         domain.AgentLimits
 }
 
@@ -44,6 +44,7 @@ func NewAgentChatUseCase(
 	memoryVector ports.MemoryVectorStore,
 	webSearcher ports.WebSearcher,
 	obsidianWriter ports.ObsidianNoteWriter,
+	toolRegistry ports.MCPToolRegistry,
 	limits domain.AgentLimits,
 ) *AgentChatUseCase {
 	if limits.MaxIterations <= 0 {
@@ -80,6 +81,7 @@ func NewAgentChatUseCase(
 		memoryVector:   memoryVector,
 		webSearcher:    webSearcher,
 		obsidianWriter: obsidianWriter,
+		toolRegistry:   toolRegistry,
 		limits:         limits,
 	}
 }
@@ -143,7 +145,6 @@ func (uc *AgentChatUseCase) Complete(ctx context.Context, req domain.AgentChatRe
 	loopCtx, cancel := context.WithTimeout(ctx, uc.limits.Timeout)
 	defer cancel()
 
-	scratchpad := make([]string, 0, uc.limits.MaxIterations)
 	thinkingLines := make([]string, 0, uc.limits.MaxIterations)
 	toolEvents := make([]domain.AgentToolEvent, 0, uc.limits.MaxIterations)
 	toolsInvoked := make([]string, 0, uc.limits.MaxIterations)
@@ -154,15 +155,37 @@ func (uc *AgentChatUseCase) Complete(ctx context.Context, req domain.AgentChatRe
 
 	webSearchAvailable := uc.webSearcher != nil
 
+	// Build intent-aware system prompt
+	intent := IntentGeneral
+	if uc.limits.IntentRouterEnabled {
+		intent = classifyIntentByKeywords(lastUserMessage)
+	}
+	systemPrompt := buildSystemPrompt(intent, memoryHits)
+	toolSchemas := toolSchemasFromRegistry(uc.toolRegistry, webSearchAvailable)
+
+	// Build initial messages
+	chatMessages := []domain.ChatMessage{
+		{Role: "system", Content: systemPrompt},
+	}
+	// Add short memory as conversation history
+	for _, msg := range shortMemory {
+		if content := strings.TrimSpace(msg.Content); content != "" {
+			chatMessages = append(chatMessages, domain.ChatMessage{Role: msg.Role, Content: content})
+		}
+	}
+	// Add current user message
+	chatMessages = append(chatMessages, domain.ChatMessage{Role: "user", Content: lastUserMessage})
+
+	// Main loop — uses native function calling via ChatWithTools
 	for i := 1; i <= uc.limits.MaxIterations; i++ {
 		if loopCtx.Err() != nil {
 			fallbackReason = "timeout"
 			break
 		}
-
 		iterations = i
+
 		plannerCtx, plannerCancel := context.WithTimeout(loopCtx, uc.limits.PlannerTimeout)
-		planRaw, err := uc.querySvc.GenerateJSONFromPrompt(plannerCtx, buildPlannerPrompt(lastUserMessage, shortMemory, memoryHits, scratchpad, webSearchAvailable))
+		chatResult, err := uc.querySvc.ChatWithTools(plannerCtx, chatMessages, toolSchemas)
 		plannerCancel()
 		if err != nil {
 			if isAgentTimeoutError(err) {
@@ -173,75 +196,63 @@ func (uc *AgentChatUseCase) Complete(ctx context.Context, req domain.AgentChatRe
 			break
 		}
 
-		step, err := parseAgentStep(planRaw)
-		if err != nil {
-			repairCtx, repairCancel := context.WithTimeout(loopCtx, uc.limits.PlannerTimeout)
-			repairedRaw, repairErr := uc.querySvc.GenerateJSONFromPrompt(repairCtx, buildPlannerRepairPrompt(planRaw))
-			repairCancel()
-			if repairErr != nil {
-				if isAgentTimeoutError(repairErr) {
-					fallbackReason = "timeout"
+		// If LLM returned a text response — final answer
+		if len(chatResult.ToolCalls) == 0 && chatResult.Content != "" {
+			finalAnswer = chatResult.Content
+			break
+		}
+
+		// If LLM returned tool calls — execute all of them
+		if len(chatResult.ToolCalls) > 0 {
+			// Add assistant message with tool calls to conversation
+			chatMessages = append(chatMessages, domain.ChatMessage{
+				Role:      "assistant",
+				ToolCalls: chatResult.ToolCalls,
+			})
+
+			for _, tc := range chatResult.ToolCalls {
+				thinkingLines = append(thinkingLines, fmt.Sprintf("→ Using tool: %s", tc.Function.Name))
+
+				toolCtx, toolCancel := context.WithTimeout(loopCtx, uc.limits.ToolTimeout)
+				event, execErr := uc.executeToolCall(toolCtx, userID, tc, lastUserMessage)
+				toolCancel()
+
+				if execErr != nil {
+					if isAgentTimeoutError(execErr) {
+						fallbackReason = "timeout"
+					}
+					errorPayload, _ := json.Marshal(map[string]string{"error": execErr.Error()})
+					event = domain.AgentToolEvent{Tool: tc.Function.Name, Status: "error", Output: string(errorPayload)}
+					thinkingLines = append(thinkingLines, fmt.Sprintf("✗ Tool %s error: %s", tc.Function.Name, execErr.Error()))
 				} else {
-					fallbackReason = "planner_invalid_json"
+					thinkingLines = append(thinkingLines, fmt.Sprintf("✓ Tool %s: ok", event.Tool))
 				}
-				break
-			}
-			step, err = parseAgentStep(repairedRaw)
-			if err != nil {
-				fallbackReason = "planner_invalid_json"
-				break
-			}
-		}
 
-		if thinking := strings.TrimSpace(step.Thinking); thinking != "" {
-			thinkingLines = append(thinkingLines, thinking)
-		}
+				toolEvents = append(toolEvents, event)
+				if event.Tool != "" {
+					if _, seen := toolSet[event.Tool]; !seen {
+						toolSet[event.Tool] = struct{}{}
+						toolsInvoked = append(toolsInvoked, event.Tool)
+					}
+				}
 
-		switch strings.ToLower(strings.TrimSpace(step.Type)) {
-		case "final":
-			finalAnswer = strings.TrimSpace(step.Answer)
-			if finalAnswer == "" {
-				finalAnswer = "I could not produce a final answer from the current context."
-				fallbackReason = "empty_final_answer"
+				// Add tool result as a message for the next iteration
+				chatMessages = append(chatMessages, domain.ChatMessage{
+					Role:       "tool",
+					Content:    event.Output,
+					ToolCallID: tc.ID,
+				})
 			}
-		case "tool":
-			thinkingLines = append(thinkingLines, fmt.Sprintf("→ Using tool: %s", step.Tool))
-			toolCtx, toolCancel := context.WithTimeout(loopCtx, uc.limits.ToolTimeout)
-			event, execErr := uc.executeTool(toolCtx, userID, step, lastUserMessage)
-			toolCancel()
-			if execErr != nil {
-				if isAgentTimeoutError(execErr) {
-					fallbackReason = "timeout"
-				}
-				errorPayload, _ := json.Marshal(map[string]string{"error": execErr.Error()})
-				event = domain.AgentToolEvent{
-					Tool:   step.Tool,
-					Status: "error",
-					Output: string(errorPayload),
-				}
-				thinkingLines = append(thinkingLines, fmt.Sprintf("✗ Tool %s error: %s", step.Tool, execErr.Error()))
-			} else {
-				thinkingLines = append(thinkingLines, fmt.Sprintf("✓ Tool %s: ok", event.Tool))
-			}
-			toolEvents = append(toolEvents, event)
-			if event.Tool != "" {
-				if _, seen := toolSet[event.Tool]; !seen {
-					toolSet[event.Tool] = struct{}{}
-					toolsInvoked = append(toolsInvoked, event.Tool)
-				}
-			}
-			scratchpad = append(scratchpad, fmt.Sprintf("%s:%s", event.Tool, event.Output))
+
 			if fallbackReason == "timeout" {
 				break
 			}
-		default:
-			slog.Warn("unsupported_step_type", "raw", planRaw, "parsed_type", step.Type, "parsed_tool", step.Tool, "parsed_action", step.Action, "parsed_answer_len", len(step.Answer))
-			fallbackReason = "unsupported_step_type"
+			continue
 		}
 
-		if finalAnswer != "" || fallbackReason != "" {
-			break
-		}
+		// Neither content nor tool calls — unexpected
+		fallbackReason = "empty_response"
+		break
 	}
 
 	if fallbackReason == "" && finalAnswer == "" {
@@ -346,191 +357,6 @@ func latestUserInput(messages []domain.AgentInputMessage) (string, bool) {
 		}
 	}
 	return "", false
-}
-
-// knownTools is the set of tool names the agent supports.
-var knownTools = map[string]bool{
-	"knowledge_search": true,
-	"web_search":       true,
-	"obsidian_write":   true,
-	"task_tool":        true,
-}
-
-func parseAgentStep(raw string) (domain.AgentPlanStep, error) {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return domain.AgentPlanStep{}, fmt.Errorf("empty planner response")
-	}
-
-	// Parse into both typed struct and generic map for flexible extraction.
-	var step domain.AgentPlanStep
-	if err := json.Unmarshal([]byte(raw), &step); err != nil {
-		return domain.AgentPlanStep{}, fmt.Errorf("unmarshal planner json: %w", err)
-	}
-
-	var generic map[string]any
-	_ = json.Unmarshal([]byte(raw), &generic)
-
-	step.Type = strings.ToLower(strings.TrimSpace(step.Type))
-	step.Tool = strings.ToLower(strings.TrimSpace(step.Tool))
-	step.Action = strings.ToLower(strings.TrimSpace(step.Action))
-
-	// Try to find a tool name anywhere in known fields if step.Tool is empty.
-	if step.Tool == "" {
-		for _, key := range []string{"tool", "tool_name", "name", "function"} {
-			if v, ok := generic[key]; ok {
-				if s, ok := v.(string); ok {
-					s = strings.ToLower(strings.TrimSpace(s))
-					if knownTools[s] {
-						step.Tool = s
-						break
-					}
-				}
-			}
-		}
-	}
-
-	// Infer step.Type when the model omits it.
-	if step.Type == "" {
-		switch {
-		case step.Tool != "" && knownTools[step.Tool]:
-			step.Type = "tool"
-		case step.Action == "tool" || step.Action == "search":
-			step.Type = "tool"
-		case knownTools[step.Action]:
-			step.Type = "tool"
-			step.Tool = step.Action
-			step.Action = ""
-		case strings.TrimSpace(step.Answer) != "":
-			step.Type = "final"
-		case step.Action == "final" || step.Action == "answer" || step.Action == "respond":
-			step.Type = "final"
-		}
-	}
-
-	// Scan generic map for answer under alternate keys.
-	if step.Type == "" {
-		for _, key := range []string{"answer", "response", "result", "reply", "text"} {
-			if v, ok := generic[key]; ok {
-				if s, ok := v.(string); ok && strings.TrimSpace(s) != "" {
-					step.Type = "final"
-					step.Answer = s
-					break
-				}
-			}
-		}
-	}
-
-	return step, nil
-}
-
-func buildPlannerPrompt(userMessage string, shortMemory []domain.ConversationMessage, memoryHits []domain.MemoryHit, scratchpad []string, webSearchAvailable bool) string {
-	shortLines := make([]string, 0, len(shortMemory))
-	for _, msg := range shortMemory {
-		role := strings.TrimSpace(msg.Role)
-		content := strings.TrimSpace(msg.Content)
-		if content == "" {
-			continue
-		}
-		shortLines = append(shortLines, fmt.Sprintf("%s: %s", role, content))
-	}
-	hitLines := make([]string, 0, len(memoryHits))
-	for _, hit := range memoryHits {
-		hitLines = append(hitLines, fmt.Sprintf("- [score=%.3f] %s", hit.Score, strings.TrimSpace(hit.Summary.Summary)))
-	}
-	if len(shortLines) == 0 {
-		shortLines = append(shortLines, "(empty)")
-	}
-	if len(hitLines) == 0 {
-		hitLines = append(hitLines, "(empty)")
-	}
-	if len(scratchpad) == 0 {
-		scratchpad = append(scratchpad, "(no tool outputs yet)")
-	}
-
-	webSearchSchema := ""
-	if webSearchAvailable {
-		webSearchSchema = `
-{"type":"tool","tool":"web_search","thinking":"why searching the web","input":{"query":"search query","limit":5}}
-`
-	}
-
-	return fmt.Sprintf(`You are a planning component for a personal AI assistant.
-Your task: decide the SINGLE next step. Return ONE JSON object per call.
-
-RULES:
-- If scratchpad already contains tool output — you MUST return a "final" step with the answer. Do NOT call the same tool again.
-- If scratchpad is empty — follow the cascade below.
-- ALWAYS respond in Russian (except JSON keys).
-- ALWAYS include a "thinking" field (in Russian).
-
-CASCADE STRATEGY (follow in order):
-1. knowledge_search — search the knowledge base first
-2. If knowledge_search returned nothing useful — return "final" answer from your own knowledge, noting: "В базе знаний информация не найдена. Отвечаю из общих знаний."
-3. If you don't know either — use web_search
-4. After web_search — return "final" with the answer AND suggest: "Хотите сохранить эту информацию в Obsidian vault?"
-5. Only use obsidian_write if the user explicitly asks to save
-
-JSON schemas (use EXACTLY these field names):
-{"type":"tool","tool":"knowledge_search","thinking":"...","input":{"question":"...","limit":5}}
-%s{"type":"tool","tool":"obsidian_write","thinking":"...","input":{"vault":"...","title":"...","content":"...","folder":"..."}}
-{"type":"tool","tool":"task_tool","thinking":"...","action":"create|list|get|update|delete|complete","input":{...}}
-{"type":"final","thinking":"...","answer":"full answer text in Russian"}
-
-Conversation short memory:
-%s
-
-Relevant long-term memory summaries:
-%s
-
-Scratchpad with previous tool outputs:
-%s
-
-Current user request:
-%s
-`, webSearchSchema, strings.Join(shortLines, "\n"), strings.Join(hitLines, "\n"), strings.Join(scratchpad, "\n"), userMessage)
-}
-
-func buildPlannerRepairPrompt(raw string) string {
-	return fmt.Sprintf(`Convert the following text into a valid JSON object for this schema:
-{"type":"tool","tool":"knowledge_search","thinking":"...","input":{"question":"...","limit":5}}
-or {"type":"tool","tool":"web_search","thinking":"...","input":{"query":"...","limit":5}}
-or {"type":"tool","tool":"obsidian_write","thinking":"...","input":{"vault":"...","title":"...","content":"...","folder":"..."}}
-or {"type":"tool","tool":"task_tool","thinking":"...","action":"create|list|get|update|delete|complete","input":{...}}
-or {"type":"final","thinking":"...","answer":"..."}
-Return only JSON.
-Text:
-%s`, raw)
-}
-
-func (uc *AgentChatUseCase) executeTool(ctx context.Context, userID string, step domain.AgentPlanStep, fallbackQuestion string) (domain.AgentToolEvent, error) {
-	switch step.Tool {
-	case agentToolKnowledgeSearch:
-		question := stringInput(step.Input, "question", fallbackQuestion)
-		limit := intInput(step.Input, "limit", uc.limits.KnowledgeTopK)
-		answer, err := uc.querySvc.Answer(ctx, question, limit, domain.SearchFilter{})
-		if err != nil {
-			return domain.AgentToolEvent{}, fmt.Errorf("knowledge search: %w", err)
-		}
-		payload, _ := json.Marshal(map[string]interface{}{
-			"question": question,
-			"answer":   answer.Text,
-			"sources":  answer.Sources,
-		})
-		return domain.AgentToolEvent{
-			Tool:   agentToolKnowledgeSearch,
-			Status: "ok",
-			Output: string(payload),
-		}, nil
-	case agentToolWebSearch:
-		return uc.executeWebSearch(ctx, step, fallbackQuestion)
-	case agentToolObsidianWrite:
-		return uc.executeObsidianWrite(ctx, step)
-	case agentToolTask:
-		return uc.executeTaskTool(ctx, userID, step)
-	default:
-		return domain.AgentToolEvent{}, fmt.Errorf("unsupported tool: %s", step.Tool)
-	}
 }
 
 func (uc *AgentChatUseCase) executeWebSearch(ctx context.Context, step domain.AgentPlanStep, fallbackQuestion string) (domain.AgentToolEvent, error) {
@@ -856,4 +682,116 @@ func parseTimeRFC3339(raw string) (time.Time, error) {
 		return time.Time{}, err
 	}
 	return parsed.UTC(), nil
+}
+
+// toolSchemasFromRegistry converts MCPToolRegistry tools to domain.ToolSchema
+// for use with the ChatWithTools API.
+func toolSchemasFromRegistry(registry ports.MCPToolRegistry, webSearchAvailable bool) []domain.ToolSchema {
+	if registry == nil {
+		return nil
+	}
+	var schemas []domain.ToolSchema
+	for _, t := range registry.ListTools() {
+		if t.Name == "web_search" && !webSearchAvailable {
+			continue
+		}
+		schemas = append(schemas, domain.ToolSchema{
+			Type: "function",
+			Function: domain.FunctionSchema{
+				Name:        t.Name,
+				Description: t.Description,
+				Parameters:  t.InputSchema,
+			},
+		})
+	}
+	return schemas
+}
+
+// buildSystemPrompt builds the system prompt for the function-calling agent loop,
+// incorporating intent-specific guidance and long-term memory.
+func buildSystemPrompt(intent Intent, memoryHits []domain.MemoryHit) string {
+	var sb strings.Builder
+	sb.WriteString(`You are a personal AI assistant. You have access to tools for searching knowledge, executing code, managing files, and more.
+
+RULES:
+- Always respond in Russian.
+- Use tools when they help answer the question. Call them directly.
+- After using a tool, analyze its output and provide a complete answer to the user.
+- If you don't need tools, answer directly from your knowledge.
+- When answering from knowledge base results, cite the sources.
+`)
+
+	sb.WriteString("\n")
+	sb.WriteString(systemPromptForIntent(intent))
+	sb.WriteString("\n")
+
+	if len(memoryHits) > 0 {
+		sb.WriteString("\nRelevant long-term memory:\n")
+		for _, hit := range memoryHits {
+			fmt.Fprintf(&sb, "- [score=%.3f] %s\n", hit.Score, strings.TrimSpace(hit.Summary.Summary))
+		}
+	}
+
+	return sb.String()
+}
+
+// executeToolCall dispatches a domain.ToolCall to the appropriate tool handler.
+// It replaces the old executeTool that worked with AgentPlanStep.
+func (uc *AgentChatUseCase) executeToolCall(ctx context.Context, userID string, tc domain.ToolCall, fallbackQuestion string) (domain.AgentToolEvent, error) {
+	toolName := tc.Function.Name
+	args := tc.Function.Arguments
+
+	switch toolName {
+	case agentToolKnowledgeSearch:
+		question := stringFromArgs(args, "question", fallbackQuestion)
+		limit := intFromArgs(args, "limit", uc.limits.KnowledgeTopK)
+		answer, err := uc.querySvc.Answer(ctx, question, limit, domain.SearchFilter{})
+		if err != nil {
+			return domain.AgentToolEvent{}, fmt.Errorf("knowledge search: %w", err)
+		}
+		payload, _ := json.Marshal(map[string]any{"question": question, "answer": answer.Text, "sources": answer.Sources})
+		return domain.AgentToolEvent{Tool: toolName, Status: "ok", Output: string(payload)}, nil
+
+	case agentToolWebSearch:
+		return uc.executeWebSearch(ctx, domain.AgentPlanStep{Input: args, Tool: toolName}, fallbackQuestion)
+
+	case agentToolObsidianWrite:
+		return uc.executeObsidianWrite(ctx, domain.AgentPlanStep{Input: args, Tool: toolName})
+
+	case agentToolTask:
+		action := stringFromArgs(args, "action", "")
+		return uc.executeTaskTool(ctx, userID, domain.AgentPlanStep{Input: args, Tool: toolName, Action: action})
+
+	default:
+		// MCP tool
+		if uc.toolRegistry != nil && !uc.toolRegistry.IsBuiltIn(toolName) {
+			output, err := uc.toolRegistry.CallMCPTool(ctx, toolName, args)
+			if err != nil {
+				return domain.AgentToolEvent{}, fmt.Errorf("mcp tool %s: %w", toolName, err)
+			}
+			return domain.AgentToolEvent{Tool: toolName, Status: "ok", Output: output}, nil
+		}
+		return domain.AgentToolEvent{}, fmt.Errorf("unsupported tool: %s", toolName)
+	}
+}
+
+func stringFromArgs(args map[string]any, key, fallback string) string {
+	if v, ok := args[key]; ok {
+		if s, ok := v.(string); ok {
+			return s
+		}
+	}
+	return fallback
+}
+
+func intFromArgs(args map[string]any, key string, fallback int) int {
+	if v, ok := args[key]; ok {
+		switch n := v.(type) {
+		case float64:
+			return int(n)
+		case int:
+			return n
+		}
+	}
+	return fallback
 }

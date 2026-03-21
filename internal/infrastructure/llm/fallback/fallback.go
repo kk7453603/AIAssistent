@@ -47,6 +47,15 @@ func (g *Generator) GenerateJSONFromPrompt(ctx context.Context, prompt string) (
 	return ans, err
 }
 
+func (g *Generator) ChatWithTools(ctx context.Context, messages []domain.ChatMessage, tools []domain.ToolSchema) (*domain.ChatToolsResult, error) {
+	res, err := g.primary.ChatWithTools(ctx, messages, tools)
+	if err != nil && openaicompat.IsRetryable(err) {
+		g.logger.Warn("primary LLM failed, falling back", "op", "ChatWithTools", "error", err)
+		return g.fallback.ChatWithTools(ctx, messages, tools)
+	}
+	return res, err
+}
+
 // Classifier wraps ports.DocumentClassifier with automatic fallback on retryable errors.
 type Classifier struct {
 	primary  ports.DocumentClassifier

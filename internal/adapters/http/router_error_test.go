@@ -38,6 +38,9 @@ func (f queryErrFake) GenerateFromPrompt(context.Context, string) (string, error
 func (f queryErrFake) GenerateJSONFromPrompt(context.Context, string) (string, error) {
 	return `{"type":"final","answer":"ok"}`, nil
 }
+func (f queryErrFake) ChatWithTools(_ context.Context, _ []domain.ChatMessage, _ []domain.ToolSchema) (*domain.ChatToolsResult, error) {
+	return &domain.ChatToolsResult{Content: "stub"}, nil
+}
 
 type docsErrFake struct {
 	err error
