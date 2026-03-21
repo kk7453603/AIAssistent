@@ -1,0 +1,14 @@
+# SearXNG limiter configuration — disabled for local/private PAA instance.
+# This file overrides the default limiter.toml shipped inside the container image.
+
+[botdetection.ip_limit]
+# Disable IP-based rate limiting
+link_token = false
+
+[botdetection.ip_lists]
+# No blocked IPs
+block_ip = []
+pass_ip = [
+  "0.0.0.0/0",
+]
+pass_searxng_org = false

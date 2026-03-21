@@ -182,6 +182,7 @@ func (rt *Router) Handler() http.Handler {
 	handler = backpressureMiddleware(handler, rt.apiBackpressureMaxInFlight, rt.apiBackpressureWaitTimeout)
 	handler = rateLimitMiddleware(handler, rt.apiRateLimiter)
 	handler = rt.httpMetrics.Middleware("api", handler)
+	handler = corsMiddleware(handler)
 	handler = accessLogMiddleware(handler)
 	handler = requestIDMiddleware(handler)
 	return handler

@@ -17,7 +17,9 @@ server:
   bind_address: "0.0.0.0"
   secret_key: "paa-searxng-secret-change-me"
   limiter: false
+  public_instance: false
   image_proxy: false
+  method: "GET"
 
 ui:
   static_use_hash: true

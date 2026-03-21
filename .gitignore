@@ -1,12 +1,44 @@
-postgres_data
-qdrant_data
-ollama_data
-minio_data
-storage_data
-obsidian_vaults
-tmp/obsidian-sync
-*.txt
+# Data volumes (Docker)
+postgres_data/
+qdrant_data/
+ollama_data/
+minio_data/
+storage_data/
+obsidian_vaults/
+tmp/
+
+# Secrets
+.env
+
+# Claude Code
+CLAUDE.md
+
+# Python
 __pycache__/
 *.pyc
-.env
-CLAUDE.md
+
+# Go
+*.exe
+*.test
+*.out
+coverage.out
+
+# Node / Tauri UI
+ui/node_modules/
+ui/dist/
+ui/src-tauri/target/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+*.log
+*.txt

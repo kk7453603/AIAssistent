@@ -1,0 +1,1 @@
+{"default":{"identifier":"default","description":"Default capabilities for PAA desktop","local":true,"windows":["main","quick-ask"],"permissions":["core:default","http:default","http:allow-fetch","notification:default","notification:allow-notify","fs:default","store:default","global-shortcut:default","core:event:default"]}}

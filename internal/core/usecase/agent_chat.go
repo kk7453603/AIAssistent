@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 
@@ -65,7 +66,7 @@ func NewAgentChatUseCase(
 		limits.ToolTimeout = 30 * time.Second
 	}
 	if limits.ShortMemoryMessages <= 0 {
-		limits.ShortMemoryMessages = 12
+		limits.ShortMemoryMessages = 20
 	}
 	if limits.SummaryEveryTurns <= 0 {
 		limits.SummaryEveryTurns = 6
@@ -384,7 +385,7 @@ func (uc *AgentChatUseCase) Complete(ctx context.Context, req domain.AgentChatRe
 			UserID:         userID,
 			ConversationID: conversationID,
 			Role:           "tool",
-			Content:        event.Output,
+			Content:        sanitizeUTF8(event.Output),
 			ToolName:       event.Tool,
 			UserTurn:       turn,
 			CreatedAt:      time.Now().UTC(),
@@ -828,6 +829,8 @@ RULES:
 - After using a tool, analyze its output and provide a complete answer to the user.
 - If you don't need tools, answer directly from your knowledge.
 - When answering from knowledge base results, cite the sources.
+- IMPORTANT: Always consider the full conversation history when formulating tool queries. If the user asks a follow-up question (e.g. "а в чем суть последнего обновления?"), use context from previous messages to build a specific query — not just the latest message in isolation.
+- When using web_search, always build specific, disambiguated queries. For example: if the conversation is about Rust programming language, search "Rust programming language news 2025", NOT just "Rust news". Add domain-specific keywords to avoid ambiguity (e.g. "Rust lang" vs "Rust game").
 `)
 
 	sb.WriteString("\n")
@@ -940,4 +943,13 @@ func intFromArgs(args map[string]any, key string, fallback int) int {
 		}
 	}
 	return fallback
+}
+
+// sanitizeUTF8 replaces invalid UTF-8 byte sequences with the Unicode
+// replacement character so the string can be safely stored in PostgreSQL.
+func sanitizeUTF8(s string) string {
+	if utf8.ValidString(s) {
+		return s
+	}
+	return strings.ToValidUTF8(s, "\uFFFD")
 }
