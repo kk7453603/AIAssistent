@@ -4,10 +4,8 @@
 
 **AI-ассистент на Go с каскадным поиском, RAG-пайплайном, интеграцией с Obsidian и десктопным UI на Tauri.**
 
-[![CI](https://github.com/kirillkom/PersonalAIAssistent/actions/workflows/ci.yml/badge.svg)](https://github.com/kirillkom/PersonalAIAssistent/actions/workflows/ci.yml)
 ![Go Version](https://img.shields.io/badge/Go-1.25.6-00ADD8?logo=go&logoColor=white)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/kirillkom/PersonalAIAssistent/blob/main/LICENSE)
-![Lines of code](https://tokei.rs/b1/github/kirillkom/PersonalAIAssistent)
 
 ---
 
