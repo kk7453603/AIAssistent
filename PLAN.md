@@ -92,6 +92,68 @@ Definition of Done:
 - Сервис выдерживает деградацию внешнего зависимого сервиса без полной недоступности.
 - Есть runbook и понятный набор алертов для ручной эксплуатации.
 
+### Этап 5 (Недели 9-10): Desktop UI (Tauri) — DONE
+
+- [x] Scaffold: Tauri + React + Tailwind + Zustand + Vite
+- [x] Chat UI: SSE streaming, markdown rendering, think blocks, conversation management
+- [x] Model selector in InputBar (fetches from Ollama)
+- [x] Vault Browser: file tree, markdown preview, search, vault selector
+- [x] Dashboard: tool statistics from Prometheus metrics, MCP server status, activity feed
+- [x] Settings: General (API URL, vaults path, theme, language), Models (Ollama list, pull, selectors), MCP (add/remove servers), Agent (iterations, timeouts, toggles)
+- [x] System tray + global hotkeys + quick-ask mini-window (Tauri-only)
+- [x] Theme switching (light/dark/system) with Tailwind dark mode
+- [x] Mobile responsive layout (collapsible sidebar, icon-only nav)
+- [x] CORS middleware for browser-based frontend
+- [x] Conversation persistence (messages saved per conversation in localStorage)
+- [x] Favicon
+
+Specs: `docs/superpowers/specs/2026-03-22-ui-*.md`
+
+### Этап 5.5: UI Bug Fixes & Polish — DONE
+
+- [x] Fix SearXNG connection (port mismatch 8888→8080, limiter disabled)
+- [x] Fix UTF-8 sanitization for web search results (PostgreSQL SQLSTATE 22021)
+- [x] Fix tool status deduplication (spinner stuck after streaming)
+- [x] Fix Dashboard metrics parser (metric name mismatch, label order)
+- [x] Connect Activity Feed to chat tool events
+- [x] Improve agent system prompt (conversation context, disambiguated search queries)
+- [x] Increase ShortMemoryMessages 12→20
+
+### Планируемые улучшения (Этап 6+)
+
+#### Уровень 1: UX и взаимодействие
+
+- [ ] Multi-modal input (vision models: LLaVA/Qwen-VL, фото → описание → vault)
+- [ ] Voice input/output (Whisper STT → агент → TTS)
+- [ ] Telegram бот (полноценный интерфейс к агенту)
+- [ ] Proactive notifications (напоминания о задачах через Telegram/webhook)
+- [ ] Mobile app (React Native or Tauri Mobile)
+
+#### Уровень 2: Качество и память
+
+- [ ] PDF/DOCX/OCR document extraction
+- [ ] RAG evaluation pipeline (RAGAS, faithfulness, relevancy)
+- [ ] Adaptive model routing (автовыбор модели по типу задачи)
+- [ ] Knowledge graph (граф связей между заметками)
+- [ ] Auto-tagging & classification (автотегирование при синхронизации)
+- [ ] Fine-tuned embedding models for RU
+
+#### Уровень 3: Автоматизация и агенты
+
+- [ ] Multi-agent orchestration (researcher, coder, writer)
+- [ ] Scheduled tasks (recurring cron-подобный scheduler)
+- [ ] Self-improving agent (анализ ошибок → предложение улучшений)
+- [ ] Plugin system for custom tools (добавление тулов через YAML/JSON без Go кода)
+
+#### Уровень 4: Инфраструктура
+
+- [ ] Fine-tuning pipeline (LoRA/QLoRA на своих данных)
+- [ ] Vector DB optimization (ColBERT, multi-vector)
+- [ ] Edge deployment (мобильный агент через ONNX/llama.cpp)
+- [ ] E2E encrypted sync
+- [ ] Offline mode (local-first)
+- [ ] Multi-user support with auth
+
 ## Планируемые изменения по коду
 - `internal/adapters/http/`: middleware для request-id, metrics, rate limit.
 - `internal/core/usecase/query.go`: стратегия retrieval и hooks под evaluation/metrics.
@@ -119,3 +181,11 @@ Definition of Done:
 - Retrieval quality: +20-30% по `MRR` относительно baseline.
 - Надежность: p95 API latency и error rate под наблюдением, без "слепых зон".
 - Product capability: минимум один устойчивый multi-step agent workflow.
+
+## UI Specs
+
+- [Scaffold](docs/superpowers/specs/2026-03-22-ui-1-scaffold.md)
+- [Chat UI](docs/superpowers/specs/2026-03-22-ui-2-chat.md)
+- [Vault Browser](docs/superpowers/specs/2026-03-22-ui-3-vault-browser.md)
+- [Dashboard & Settings](docs/superpowers/specs/2026-03-22-ui-4-dashboard-settings.md)
+- [System Tray & Hotkeys](docs/superpowers/specs/2026-03-22-ui-5-tray-hotkeys.md)
