@@ -4,8 +4,8 @@ import (
 	"hash/fnv"
 	"math"
 	"sort"
-	"strings"
-	"unicode"
+
+	"github.com/kirillkom/personal-ai-assistant/internal/pkg/tokenizer"
 )
 
 type sparseVector struct {
@@ -22,14 +22,14 @@ const (
 
 func encodeSparseDocument(text string, filename string) sparseVector {
 	termFreq := make(map[uint32]float64, 64)
-	appendTermFreq(termFreq, tokenizeAlphaNum(text), 1.0)
-	appendTermFreq(termFreq, tokenizeAlphaNum(filename), filenameBoost)
+	appendTermFreq(termFreq, tokenizer.TokenizeUnicode(text), 1.0)
+	appendTermFreq(termFreq, tokenizer.TokenizeUnicode(filename), filenameBoost)
 	return termFreqToSparse(termFreq, docBM25K1)
 }
 
 func encodeSparseQuery(query string) sparseVector {
 	termFreq := make(map[uint32]float64, 32)
-	appendTermFreq(termFreq, tokenizeAlphaNum(query), 1.0)
+	appendTermFreq(termFreq, tokenizer.TokenizeUnicode(query), 1.0)
 	return termFreqToSparse(termFreq, queryBM25K)
 }
 
@@ -79,24 +79,3 @@ func hashToken(token string) uint32 {
 	return sum
 }
 
-func tokenizeAlphaNum(s string) []string {
-	if s == "" {
-		return nil
-	}
-	out := make([]string, 0, 24)
-	var b strings.Builder
-	for _, r := range s {
-		if unicode.IsLetter(r) || unicode.IsDigit(r) {
-			b.WriteRune(unicode.ToLower(r))
-			continue
-		}
-		if b.Len() > 0 {
-			out = append(out, b.String())
-			b.Reset()
-		}
-	}
-	if b.Len() > 0 {
-		out = append(out, b.String())
-	}
-	return out
-}

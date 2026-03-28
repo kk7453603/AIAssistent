@@ -3,9 +3,9 @@ package usecase
 import (
 	"sort"
 	"strings"
-	"unicode"
 
 	"github.com/kirillkom/personal-ai-assistant/internal/core/domain"
+	"github.com/kirillkom/personal-ai-assistant/internal/pkg/tokenizer"
 )
 
 func rerankHybridCandidates(question string, fused []domain.RetrievedChunk, topN int) []domain.RetrievedChunk {
@@ -102,34 +102,10 @@ func filenameTokenHit(query map[string]struct{}, filename string) float64 {
 }
 
 func toTokenSet(s string) map[string]struct{} {
-	tokens := splitAlphaNumLower(s)
+	tokens := tokenizer.TokenizeUnicode(s)
 	out := make(map[string]struct{}, len(tokens))
 	for _, token := range tokens {
 		out[token] = struct{}{}
 	}
 	return out
-}
-
-func splitAlphaNumLower(s string) []string {
-	if s == "" {
-		return nil
-	}
-
-	tokens := make([]string, 0, 16)
-	var b strings.Builder
-	for _, r := range s {
-		r = unicode.ToLower(r)
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
-			b.WriteRune(r)
-			continue
-		}
-		if b.Len() > 0 {
-			tokens = append(tokens, b.String())
-			b.Reset()
-		}
-	}
-	if b.Len() > 0 {
-		tokens = append(tokens, b.String())
-	}
-	return tokens
 }

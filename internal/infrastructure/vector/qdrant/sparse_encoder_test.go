@@ -1,6 +1,10 @@
 package qdrant
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/kirillkom/personal-ai-assistant/internal/pkg/tokenizer"
+)
 
 func TestEncodeSparseQueryDeterministic(t *testing.T) {
 	v1 := encodeSparseQuery("Risk level for DOC_0001")
@@ -38,7 +42,7 @@ func TestEncodeSparseQueryEmptyNoiseInput(t *testing.T) {
 }
 
 func TestTokenizeAlphaNumUnicodeAndDigitsStability(t *testing.T) {
-	tokens := tokenizeAlphaNum("Привет DOC_0001 версия-2")
+	tokens := tokenizer.TokenizeUnicode("Привет DOC_0001 версия-2")
 	if len(tokens) == 0 {
 		t.Fatalf("expected tokens, got empty")
 	}
