@@ -36,6 +36,7 @@ func main() {
 	app.AgentUC.SetObsidianWriter(rt)
 	rt.SetGraphStore(app.GraphStore)
 	rt.SetFeedbackStore(app.FeedbackStore)
+	rt.SetScheduleStore(app.ScheduleStore)
 
 	// Populate agent system prompt with available Obsidian vaults.
 	if vaultList := rt.ListVaultIDs(); len(vaultList) > 0 {

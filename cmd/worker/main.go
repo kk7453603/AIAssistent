@@ -155,5 +155,22 @@ func main() {
 		}()
 	}
 
+	if app.SchedulerUC != nil {
+		go func() {
+			interval := time.Duration(cfg.SchedulerCheckIntervalSeconds) * time.Second
+			logger.Info("scheduler_started", "interval", interval)
+			ticker := time.NewTicker(interval)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					app.SchedulerUC.Tick(ctx)
+				}
+			}
+		}()
+	}
+
 	<-ctx.Done()
 }

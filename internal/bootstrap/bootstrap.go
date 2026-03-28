@@ -59,6 +59,9 @@ type App struct {
 	FeedbackStore ports.FeedbackStore
 	SelfImproveUC *usecase.SelfImproveUseCase
 
+	ScheduleStore ports.ScheduleStore
+	SchedulerUC   *usecase.SchedulerUseCase
+
 	closeFn func()
 }
 
@@ -77,6 +80,7 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 	eventStore := postgres.NewEventRepository(db)
 	feedbackStore := postgres.NewFeedbackRepository(db)
 	improvementStore := postgres.NewImprovementRepository(db)
+	scheduleStore := postgres.NewScheduleRepository(db)
 
 	storage, err := localfs.New(cfg.StoragePath)
 	if err != nil {
@@ -387,6 +391,13 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		}
 	}
 
+	// Scheduler (optional).
+	var schedulerUC *usecase.SchedulerUseCase
+	if cfg.SchedulerEnabled {
+		schedulerUC = usecase.NewSchedulerUseCase(scheduleStore, agentUC, generator)
+		slog.Info("scheduler_enabled", "interval_seconds", cfg.SchedulerCheckIntervalSeconds)
+	}
+
 	// Self-improving agent (optional).
 	var selfImproveUC *usecase.SelfImproveUseCase
 	if cfg.SelfImproveEnabled {
@@ -434,6 +445,9 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		EventStore:    eventStore,
 		FeedbackStore: feedbackStore,
 		SelfImproveUC: selfImproveUC,
+
+		ScheduleStore: scheduleStore,
+		SchedulerUC:   schedulerUC,
 
 		closeFn: func() {
 			toolRegistry.Close()

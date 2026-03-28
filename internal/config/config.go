@@ -95,6 +95,9 @@ type Config struct {
 	HTTPTools     string // JSON array of HTTP tool definitions
 	HTTPToolsFile string // path to JSON file with HTTP tool definitions
 
+	SchedulerEnabled              bool
+	SchedulerCheckIntervalSeconds int
+
 	LLMFallbackProvider string // fallback provider: "ollama", "openai-compat", "huggingface", etc.
 	LLMFallbackURL      string
 	LLMFallbackKey      string
@@ -225,6 +228,9 @@ func Load() Config {
 
 		HTTPTools:     os.Getenv("HTTP_TOOLS"),
 		HTTPToolsFile: os.Getenv("HTTP_TOOLS_FILE"),
+
+		SchedulerEnabled:              mustEnvBool("SCHEDULER_ENABLED", false),
+		SchedulerCheckIntervalSeconds: mustEnvInt("SCHEDULER_CHECK_INTERVAL_SECONDS", 60),
 
 		LLMFallbackProvider: mustEnv("LLM_FALLBACK_PROVIDER", ""),
 		LLMFallbackURL:      mustEnv("LLM_FALLBACK_URL", ""),
