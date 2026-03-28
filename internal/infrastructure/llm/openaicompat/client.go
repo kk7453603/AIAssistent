@@ -109,7 +109,7 @@ func (c *Client) postJSON(ctx context.Context, path string, payload any, out any
 	if err != nil {
 		return fmt.Errorf("openaicompat %s request: %w", operation, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode >= 300 {
 		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))

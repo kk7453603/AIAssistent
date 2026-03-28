@@ -15,7 +15,7 @@ func TestTaskRepositoryListTasksFiltersDeletedByDefault(t *testing.T) {
 	if err != nil {
 		t.Fatalf("sqlmock.New() error = %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	repo := NewTaskRepository(db)
 	rows := sqlmock.NewRows([]string{"id", "user_id", "title", "details", "status", "due_at", "created_at", "updated_at", "deleted_at"}).
@@ -42,7 +42,7 @@ func TestTaskRepositorySoftDeleteReturnsErrorWhenNoRows(t *testing.T) {
 	if err != nil {
 		t.Fatalf("sqlmock.New() error = %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	repo := NewTaskRepository(db)
 	mock.ExpectExec("UPDATE tasks").

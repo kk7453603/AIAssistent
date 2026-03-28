@@ -12,14 +12,14 @@ import (
 
 func TestMemoryClientIndexSummaryPayload(t *testing.T) {
 	var ensureCalled bool
-	var upsertBody map[string]interface{}
+	var upsertBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == http.MethodPut && r.URL.Path == "/collections/memory":
 			ensureCalled = true
 			w.WriteHeader(http.StatusCreated)
 		case r.Method == http.MethodPut && r.URL.Path == "/collections/memory/points":
-			defer r.Body.Close()
+			defer func() { _ = r.Body.Close() }()
 			if err := json.NewDecoder(r.Body).Decode(&upsertBody); err != nil {
 				t.Fatalf("decode upsert body: %v", err)
 			}
@@ -45,19 +45,19 @@ func TestMemoryClientIndexSummaryPayload(t *testing.T) {
 	if !ensureCalled {
 		t.Fatalf("expected ensure collection call")
 	}
-	points, ok := upsertBody["points"].([]interface{})
+	points, ok := upsertBody["points"].([]any)
 	if !ok || len(points) != 1 {
 		t.Fatalf("unexpected upsert points: %#v", upsertBody["points"])
 	}
-	point := points[0].(map[string]interface{})
-	payload := point["payload"].(map[string]interface{})
+	point := points[0].(map[string]any)
+	payload := point["payload"].(map[string]any)
 	if payload["user_id"] != "u-1" || payload["conversation_id"] != "c-1" || payload["summary_id"] != "sum-1" {
 		t.Fatalf("unexpected payload: %#v", payload)
 	}
 }
 
 func TestMemoryClientSearchSummariesFilterAndDecode(t *testing.T) {
-	var queryBody map[string]interface{}
+	var queryBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost && r.URL.Path == "/collections/memory/points/query" {
 			defer r.Body.Close()
@@ -84,8 +84,8 @@ func TestMemoryClientSearchSummariesFilterAndDecode(t *testing.T) {
 		t.Fatalf("unexpected hit payload: %#v", hits[0])
 	}
 
-	filter := queryBody["filter"].(map[string]interface{})
-	must := filter["must"].([]interface{})
+	filter := queryBody["filter"].(map[string]any)
+	must := filter["must"].([]any)
 	if len(must) != 2 {
 		t.Fatalf("expected user+conversation filter, got %#v", must)
 	}

@@ -104,7 +104,7 @@ LIMIT $3
 	if err != nil {
 		return nil, fmt.Errorf("list recent messages: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	out := make([]domain.ConversationMessage, 0, limit)
 	for rows.Next() {
@@ -144,7 +144,7 @@ ORDER BY user_turn ASC, created_at ASC
 	if err != nil {
 		return nil, fmt.Errorf("list messages by turn range: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	out := make([]domain.ConversationMessage, 0)
 	for rows.Next() {
@@ -202,7 +202,7 @@ func sanitizeUTF8pg(s string) string {
 	return b.String()
 }
 
-func nullableString(v string) interface{} {
+func nullableString(v string) any {
 	if v == "" {
 		return nil
 	}

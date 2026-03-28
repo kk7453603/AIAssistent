@@ -43,8 +43,8 @@ func buildAnswerPrompt(question string, chunks []domain.RetrievedChunk) string {
 	b.WriteString(question)
 	b.WriteString("\n\nContext:\n")
 	for idx, chunk := range chunks {
-		b.WriteString(fmt.Sprintf("[%d] file=%s category=%s score=%.3f\n%s\n\n",
-			idx+1, chunk.Filename, chunk.Category, chunk.Score, chunk.Text))
+		fmt.Fprintf(&b, "[%d] file=%s category=%s score=%.3f\n%s\n\n",
+			idx+1, chunk.Filename, chunk.Category, chunk.Score, chunk.Text)
 	}
 	return b.String()
 }

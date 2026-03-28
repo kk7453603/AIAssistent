@@ -26,14 +26,14 @@ Document:
 func buildAnswerPrompt(question string, chunks []domain.RetrievedChunk) string {
 	var contextBuilder strings.Builder
 	for idx, chunk := range chunks {
-		contextBuilder.WriteString(fmt.Sprintf(
+		fmt.Fprintf(&contextBuilder,
 			"[%d] file=%s category=%s score=%.3f\n%s\n\n",
 			idx+1,
 			chunk.Filename,
 			chunk.Category,
 			chunk.Score,
 			chunk.Text,
-		))
+		)
 	}
 
 	return fmt.Sprintf(`Answer user question only from context below.

@@ -390,7 +390,7 @@ func (rt *Router) ingestFile(ctx context.Context, path string, waitReady bool) (
 	if err != nil {
 		return "", err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	doc, err := rt.ingestor.Upload(ctx, filepath.Base(path), "text/markdown", file)
 	if err != nil {
@@ -443,7 +443,7 @@ func (rt *Router) loadObsidianState(vaultID string) map[string]obsidianStateRow 
 	if err != nil {
 		return state
 	}
-	for _, line := range strings.Split(string(data), "\n") {
+	for line := range strings.SplitSeq(string(data), "\n") {
 		if line == "" {
 			continue
 		}
@@ -624,7 +624,7 @@ func hashFile(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	hasher := sha256.New()
 	if _, err := io.Copy(hasher, file); err != nil {

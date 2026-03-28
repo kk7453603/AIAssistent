@@ -72,7 +72,7 @@ func TestIndexChunksUpsertContainsDenseAndSparseVectors(t *testing.T) {
 		case r.Method == http.MethodPut && r.URL.Path == "/collections/docs":
 			w.WriteHeader(http.StatusCreated)
 		case r.Method == http.MethodPut && r.URL.Path == "/collections/docs/points":
-			defer r.Body.Close()
+			defer func() { _ = r.Body.Close() }()
 			if err := json.NewDecoder(r.Body).Decode(&upsertBody); err != nil {
 				t.Fatalf("decode upsert body: %v", err)
 			}
@@ -122,7 +122,7 @@ func TestSearchLexicalUsesSparseQueryAndVectorName(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == http.MethodPost && r.URL.Path == "/collections/docs/points/query":
-			defer r.Body.Close()
+			defer func() { _ = r.Body.Close() }()
 			if err := json.NewDecoder(r.Body).Decode(&queryBody); err != nil {
 				t.Fatalf("decode query body: %v", err)
 			}

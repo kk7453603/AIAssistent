@@ -74,7 +74,7 @@ func NewRouter(
 		ragTopK = 5
 	}
 	toolKeywords := make([]string, 0)
-	for _, keyword := range strings.Split(cfg.OpenAICompatToolTriggerKeywords, ",") {
+	for keyword := range strings.SplitSeq(cfg.OpenAICompatToolTriggerKeywords, ",") {
 		keyword = strings.TrimSpace(strings.ToLower(keyword))
 		if keyword == "" {
 			continue
@@ -85,10 +85,7 @@ func NewRouter(
 	apiRateLimitRPS := cfg.APIRateLimitRPS
 	apiRateLimitBurst := cfg.APIRateLimitBurst
 	if apiRateLimitRPS > 0 && apiRateLimitBurst <= 0 {
-		apiRateLimitBurst = int(math.Ceil(apiRateLimitRPS))
-		if apiRateLimitBurst < 1 {
-			apiRateLimitBurst = 1
-		}
+		apiRateLimitBurst = max(int(math.Ceil(apiRateLimitRPS)), 1)
 	}
 	if apiRateLimitRPS > 0 && apiRateLimitBurst > 0 {
 		apiRateLimiter = rate.NewLimiter(rate.Limit(apiRateLimitRPS), apiRateLimitBurst)
@@ -205,7 +202,7 @@ func (rt *Router) UploadDocument(ctx context.Context, request apigen.UploadDocum
 			Error: err.Error(),
 		}, nil
 	}
-	defer part.Close()
+	defer func() { _ = part.Close() }()
 
 	filename := part.FileName()
 	if filename == "" {
@@ -322,7 +319,7 @@ func getMultipartFilePart(reader *multipart.Reader, formField string) (*multipar
 		if part.FormName() == formField {
 			return part, nil
 		}
-		part.Close()
+		_ = part.Close()
 	}
 }
 

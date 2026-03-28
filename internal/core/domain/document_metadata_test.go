@@ -7,7 +7,4 @@ func TestDocumentMetadataDefaults(t *testing.T) {
 	if meta.SourceType != "" {
 		t.Fatalf("expected empty SourceType, got %q", meta.SourceType)
 	}
-	if meta.Tags == nil {
-		// Tags should be nil by default (zero value for slice)
-	}
 }

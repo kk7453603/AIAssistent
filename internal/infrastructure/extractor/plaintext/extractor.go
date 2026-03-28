@@ -24,7 +24,7 @@ func (e *Extractor) Extract(ctx context.Context, doc *domain.Document) (string, 
 	if err != nil {
 		return "", fmt.Errorf("open source document: %w", err)
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
 	raw, err := io.ReadAll(reader)
 	if err != nil {

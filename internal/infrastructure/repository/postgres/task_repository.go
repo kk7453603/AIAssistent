@@ -44,7 +44,7 @@ WHERE user_id = $1
 	if err != nil {
 		return nil, fmt.Errorf("list tasks: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	out := make([]domain.Task, 0)
 	for rows.Next() {
@@ -117,7 +117,7 @@ WHERE user_id = $1 AND id = $2 AND deleted_at IS NULL
 }
 
 type taskScanner interface {
-	Scan(dest ...interface{}) error
+	Scan(dest ...any) error
 }
 
 func scanTaskRow(row taskScanner) (domain.Task, error) {

@@ -26,7 +26,7 @@ func (e *Extractor) Extract(ctx context.Context, doc *domain.Document) (string, 
 	if err != nil {
 		return "", fmt.Errorf("open docx document: %w", err)
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
 	raw, err := io.ReadAll(reader)
 	if err != nil {
@@ -48,7 +48,7 @@ func (e *Extractor) Extract(ctx context.Context, doc *domain.Document) (string, 
 			if err != nil {
 				return "", fmt.Errorf("open word/document.xml: %w", err)
 			}
-			defer rc.Close()
+			defer func() { _ = rc.Close() }()
 
 			xmlData, err := io.ReadAll(rc)
 			if err != nil {

@@ -74,7 +74,7 @@ func extractXLSX(data []byte, filename string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("open xlsx: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	var sections []string
 	for _, sheet := range f.GetSheetList() {
