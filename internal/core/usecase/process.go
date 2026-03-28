@@ -12,7 +12,7 @@ import (
 
 type ProcessDocumentUseCase struct {
 	repo          ports.DocumentRepository
-	extractor     ports.TextExtractor
+	extractors    ports.ExtractorRegistry
 	metaExtractor ports.MetadataExtractor
 	chunkers      ports.ChunkerRegistry
 	embedder      ports.Embedder
@@ -22,7 +22,7 @@ type ProcessDocumentUseCase struct {
 
 func NewProcessDocumentUseCase(
 	repo ports.DocumentRepository,
-	extractor ports.TextExtractor,
+	extractors ports.ExtractorRegistry,
 	metaExtractor ports.MetadataExtractor,
 	chunkers ports.ChunkerRegistry,
 	embedder ports.Embedder,
@@ -31,7 +31,7 @@ func NewProcessDocumentUseCase(
 ) *ProcessDocumentUseCase {
 	return &ProcessDocumentUseCase{
 		repo:          repo,
-		extractor:     extractor,
+		extractors:    extractors,
 		metaExtractor: metaExtractor,
 		chunkers:      chunkers,
 		embedder:      embedder,
@@ -109,7 +109,7 @@ func (uc *ProcessDocumentUseCase) loadDocument(ctx context.Context, documentID s
 }
 
 func (uc *ProcessDocumentUseCase) extractText(ctx context.Context, doc *domain.Document) (string, error) {
-	text, err := uc.extractor.Extract(ctx, doc)
+	text, err := uc.extractors.ForMimeType(doc.MimeType).Extract(ctx, doc)
 	if err != nil {
 		return "", fmt.Errorf("extract text: %w", err)
 	}

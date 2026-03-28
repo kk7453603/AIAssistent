@@ -14,6 +14,7 @@ import (
 	"github.com/kirillkom/personal-ai-assistant/internal/core/usecase"
 	"github.com/kirillkom/personal-ai-assistant/internal/observability/metrics"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/chunking"
+	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/extractor"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/extractor/metadata"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/extractor/plaintext"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/llm/fallback"
@@ -259,7 +260,8 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 			}
 		}
 	}
-	extractor := plaintext.NewExtractor(storage)
+	plaintextExtractor := plaintext.NewExtractor(storage)
+	extractorRegistry := extractor.NewRegistry(plaintextExtractor)
 
 	fusionStrategy := domain.FusionStrategy(strings.ToLower(strings.TrimSpace(cfg.RAGFusionStrategy)))
 	if fusionStrategy != domain.FusionStrategyRRF {
@@ -273,8 +275,8 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 	}
 	ingestUC := usecase.NewIngestDocumentUseCase(repo, storage, queue, sourceAdapters)
 	metaExtractor := metadata.New()
-	processUC := usecase.NewProcessDocumentUseCase(repo, extractor, metaExtractor, chunkerRegistry, embedder, vectorDB, queue)
-	enrichUC := usecase.NewEnrichDocumentUseCase(repo, extractor, classifier, vectorDB)
+	processUC := usecase.NewProcessDocumentUseCase(repo, extractorRegistry, metaExtractor, chunkerRegistry, embedder, vectorDB, queue)
+	enrichUC := usecase.NewEnrichDocumentUseCase(repo, extractorRegistry, classifier, vectorDB)
 	queryUC := usecase.NewQueryUseCase(embedder, vectorDB, generator, usecase.QueryOptions{
 		RetrievalMode:         domain.RetrievalMode(strings.ToLower(strings.TrimSpace(cfg.RAGRetrievalMode))),
 		HybridCandidates:      cfg.RAGHybridCandidates,

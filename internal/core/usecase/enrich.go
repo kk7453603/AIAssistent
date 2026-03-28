@@ -10,20 +10,20 @@ import (
 
 type EnrichDocumentUseCase struct {
 	repo       ports.DocumentRepository
-	extractor  ports.TextExtractor
+	extractors ports.ExtractorRegistry
 	classifier ports.DocumentClassifier
 	vectorDB   ports.VectorStore
 }
 
 func NewEnrichDocumentUseCase(
 	repo ports.DocumentRepository,
-	extractor ports.TextExtractor,
+	extractors ports.ExtractorRegistry,
 	classifier ports.DocumentClassifier,
 	vectorDB ports.VectorStore,
 ) *EnrichDocumentUseCase {
 	return &EnrichDocumentUseCase{
 		repo:       repo,
-		extractor:  extractor,
+		extractors: extractors,
 		classifier: classifier,
 		vectorDB:   vectorDB,
 	}
@@ -36,7 +36,7 @@ func (uc *EnrichDocumentUseCase) EnrichByID(ctx context.Context, documentID stri
 		return nil // non-fatal
 	}
 
-	text, err := uc.extractor.Extract(ctx, doc)
+	text, err := uc.extractors.ForMimeType(doc.MimeType).Extract(ctx, doc)
 	if err != nil {
 		slog.Warn("enrich_extract_text_failed", "document_id", documentID, "error", err)
 		return nil

@@ -67,6 +67,15 @@ func (f *extractorFake) Extract(context.Context, *domain.Document) (string, erro
 	return f.text, nil
 }
 
+type extractorRegistryFake struct {
+	text string
+	err  error
+}
+
+func (f *extractorRegistryFake) ForMimeType(string) ports.TextExtractor {
+	return &extractorFake{text: f.text, err: f.err}
+}
+
 type metadataExtractorFake struct {
 	meta domain.DocumentMetadata
 	err  error
@@ -150,7 +159,7 @@ func TestProcessByIDSuccess(t *testing.T) {
 	q := &queueFake{}
 	uc := NewProcessDocumentUseCase(
 		repo,
-		&extractorFake{text: "Some text"},
+		&extractorRegistryFake{text: "Some text"},
 		&metadataExtractorFake{meta: domain.DocumentMetadata{Category: "general", SourceType: "markdown"}},
 		&chunkerRegistryFake{chunks: []string{"a", "b"}},
 		&embedderFake{vectors: [][]float32{{1}, {2}}},
@@ -176,7 +185,7 @@ func TestProcessByIDMarksFailedOnExtractError(t *testing.T) {
 	repo := &processRepoFake{doc: &domain.Document{ID: "doc-1"}}
 	uc := NewProcessDocumentUseCase(
 		repo,
-		&extractorFake{err: errors.New("extract fail")},
+		&extractorRegistryFake{err: errors.New("extract fail")},
 		&metadataExtractorFake{},
 		&chunkerRegistryFake{chunks: []string{"a"}},
 		&embedderFake{vectors: [][]float32{{1}}},
@@ -200,7 +209,7 @@ func TestProcessByIDMarksFailedOnVectorMismatch(t *testing.T) {
 	repo := &processRepoFake{doc: &domain.Document{ID: "doc-1"}}
 	uc := NewProcessDocumentUseCase(
 		repo,
-		&extractorFake{text: "text"},
+		&extractorRegistryFake{text: "text"},
 		&metadataExtractorFake{meta: domain.DocumentMetadata{Category: "general"}},
 		&chunkerRegistryFake{chunks: []string{"a", "b"}},
 		&embedderFake{vectors: [][]float32{{1}}},

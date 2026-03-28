@@ -89,7 +89,7 @@ func TestEnrichByID_Success(t *testing.T) {
 		Confidence: 0.85,
 	}}
 
-	uc := NewEnrichDocumentUseCase(repo, &extractorFake{text: "some text"}, cls, vectorDB)
+	uc := NewEnrichDocumentUseCase(repo, &extractorRegistryFake{text: "some text"}, cls, vectorDB)
 
 	err := uc.EnrichByID(context.Background(), "doc-1")
 	if err != nil {
@@ -119,7 +119,7 @@ func TestEnrichByID_ClassifierError_NoFail(t *testing.T) {
 	repo := &enrichRepoFake{doc: doc}
 	cls := &enrichClassifierFake{err: fmt.Errorf("LLM timeout")}
 
-	uc := NewEnrichDocumentUseCase(repo, &extractorFake{text: "text"}, cls, &enrichVectorFake{})
+	uc := NewEnrichDocumentUseCase(repo, &extractorRegistryFake{text: "text"}, cls, &enrichVectorFake{})
 
 	err := uc.EnrichByID(context.Background(), "doc-1")
 	// Should NOT return error — enrichment failure is non-fatal.
