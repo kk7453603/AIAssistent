@@ -56,6 +56,7 @@ type Router struct {
 
 	graphStore    ports.GraphStore
 	feedbackStore ports.FeedbackStore
+	scheduleStore ports.ScheduleStore
 }
 
 func NewRouter(
@@ -155,6 +156,11 @@ func (rt *Router) SetFeedbackStore(f ports.FeedbackStore) {
 	rt.feedbackStore = f
 }
 
+// SetScheduleStore sets the schedule store used by the /v1/schedules endpoints.
+func (rt *Router) SetScheduleStore(s ports.ScheduleStore) {
+	rt.scheduleStore = s
+}
+
 func (rt *Router) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /openapi.json", serveOpenAPISpecJSON)
@@ -171,6 +177,11 @@ func (rt *Router) Handler() http.Handler {
 
 	mux.HandleFunc("GET /v1/graph", rt.handleGetGraph)
 	mux.HandleFunc("POST /v1/feedback", rt.handlePostFeedback)
+
+	mux.HandleFunc("POST /v1/schedules", rt.handleCreateSchedule)
+	mux.HandleFunc("GET /v1/schedules", rt.handleListSchedules)
+	mux.HandleFunc("DELETE /v1/schedules/{id}", rt.handleDeleteSchedule)
+	mux.HandleFunc("PATCH /v1/schedules/{id}", rt.handleUpdateSchedule)
 
 	if rt.mcpHandler != nil {
 		mux.Handle("/mcp", rt.mcpHandler)
@@ -505,4 +516,136 @@ func serveOpenAPISpecJSON(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(spec)
+}
+
+func (rt *Router) handleCreateSchedule(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		CronExpr   string `json:"cron_expr"`
+		Prompt     string `json:"prompt"`
+		Condition  string `json:"condition"`
+		WebhookURL string `json:"webhook_url"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	if req.CronExpr == "" {
+		writeError(w, http.StatusBadRequest, fmt.Errorf("cron_expr is required"))
+		return
+	}
+	if req.Prompt == "" {
+		writeError(w, http.StatusBadRequest, fmt.Errorf("prompt is required"))
+		return
+	}
+	if rt.scheduleStore == nil {
+		writeError(w, http.StatusServiceUnavailable, fmt.Errorf("schedule store not configured"))
+		return
+	}
+
+	task := &domain.ScheduledTask{
+		UserID:     r.Header.Get("X-User-ID"),
+		CronExpr:   req.CronExpr,
+		Prompt:     req.Prompt,
+		Condition:  req.Condition,
+		WebhookURL: req.WebhookURL,
+		Enabled:    true,
+	}
+	if err := rt.scheduleStore.Create(r.Context(), task); err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(task)
+}
+
+func (rt *Router) handleListSchedules(w http.ResponseWriter, r *http.Request) {
+	if rt.scheduleStore == nil {
+		writeError(w, http.StatusServiceUnavailable, fmt.Errorf("schedule store not configured"))
+		return
+	}
+
+	userID := r.Header.Get("X-User-ID")
+	tasks, err := rt.scheduleStore.ListByUser(r.Context(), userID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(tasks)
+}
+
+func (rt *Router) handleDeleteSchedule(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		writeError(w, http.StatusBadRequest, fmt.Errorf("id is required"))
+		return
+	}
+	if rt.scheduleStore == nil {
+		writeError(w, http.StatusServiceUnavailable, fmt.Errorf("schedule store not configured"))
+		return
+	}
+
+	if err := rt.scheduleStore.Delete(r.Context(), id); err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (rt *Router) handleUpdateSchedule(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		writeError(w, http.StatusBadRequest, fmt.Errorf("id is required"))
+		return
+	}
+	if rt.scheduleStore == nil {
+		writeError(w, http.StatusServiceUnavailable, fmt.Errorf("schedule store not configured"))
+		return
+	}
+
+	task, err := rt.scheduleStore.GetByID(r.Context(), id)
+	if err != nil {
+		writeError(w, http.StatusNotFound, err)
+		return
+	}
+
+	var patch struct {
+		CronExpr   *string `json:"cron_expr"`
+		Prompt     *string `json:"prompt"`
+		Condition  *string `json:"condition"`
+		WebhookURL *string `json:"webhook_url"`
+		Enabled    *bool   `json:"enabled"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&patch); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	if patch.CronExpr != nil {
+		task.CronExpr = *patch.CronExpr
+	}
+	if patch.Prompt != nil {
+		task.Prompt = *patch.Prompt
+	}
+	if patch.Condition != nil {
+		task.Condition = *patch.Condition
+	}
+	if patch.WebhookURL != nil {
+		task.WebhookURL = *patch.WebhookURL
+	}
+	if patch.Enabled != nil {
+		task.Enabled = *patch.Enabled
+	}
+
+	if err := rt.scheduleStore.Update(r.Context(), task); err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(task)
 }
