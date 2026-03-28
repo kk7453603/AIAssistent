@@ -104,6 +104,11 @@ func (rt *Router) handleObsidianList(w http.ResponseWriter, _ *http.Request) {
 		return
 	}
 
+	// Auto-discover vault directories not yet registered.
+	if rt.autoDiscoverVaults(&cfg) {
+		_ = rt.saveObsidianConfig(cfg)
+	}
+
 	vaults := make([]obsidianVaultView, 0, len(cfg.Vaults))
 	for _, v := range cfg.Vaults {
 		vaultID := v.ID
@@ -532,6 +537,48 @@ func (rt *Router) saveObsidianConfig(cfg obsidianConfig) error {
 		return err
 	}
 	return os.Rename(tmp, rt.obsidianConfigPath)
+}
+
+// autoDiscoverVaults scans obsidianVaultsRoot for directories not yet registered
+// and adds them to the config as enabled vaults.
+func (rt *Router) autoDiscoverVaults(cfg *obsidianConfig) bool {
+	if rt.obsidianVaultsRoot == "" {
+		return false
+	}
+	entries, err := os.ReadDir(rt.obsidianVaultsRoot)
+	if err != nil {
+		slog.Warn("auto_discover_vaults_failed", "error", err)
+		return false
+	}
+
+	known := make(map[string]bool, len(cfg.Vaults))
+	for _, v := range cfg.Vaults {
+		known[filepath.Clean(v.Path)] = true
+		// Also match by relative name under root.
+		rel := filepath.Join(rt.obsidianVaultsRoot, v.Name)
+		known[filepath.Clean(rel)] = true
+	}
+
+	added := false
+	for _, entry := range entries {
+		if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
+			continue
+		}
+		fullPath := filepath.Join(rt.obsidianVaultsRoot, entry.Name())
+		if known[filepath.Clean(fullPath)] {
+			continue
+		}
+		slug := slugifyObsidian(entry.Name())
+		cfg.Vaults = append(cfg.Vaults, obsidianVault{
+			ID:      slug,
+			Name:    entry.Name(),
+			Path:    fullPath,
+			Enabled: true,
+		})
+		added = true
+		slog.Info("auto_discovered_vault", "name", entry.Name(), "path", fullPath)
+	}
+	return added
 }
 
 func (rt *Router) resolveVaultPath(path string) (string, error) {
