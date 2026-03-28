@@ -97,6 +97,16 @@ func (q *Queue) PublishDocumentIngested(ctx context.Context, documentID string) 
 	return nil
 }
 
+func (q *Queue) PublishDocumentEnrich(ctx context.Context, documentID string) error {
+	// TODO: implement in Task 4
+	return nil
+}
+
+func (q *Queue) SubscribeDocumentEnrich(ctx context.Context, handler func(context.Context, string) error) error {
+	// TODO: implement in Task 4
+	return nil
+}
+
 func (q *Queue) SubscribeDocumentIngested(ctx context.Context, handler func(context.Context, string) error) error {
 	sub, err := q.conn.QueueSubscribe(q.subject, "workers", func(msg *nats.Msg) {
 		if errors.Is(ctx.Err(), context.Canceled) {

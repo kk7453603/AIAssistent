@@ -172,6 +172,11 @@ func (c *Client) IndexChunks(ctx context.Context, doc *domain.Document, chunks [
 	return nil
 }
 
+func (c *Client) UpdateChunksPayload(ctx context.Context, docID string, payload map[string]any) error {
+	// TODO: implement in Task 5
+	return nil
+}
+
 func (c *Client) Search(
 	ctx context.Context,
 	queryVector []float32,

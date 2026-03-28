@@ -67,6 +67,10 @@ func (f fakeVectorStore) SearchLexical(context.Context, string, int, domain.Sear
 	}}, nil
 }
 
+func (f fakeVectorStore) UpdateChunksPayload(context.Context, string, map[string]any) error {
+	return nil
+}
+
 type fakeAnswerGenerator struct{}
 
 func (f fakeAnswerGenerator) GenerateAnswer(context.Context, string, []domain.RetrievedChunk) (string, error) {

@@ -75,6 +75,12 @@ func (f *ingestQueueFake) SubscribeDocumentIngested(context.Context, func(contex
 	return errors.New("not implemented")
 }
 
+func (f *ingestQueueFake) PublishDocumentEnrich(context.Context, string) error { return nil }
+
+func (f *ingestQueueFake) SubscribeDocumentEnrich(context.Context, func(context.Context, string) error) error {
+	return nil
+}
+
 func TestIngestUploadSuccess(t *testing.T) {
 	repo := &ingestRepoFake{}
 	storage := &ingestStorageFake{}
