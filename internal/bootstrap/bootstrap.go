@@ -25,6 +25,7 @@ import (
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/repository/postgres"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/resilience"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/storage/localfs"
+	sourceupload "github.com/kirillkom/personal-ai-assistant/internal/infrastructure/source/upload"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/vector/qdrant"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/websearch/searxng"
 )
@@ -231,7 +232,10 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		return nil, fmt.Errorf("unsupported RAG_FUSION_STRATEGY=%q: only rrf is supported", cfg.RAGFusionStrategy)
 	}
 
-	ingestUC := usecase.NewIngestDocumentUseCase(repo, storage, queue)
+	sourceAdapters := map[string]ports.SourceAdapter{
+		"upload": sourceupload.New(),
+	}
+	ingestUC := usecase.NewIngestDocumentUseCase(repo, storage, queue, sourceAdapters)
 	metaExtractor := metadata.New()
 	processUC := usecase.NewProcessDocumentUseCase(repo, extractor, metaExtractor, chunker, embedder, vectorDB, queue)
 	enrichUC := usecase.NewEnrichDocumentUseCase(repo, extractor, classifier, vectorDB)

@@ -15,20 +15,23 @@ import (
 )
 
 type IngestDocumentUseCase struct {
-	repo    ports.DocumentRepository
-	storage ports.ObjectStorage
-	queue   ports.MessageQueue
+	repo     ports.DocumentRepository
+	storage  ports.ObjectStorage
+	queue    ports.MessageQueue
+	adapters map[string]ports.SourceAdapter
 }
 
 func NewIngestDocumentUseCase(
 	repo ports.DocumentRepository,
 	storage ports.ObjectStorage,
 	queue ports.MessageQueue,
+	adapters map[string]ports.SourceAdapter,
 ) *IngestDocumentUseCase {
 	return &IngestDocumentUseCase{
-		repo:    repo,
-		storage: storage,
-		queue:   queue,
+		repo:     repo,
+		storage:  storage,
+		queue:    queue,
+		adapters: adapters,
 	}
 }
 
@@ -37,19 +40,43 @@ func (uc *IngestDocumentUseCase) Upload(
 	filename, mimeType string,
 	body io.Reader,
 ) (*domain.Document, error) {
+	return uc.IngestFromSource(ctx, domain.SourceRequest{
+		SourceType: "upload",
+		Filename:   filename,
+		MimeType:   mimeType,
+		Body:       body,
+	})
+}
+
+func (uc *IngestDocumentUseCase) IngestFromSource(
+	ctx context.Context,
+	req domain.SourceRequest,
+) (*domain.Document, error) {
+	adapter, ok := uc.adapters[req.SourceType]
+	if !ok {
+		return nil, fmt.Errorf("unknown source type: %q", req.SourceType)
+	}
+
+	result, err := adapter.Ingest(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("source adapter %q: %w", req.SourceType, err)
+	}
+
 	id := uuid.NewString()
-	storageKey := fmt.Sprintf("%s_%s", id, sanitizeFilename(filename))
+	storageKey := fmt.Sprintf("%s_%s", id, sanitizeFilename(result.Filename))
 	now := time.Now().UTC()
 
-	if err := uc.storage.Save(ctx, storageKey, body); err != nil {
+	if err := uc.storage.Save(ctx, storageKey, result.Body); err != nil {
 		return nil, fmt.Errorf("save to object storage: %w", err)
 	}
 
 	doc := &domain.Document{
 		ID:          id,
-		Filename:    filename,
-		MimeType:    mimeType,
+		Filename:    result.Filename,
+		MimeType:    result.MimeType,
 		StoragePath: storageKey,
+		SourceType:  result.SourceType,
+		Path:        result.Path,
 		Status:      domain.StatusUploaded,
 		Tags:        []string{},
 		CreatedAt:   now,
@@ -65,14 +92,6 @@ func (uc *IngestDocumentUseCase) Upload(
 	}
 
 	return doc, nil
-}
-
-func (uc *IngestDocumentUseCase) IngestFromSource(ctx context.Context, req domain.SourceRequest) (*domain.Document, error) {
-	// TODO: implement in Task 7 — for now delegate to Upload for "upload" type
-	if req.SourceType == "upload" && req.Body != nil {
-		return uc.Upload(ctx, req.Filename, req.MimeType, req.Body)
-	}
-	return nil, fmt.Errorf("source type %q not yet supported", req.SourceType)
 }
 
 func sanitizeFilename(name string) string {

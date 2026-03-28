@@ -9,6 +9,8 @@ import (
 	"testing"
 
 	"github.com/kirillkom/personal-ai-assistant/internal/core/domain"
+	"github.com/kirillkom/personal-ai-assistant/internal/core/ports"
+	sourceupload "github.com/kirillkom/personal-ai-assistant/internal/infrastructure/source/upload"
 )
 
 type ingestRepoFake struct {
@@ -81,11 +83,27 @@ func (f *ingestQueueFake) SubscribeDocumentEnrich(context.Context, func(context.
 	return nil
 }
 
+type sourceAdapterFake struct {
+	result *domain.IngestResult
+	err    error
+}
+
+func (f *sourceAdapterFake) SourceType() string { return "fake" }
+func (f *sourceAdapterFake) Ingest(context.Context, domain.SourceRequest) (*domain.IngestResult, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	return f.result, nil
+}
+
 func TestIngestUploadSuccess(t *testing.T) {
 	repo := &ingestRepoFake{}
 	storage := &ingestStorageFake{}
 	queue := &ingestQueueFake{}
-	uc := NewIngestDocumentUseCase(repo, storage, queue)
+	adapters := map[string]ports.SourceAdapter{
+		"upload": sourceupload.New(),
+	}
+	uc := NewIngestDocumentUseCase(repo, storage, queue, adapters)
 
 	doc, err := uc.Upload(context.Background(), "report 1.txt", "text/plain", bytes.NewBufferString("hello"))
 	if err != nil {
@@ -115,7 +133,10 @@ func TestIngestUploadQueueError(t *testing.T) {
 	repo := &ingestRepoFake{}
 	storage := &ingestStorageFake{}
 	queue := &ingestQueueFake{err: errors.New("queue down")}
-	uc := NewIngestDocumentUseCase(repo, storage, queue)
+	adapters := map[string]ports.SourceAdapter{
+		"upload": sourceupload.New(),
+	}
+	uc := NewIngestDocumentUseCase(repo, storage, queue, adapters)
 
 	_, err := uc.Upload(context.Background(), "report.txt", "text/plain", bytes.NewBufferString("hello"))
 	if err == nil {
@@ -123,5 +144,54 @@ func TestIngestUploadQueueError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "publish ingestion event") {
 		t.Fatalf("expected publish error, got %v", err)
+	}
+}
+
+func TestIngestFromSourceSuccess(t *testing.T) {
+	repo := &ingestRepoFake{}
+	storage := &ingestStorageFake{}
+	queue := &ingestQueueFake{}
+	adapter := &sourceAdapterFake{
+		result: &domain.IngestResult{
+			Filename:   "page.html",
+			MimeType:   "text/plain",
+			Body:       bytes.NewBufferString("extracted text"),
+			SourceType: "web",
+			Path:       "https://example.com/page.html",
+		},
+	}
+	adapters := map[string]ports.SourceAdapter{
+		"web": adapter,
+	}
+	uc := NewIngestDocumentUseCase(repo, storage, queue, adapters)
+
+	doc, err := uc.IngestFromSource(context.Background(), domain.SourceRequest{
+		SourceType: "web",
+		URL:        "https://example.com/page.html",
+	})
+	if err != nil {
+		t.Fatalf("IngestFromSource() error = %v", err)
+	}
+	if doc.SourceType != "web" {
+		t.Errorf("SourceType = %q, want %q", doc.SourceType, "web")
+	}
+	if doc.Path != "https://example.com/page.html" {
+		t.Errorf("Path = %q, want %q", doc.Path, "https://example.com/page.html")
+	}
+	if storage.savedBody != "extracted text" {
+		t.Errorf("saved body = %q, want %q", storage.savedBody, "extracted text")
+	}
+	if queue.documentID != doc.ID {
+		t.Errorf("queued doc id = %q, want %q", queue.documentID, doc.ID)
+	}
+}
+
+func TestIngestFromSourceUnknownAdapter(t *testing.T) {
+	uc := NewIngestDocumentUseCase(&ingestRepoFake{}, &ingestStorageFake{}, &ingestQueueFake{}, nil)
+	_, err := uc.IngestFromSource(context.Background(), domain.SourceRequest{
+		SourceType: "unknown",
+	})
+	if err == nil {
+		t.Fatal("expected error for unknown source type")
 	}
 }
