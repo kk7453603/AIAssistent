@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 
 	"github.com/kirillkom/personal-ai-assistant/internal/core/domain"
@@ -22,11 +23,11 @@ func TestReranker_Rerank_Empty(t *testing.T) {
 }
 
 func TestReranker_Rerank_Success(t *testing.T) {
-	callIdx := 0
+	var callIdx atomic.Int32
 	scores := []float64{3.0, 8.0, 5.0} // normalized: 0.3, 0.8, 0.5
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		score := scores[callIdx%len(scores)]
-		callIdx++
+		idx := int(callIdx.Add(1) - 1)
+		score := scores[idx%len(scores)]
 		_ = json.NewEncoder(w).Encode(chatResponse{
 			Choices: []struct {
 				Message struct {
