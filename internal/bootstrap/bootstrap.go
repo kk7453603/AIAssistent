@@ -363,6 +363,24 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		}
 	}
 
+	// Multi-agent orchestration.
+	if cfg.OrchestratorEnabled {
+		agentSpecs := config.ParseAgentSpecs(cfg.AgentSpecs)
+		agentRegistry := usecase.NewAgentRegistry(agentSpecs)
+		orchRepo := postgres.NewOrchestrationRepository(db)
+		orchestrator := usecase.NewOrchestratorUseCase(
+			agentUC,
+			agentRegistry,
+			memoryVector,
+			embedder,
+			generator,
+			orchRepo,
+			cfg.OrchestratorMaxSteps,
+		)
+		agentUC.SetOrchestrator(orchestrator)
+		slog.Info("orchestrator_enabled", "agents", agentRegistry.Names(), "max_steps", cfg.OrchestratorMaxSteps)
+	}
+
 	return &App{
 		Config:           cfg,
 		Queue:            queue,

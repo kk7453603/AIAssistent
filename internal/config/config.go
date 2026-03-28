@@ -84,6 +84,10 @@ type Config struct {
 	AgentIntentRouterEnabled   bool
 	ModelRouting string // JSON: {"simple":"llama3.1:8b","complex":"qwen3.5:9b","code":"qwen-coder:7b"}
 
+	AgentSpecs           string // JSON array of AgentSpec
+	OrchestratorEnabled  bool
+	OrchestratorMaxSteps int
+
 	LLMFallbackProvider string // fallback provider: "ollama", "openai-compat", "huggingface", etc.
 	LLMFallbackURL      string
 	LLMFallbackKey      string
@@ -204,6 +208,10 @@ func Load() Config {
 		AgentIntentRouterEnabled:        mustEnvBool("AGENT_INTENT_ROUTER_ENABLED", true),
 		ModelRouting:                    os.Getenv("MODEL_ROUTING"),
 
+		AgentSpecs:           os.Getenv("AGENT_SPECS"),
+		OrchestratorEnabled:  mustEnvBool("ORCHESTRATOR_ENABLED", false),
+		OrchestratorMaxSteps: mustEnvInt("ORCHESTRATOR_MAX_STEPS", 8),
+
 		LLMFallbackProvider: mustEnv("LLM_FALLBACK_PROVIDER", ""),
 		LLMFallbackURL:      mustEnv("LLM_FALLBACK_URL", ""),
 		LLMFallbackKey:      mustEnv("LLM_FALLBACK_KEY", ""),
@@ -291,6 +299,18 @@ func ParseModelRouting(raw string) *domain.ModelRouting {
 		return nil
 	}
 	return &result
+}
+
+// ParseAgentSpecs parses the AGENT_SPECS JSON env variable into a slice of AgentSpec.
+func ParseAgentSpecs(raw string) []domain.AgentSpec {
+	if raw == "" {
+		return nil
+	}
+	var result []domain.AgentSpec
+	if err := json.Unmarshal([]byte(raw), &result); err != nil {
+		return nil
+	}
+	return result
 }
 
 // ParseChunkConfig parses the CHUNK_CONFIG JSON env variable into a map of source type → ChunkConfig.
