@@ -128,6 +128,20 @@ ALTER TABLE documents ADD COLUMN IF NOT EXISTS source_type TEXT NOT NULL DEFAULT
 ALTER TABLE documents ADD COLUMN IF NOT EXISTS title TEXT NOT NULL DEFAULT '';
 ALTER TABLE documents ADD COLUMN IF NOT EXISTS headers JSONB NOT NULL DEFAULT '[]'::jsonb;
 ALTER TABLE documents ADD COLUMN IF NOT EXISTS path TEXT NOT NULL DEFAULT '';
+
+CREATE TABLE IF NOT EXISTS orchestrations (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    conversation_id TEXT NOT NULL,
+    request TEXT NOT NULL,
+    plan JSONB NOT NULL DEFAULT '[]'::jsonb,
+    steps JSONB NOT NULL DEFAULT '[]'::jsonb,
+    status TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL,
+    completed_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_orchestrations_user_conv
+    ON orchestrations(user_id, conversation_id, created_at DESC);
 `
 	if _, err := tx.ExecContext(ctx, query); err != nil {
 		return fmt.Errorf("execute schema ddl: %w", err)

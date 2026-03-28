@@ -143,3 +143,12 @@ type GraphStore interface {
 	FindByTitle(ctx context.Context, title string) ([]domain.GraphNode, error)
 	GetGraph(ctx context.Context, filter domain.GraphFilter) (*domain.Graph, error)
 }
+
+// OrchestrationStore persists multi-agent orchestration history.
+type OrchestrationStore interface {
+	Create(ctx context.Context, orch *domain.Orchestration) error
+	AddStep(ctx context.Context, orchID string, step domain.OrchestrationStep) error
+	Complete(ctx context.Context, orchID string, status string) error
+	GetByID(ctx context.Context, orchID string) (*domain.Orchestration, error)
+	ListByUser(ctx context.Context, userID string, limit int) ([]domain.Orchestration, error)
+}
