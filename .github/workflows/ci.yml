@@ -18,12 +18,14 @@ jobs:
         run: go vet ./...
       - name: Test
         run: go test ./... -race -coverprofile=coverage.out
-      - name: Upload coverage
-        uses: codecov/codecov-action@v4
+      - name: Coverage badge
+        if: github.ref == 'refs/heads/main'
+        uses: ncruces/go-coverage-report@v0
         with:
-          file: coverage.out
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+          coverage-file: coverage.out
+          report: true
+          chart: true
+          amend: true
 
   lint:
     runs-on: ubuntu-latest
