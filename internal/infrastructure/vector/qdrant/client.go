@@ -145,6 +145,10 @@ func (c *Client) IndexChunks(ctx context.Context, doc *domain.Document, chunks [
 				"subcategory": doc.Subcategory,
 				"chunk_index": i,
 				"text":        chunks[i],
+				"source_type": doc.SourceType,
+				"title":       doc.Title,
+				"path":        doc.Path,
+				"tags":        doc.Tags,
 			},
 		})
 	}
@@ -173,7 +177,39 @@ func (c *Client) IndexChunks(ctx context.Context, doc *domain.Document, chunks [
 }
 
 func (c *Client) UpdateChunksPayload(ctx context.Context, docID string, payload map[string]any) error {
-	// TODO: implement in Task 5
+	reqBody := map[string]any{
+		"payload": payload,
+		"filter": map[string]any{
+			"must": []map[string]any{
+				{
+					"key": "doc_id",
+					"match": map[string]any{
+						"value": docID,
+					},
+				},
+			},
+		},
+	}
+
+	body, err := json.Marshal(reqBody)
+	if err != nil {
+		return fmt.Errorf("marshal set_payload body: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/collections/%s/points/payload?wait=true", c.baseURL, c.collection)
+	resp, err := c.doRequest(ctx, "set_payload", http.MethodPost, url, body, "application/json")
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 300 {
+		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
+		if msg := strings.TrimSpace(string(respBody)); msg != "" {
+			return fmt.Errorf("qdrant set_payload status: %s: %s", resp.Status, msg)
+		}
+		return fmt.Errorf("qdrant set_payload status: %s", resp.Status)
+	}
 	return nil
 }
 
