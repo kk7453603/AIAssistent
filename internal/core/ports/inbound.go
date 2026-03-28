@@ -30,6 +30,11 @@ type DocumentProcessor interface {
 	ProcessByID(ctx context.Context, documentID string) error
 }
 
+// DocumentEnricher is the inbound contract for async document enrichment.
+type DocumentEnricher interface {
+	EnrichByID(ctx context.Context, documentID string) error
+}
+
 // AgentVaultInfo holds minimal vault metadata for the agent system prompt.
 type AgentVaultInfo struct {
 	ID   string

@@ -36,6 +36,7 @@ type App struct {
 	Repo             ports.DocumentRepository
 	IngestUC         ports.DocumentIngestor
 	ProcessUC        ports.DocumentProcessor
+	EnrichUC         ports.DocumentEnricher
 	QueryUC          ports.DocumentQueryService
 	AgentUC          ports.AgentChatService
 	ToolRegistry     *paamcp.ToolRegistry
@@ -233,6 +234,7 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 	ingestUC := usecase.NewIngestDocumentUseCase(repo, storage, queue)
 	metaExtractor := metadata.New()
 	processUC := usecase.NewProcessDocumentUseCase(repo, extractor, metaExtractor, chunker, embedder, vectorDB, queue)
+	enrichUC := usecase.NewEnrichDocumentUseCase(repo, extractor, classifier, vectorDB)
 	queryUC := usecase.NewQueryUseCase(embedder, vectorDB, generator, usecase.QueryOptions{
 		RetrievalMode:         domain.RetrievalMode(strings.ToLower(strings.TrimSpace(cfg.RAGRetrievalMode))),
 		HybridCandidates:      cfg.RAGHybridCandidates,
@@ -291,6 +293,7 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 
 		IngestUC:       ingestUC,
 		ProcessUC:      processUC,
+		EnrichUC:       enrichUC,
 		QueryUC:        queryUC,
 		AgentUC:        agentUC,
 		ToolRegistry:   toolRegistry,

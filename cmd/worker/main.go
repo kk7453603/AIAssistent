@@ -61,45 +61,77 @@ func main() {
 		}
 	}()
 
-	logger.Info("worker_subscribed", "subject", cfg.NATSSubject)
-	err = app.Queue.SubscribeDocumentIngested(ctx, func(handlerCtx context.Context, documentID string) error {
-		start := time.Now()
-		if doc, repoErr := app.Repo.GetByID(handlerCtx, documentID); repoErr == nil && !doc.CreatedAt.IsZero() {
-			queueLag := time.Since(doc.CreatedAt)
-			workerMetrics.ObserveQueueLag("worker", queueLag)
+	// Ingest subscriber (sync pipeline: extract → metadata → chunk → embed → index → ready).
+	go func() {
+		logger.Info("worker_subscribed", "subject", cfg.NATSSubject)
+		if err := app.Queue.SubscribeDocumentIngested(ctx, func(handlerCtx context.Context, documentID string) error {
+			start := time.Now()
+			if doc, repoErr := app.Repo.GetByID(handlerCtx, documentID); repoErr == nil && !doc.CreatedAt.IsZero() {
+				queueLag := time.Since(doc.CreatedAt)
+				workerMetrics.ObserveQueueLag("worker", queueLag)
+				logger.Info(
+					"document_queue_lag_observed",
+					"document_id", documentID,
+					"queue_lag_ms", float64(queueLag.Microseconds())/1000.0,
+				)
+			}
+			logger.Info("document_processing_started", "document_id", documentID)
+			workerMetrics.StartDocument()
+
+			processCtx, cancel := context.WithTimeout(handlerCtx, 5*time.Minute)
+			defer cancel()
+
+			err := app.ProcessUC.ProcessByID(processCtx, documentID)
+			workerMetrics.FinishDocument("worker", time.Since(start), err)
+			if err != nil {
+				logger.Error(
+					"document_processing_failed",
+					"document_id", documentID,
+					"duration_ms", float64(time.Since(start).Microseconds())/1000.0,
+					"error", err,
+				)
+				return err
+			}
+
 			logger.Info(
-				"document_queue_lag_observed",
-				"document_id", documentID,
-				"queue_lag_ms", float64(queueLag.Microseconds())/1000.0,
-			)
-		}
-		logger.Info("document_processing_started", "document_id", documentID)
-		workerMetrics.StartDocument()
-
-		processCtx, cancel := context.WithTimeout(handlerCtx, 5*time.Minute)
-		defer cancel()
-
-		err := app.ProcessUC.ProcessByID(processCtx, documentID)
-		workerMetrics.FinishDocument("worker", time.Since(start), err)
-		if err != nil {
-			logger.Error(
-				"document_processing_failed",
+				"document_processing_completed",
 				"document_id", documentID,
 				"duration_ms", float64(time.Since(start).Microseconds())/1000.0,
-				"error", err,
 			)
-			return err
+			return nil
+		}); err != nil {
+			logger.Error("worker_subscribe_error", "error", err)
 		}
+	}()
 
-		logger.Info(
-			"document_processing_completed",
-			"document_id", documentID,
-			"duration_ms", float64(time.Since(start).Microseconds())/1000.0,
-		)
-		return nil
-	})
-	if err != nil {
-		logger.Error("worker_subscribe_error", "error", err)
-		os.Exit(1)
-	}
+	// Enrich subscriber (async LLM enrichment: classify → merge → update Postgres + Qdrant).
+	go func() {
+		logger.Info("worker_enrich_subscribed")
+		if err := app.Queue.SubscribeDocumentEnrich(ctx, func(handlerCtx context.Context, documentID string) error {
+			start := time.Now()
+			logger.Info("document_enrichment_started", "document_id", documentID)
+
+			enrichCtx, cancel := context.WithTimeout(handlerCtx, 3*time.Minute)
+			defer cancel()
+
+			if err := app.EnrichUC.EnrichByID(enrichCtx, documentID); err != nil {
+				logger.Error("document_enrichment_failed",
+					"document_id", documentID,
+					"duration_ms", float64(time.Since(start).Microseconds())/1000.0,
+					"error", err,
+				)
+				return err
+			}
+
+			logger.Info("document_enrichment_completed",
+				"document_id", documentID,
+				"duration_ms", float64(time.Since(start).Microseconds())/1000.0,
+			)
+			return nil
+		}); err != nil {
+			logger.Error("worker_enrich_subscribe_error", "error", err)
+		}
+	}()
+
+	<-ctx.Done()
 }
