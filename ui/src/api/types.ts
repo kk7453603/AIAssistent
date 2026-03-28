@@ -62,3 +62,16 @@ export interface GraphFilter {
   min_score?: number;
   max_depth?: number;
 }
+
+// --- Orchestration Stepper ---
+
+export interface OrchestrationStepEvent {
+  type: "orchestration_step";
+  orchestration_id: string;
+  step_index: number;
+  agent_name: string;
+  task: string;
+  status: "started" | "completed" | "failed";
+  result: string;
+  duration_ms: number;
+}

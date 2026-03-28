@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { getApiUrl } from "../api/client";
-import type { ChatMessage, ToolStatusDelta } from "../api/types";
+import type { ChatMessage, ToolStatusDelta, OrchestrationStepEvent } from "../api/types";
 import { useDashboardStore } from "./dashboardStore";
 
 interface ChatState {
@@ -12,6 +12,7 @@ interface ChatState {
   activeConversationId: string | null;
   isStreaming: boolean;
   toolStatus: ToolStatusDelta[];
+  orchSteps: OrchestrationStepEvent[];
 
   /** Switch to a conversation (loads its messages). */
   loadConversation: (conversationId: string) => void;
@@ -35,6 +36,7 @@ export const useChatStore = create<ChatState>()(
       activeConversationId: null,
       isStreaming: false,
       toolStatus: [],
+      orchSteps: [],
 
       loadConversation: (conversationId) => {
         const saved = get().messagesByConversation[conversationId] ?? [];
@@ -42,6 +44,7 @@ export const useChatStore = create<ChatState>()(
           messages: saved,
           activeConversationId: conversationId,
           toolStatus: [],
+          orchSteps: [],
         });
       },
 
@@ -54,6 +57,7 @@ export const useChatStore = create<ChatState>()(
           activeConversationId: conversationId,
           isStreaming: true,
           toolStatus: [],
+          orchSteps: [],
         });
 
         // Persist user message immediately
@@ -137,6 +141,24 @@ export const useChatStore = create<ChatState>()(
                   continue;
                 }
 
+                if (delta?.orchestration_step) {
+                  const step: OrchestrationStepEvent = JSON.parse(delta.orchestration_step);
+                  set((s) => {
+                    const existing = s.orchSteps.findIndex(
+                      (os) =>
+                        os.orchestration_id === step.orchestration_id &&
+                        os.step_index === step.step_index,
+                    );
+                    if (existing >= 0) {
+                      const updated = [...s.orchSteps];
+                      updated[existing] = step;
+                      return { orchSteps: updated };
+                    }
+                    return { orchSteps: [...s.orchSteps, step] };
+                  });
+                  continue;
+                }
+
                 if (delta?.content) {
                   assistantContent += delta.content;
                   const snapshot = assistantContent;
@@ -208,7 +230,7 @@ export const useChatStore = create<ChatState>()(
         abortController?.abort();
       },
 
-      clearMessages: () => set({ messages: [], toolStatus: [] }),
+      clearMessages: () => set({ messages: [], toolStatus: [], orchSteps: [] }),
 
       deleteConversationMessages: (conversationId) => {
         set((s) => {
