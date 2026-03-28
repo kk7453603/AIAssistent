@@ -161,7 +161,7 @@ export default function App() {
                   const resp = await fetch(`${getApiUrl()}/v1/documents/${docId}/content`);
                   if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
                   const data = await resp.json() as { filename: string; content: string };
-                  useVaultStore.getState().showDocument(data.filename, data.content);
+                  await useVaultStore.getState().showDocument(data.filename, data.content);
                   setPage("vault");
                 } catch {
                   // fallback: just navigate

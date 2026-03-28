@@ -53,10 +53,17 @@ interface VaultState {
   selectVault: (name: string) => void;
   loadDir: (path: string) => Promise<void>;
   selectFile: (path: string) => Promise<void>;
-  showDocument: (filename: string, content: string) => void;
+  showDocument: (filename: string, content: string) => Promise<void>;
   searchVault: (query: string) => Promise<void>;
   clearSearch: () => void;
   getFileContent: (path: string) => Promise<string>;
+}
+
+function findFileRecursive(entries: VaultEntry[], filename: string): boolean {
+  for (const entry of entries) {
+    if (!entry.is_dir && entry.name === filename) return true;
+  }
+  return false;
 }
 
 export const useVaultStore = create<VaultState>()((set, get) => ({
@@ -196,8 +203,49 @@ export const useVaultStore = create<VaultState>()((set, get) => ({
     }
   },
 
-  showDocument: (filename, content) => {
+  showDocument: async (filename, content) => {
+    // Set content immediately so preview works
     set({ selectedFilePath: filename, fileContent: content });
+
+    // Try to find this file in one of the vaults and select it
+    if (!isTauri) {
+      try {
+        // Ensure vaults are loaded
+        if (get().vaults.length === 0) {
+          await get().loadVaults();
+        }
+        const { vaults: updatedVaults, _vaultIdMap: updatedMap } = get();
+
+        // Search each vault for the file
+        for (const vault of updatedVaults) {
+          const vaultId = updatedMap[vault.name];
+          if (!vaultId) continue;
+          try {
+            const resp = await fetch(
+              `${getApiUrl()}/v1/obsidian/vaults/${encodeURIComponent(vaultId)}/files?path=`,
+            );
+            if (!resp.ok) continue;
+            const entries = await resp.json() as VaultEntry[];
+            const found = findFileRecursive(entries, filename);
+            if (found) {
+              // Select this vault and load its tree
+              set({
+                selectedVault: vault.name,
+                selectedVaultId: vaultId,
+                expandedDirs: { "": entries },
+                selectedFilePath: filename,
+                fileContent: content,
+              });
+              return;
+            }
+          } catch {
+            continue;
+          }
+        }
+      } catch {
+        // Search failed — content is still shown via the initial set
+      }
+    }
   },
 
   searchVault: async (query) => {

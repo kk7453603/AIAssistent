@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { FileText } from "lucide-react";
 import { isTauri } from "../utils/isTauri";
 import { FileTree } from "../components/vault/FileTree";
 import { MarkdownPreview } from "../components/vault/MarkdownPreview";
@@ -16,6 +17,7 @@ export function VaultBrowserPage({ onReferenceInChat, pendingFilePath, onPending
   const {
     vaultsPath,
     selectedVault,
+    selectedFilePath,
     expandedDirs,
     setVaultsPath,
     loadVaults,
@@ -87,6 +89,19 @@ export function VaultBrowserPage({ onReferenceInChat, pendingFilePath, onPending
               entries={rootEntries}
               onReferenceInChat={handleReferenceInChat}
             />
+          ) : selectedFilePath ? (
+            <div className="px-2 py-3">
+              <p className="mb-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                Viewing Document
+              </p>
+              <div className="flex items-center gap-2 rounded-md bg-blue-50 dark:bg-blue-900/20 px-3 py-2 text-sm text-blue-700 dark:text-blue-400">
+                <FileText className="h-4 w-4 shrink-0" />
+                <span className="truncate">{selectedFilePath}</span>
+              </div>
+              <p className="mt-3 text-xs text-gray-400 dark:text-gray-500">
+                Select a vault above to browse vault files.
+              </p>
+            </div>
           ) : (
             <p className="px-2 py-4 text-sm text-gray-500">
               Select a vault to browse
