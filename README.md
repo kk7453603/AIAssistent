@@ -77,6 +77,14 @@
 
 ---
 
+## Документация по архитектуре
+
+- **[C4 Architecture (Context → Container → Component)](docs/c4/README.md)** — полная карта системы с Mermaid-диаграммами для каждой фичи
+- **[Architecture & Business Logic](docs/architecture.md)** — описание бизнес-логики, пайплайнов и sequence-диаграммы
+- **[ADR](docs/adr/)** — записи архитектурных решений
+
+---
+
 ## Архитектура
 
 ```text
