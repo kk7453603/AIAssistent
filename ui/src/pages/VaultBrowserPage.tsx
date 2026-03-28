@@ -8,9 +8,11 @@ import { useVaultStore } from "../stores/vaultStore";
 
 interface Props {
   onReferenceInChat: (content: string) => void;
+  pendingFilePath?: string | null;
+  onPendingFileClear?: () => void;
 }
 
-export function VaultBrowserPage({ onReferenceInChat }: Props) {
+export function VaultBrowserPage({ onReferenceInChat, pendingFilePath, onPendingFileClear }: Props) {
   const {
     vaultsPath,
     selectedVault,
@@ -43,6 +45,13 @@ export function VaultBrowserPage({ onReferenceInChat }: Props) {
       loadVaults();
     }
   }, [vaultsPath, loadVaults]);
+
+  // Handle pending file navigation from Graph page
+  useEffect(() => {
+    if (!pendingFilePath) return;
+    selectFile(pendingFilePath);
+    onPendingFileClear?.();
+  }, [pendingFilePath, selectFile, onPendingFileClear]);
 
   const rootPath = selectedVault
     ? isTauri

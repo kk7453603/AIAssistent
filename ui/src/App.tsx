@@ -17,7 +17,7 @@ type Page = "chat" | "vault" | "dashboard" | "graph" | "settings";
 export default function App() {
   const [page, setPage] = useState<Page>("chat");
   const [pendingRef, setPendingRef] = useState<string | null>(null);
-  const [_pendingVaultPath, setPendingVaultPath] = useState<string | null>(null);
+  const [pendingVaultPath, setPendingVaultPath] = useState<string | null>(null);
   const loadSettings = useSettingsStore((s) => s.load);
   const theme = useSettingsStore((s) => s.theme);
 
@@ -134,7 +134,11 @@ export default function App() {
           />
         )}
         {page === "vault" && (
-          <VaultBrowserPage onReferenceInChat={handleReferenceInChat} />
+          <VaultBrowserPage
+            onReferenceInChat={handleReferenceInChat}
+            pendingFilePath={pendingVaultPath}
+            onPendingFileClear={() => setPendingVaultPath(null)}
+          />
         )}
         {page === "dashboard" && <DashboardPage />}
         {page === "graph" && (
