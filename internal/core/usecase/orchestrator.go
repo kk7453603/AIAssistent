@@ -51,6 +51,7 @@ func (uc *OrchestratorUseCase) Execute(
 	ctx context.Context,
 	req domain.AgentChatRequest,
 	onToolStatus domain.ToolStatusCallback,
+	onOrchStep domain.OrchStepCallback,
 ) (*domain.AgentRunResult, error) {
 	orchID := uuid.NewString()
 	now := time.Now().UTC()
@@ -89,6 +90,16 @@ func (uc *OrchestratorUseCase) Execute(
 
 		if onToolStatus != nil {
 			onToolStatus(fmt.Sprintf("orchestrator:%s", step.Agent), "started")
+		}
+
+		if onOrchStep != nil {
+			onOrchStep(domain.OrchestrationStatus{
+				OrchestrationID: orchID,
+				StepIndex:       stepIndex,
+				AgentName:       step.Agent,
+				Task:            step.Task,
+				Status:          "started",
+			})
 		}
 
 		startTime := time.Now()
@@ -136,6 +147,17 @@ func (uc *OrchestratorUseCase) Execute(
 
 		if uc.orchStore != nil {
 			_ = uc.orchStore.AddStep(ctx, orchID, orchStep)
+		}
+
+		if onOrchStep != nil {
+			onOrchStep(domain.OrchestrationStatus{
+				OrchestrationID: orchID,
+				StepIndex:       stepIndex,
+				AgentName:       step.Agent,
+				Task:            step.Task,
+				Status:          orchStep.Status,
+				Result:          orchStep.Result,
+			})
 		}
 
 		if onToolStatus != nil {

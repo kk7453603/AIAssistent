@@ -49,3 +49,6 @@ type OrchestrationStatus struct {
 	Status          string `json:"status"`
 	Result          string `json:"result,omitempty"`
 }
+
+// OrchStepCallback is called when an orchestration step starts or completes.
+type OrchStepCallback func(status OrchestrationStatus)

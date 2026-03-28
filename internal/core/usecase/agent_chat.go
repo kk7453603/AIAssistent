@@ -217,7 +217,7 @@ func (uc *AgentChatUseCase) Complete(ctx context.Context, req domain.AgentChatRe
 	// Multi-agent orchestration for complex tasks.
 	if uc.orchestrator != nil && shouldOrchestrate(intent, tier, lastUserMessage) {
 		slog.Info("orchestrating_multi_agent", "intent", intent, "tier", tier)
-		return uc.orchestrator.Execute(ctx, req, onToolStatus)
+		return uc.orchestrator.Execute(ctx, req, onToolStatus, nil)
 	}
 
 	systemPrompt := buildSystemPrompt(ctx, intent, memoryHits, uc.toolRegistry, uc.obsidianVaults)
