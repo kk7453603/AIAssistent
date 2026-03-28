@@ -25,7 +25,7 @@ func TestChatCompletion_Success(t *testing.T) {
 			http.NotFound(w, r)
 			return
 		}
-		json.NewEncoder(w).Encode(chatResponse{
+		_ = json.NewEncoder(w).Encode(chatResponse{
 			Choices: []struct {
 				Message struct {
 					Content string `json:"content"`
@@ -47,7 +47,7 @@ func TestChatCompletion_Success(t *testing.T) {
 
 func TestChatCompletion_EmptyChoices(t *testing.T) {
 	_, client := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(chatResponse{})
+		_ = json.NewEncoder(w).Encode(chatResponse{})
 	})
 
 	_, err := client.chatCompletion(context.Background(), []chatMessage{{Role: "user", Content: "hi"}}, false)
@@ -78,14 +78,14 @@ func TestChatCompletion_JSONMode(t *testing.T) {
 	var gotFormat bool
 	_, client := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]any
-		json.NewDecoder(r.Body).Decode(&body)
+		_ = json.NewDecoder(r.Body).Decode(&body)
 		if rf, ok := body["response_format"]; ok {
 			rfMap := rf.(map[string]any)
 			if rfMap["type"] == "json_object" {
 				gotFormat = true
 			}
 		}
-		json.NewEncoder(w).Encode(chatResponse{
+		_ = json.NewEncoder(w).Encode(chatResponse{
 			Choices: []struct {
 				Message struct {
 					Content string `json:"content"`
@@ -107,7 +107,7 @@ func TestChatCompletion_JSONMode(t *testing.T) {
 
 func TestEmbedTexts_Success(t *testing.T) {
 	_, client := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(embedResponse{
+		_ = json.NewEncoder(w).Encode(embedResponse{
 			Data: []struct {
 				Index     int       `json:"index"`
 				Embedding []float32 `json:"embedding"`
@@ -134,7 +134,7 @@ func TestPostJSON_AuthHeader(t *testing.T) {
 	var gotAuth string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotAuth = r.Header.Get("Authorization")
-		json.NewEncoder(w).Encode(map[string]any{})
+		_ = json.NewEncoder(w).Encode(map[string]any{})
 	}))
 	defer server.Close()
 
@@ -150,7 +150,7 @@ func TestPostJSON_NoAuthWhenKeyEmpty(t *testing.T) {
 	var gotAuth string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotAuth = r.Header.Get("Authorization")
-		json.NewEncoder(w).Encode(map[string]any{})
+		_ = json.NewEncoder(w).Encode(map[string]any{})
 	}))
 	defer server.Close()
 
@@ -166,7 +166,7 @@ func TestPostJSON_ExtraHeaders(t *testing.T) {
 	var gotCustom string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotCustom = r.Header.Get("X-Custom")
-		json.NewEncoder(w).Encode(map[string]any{})
+		_ = json.NewEncoder(w).Encode(map[string]any{})
 	}))
 	defer server.Close()
 
@@ -180,7 +180,7 @@ func TestPostJSON_ExtraHeaders(t *testing.T) {
 
 func TestChatWithTools_Success(t *testing.T) {
 	_, client := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(map[string]any{
+		_ = json.NewEncoder(w).Encode(map[string]any{
 			"choices": []map[string]any{{
 				"message": map[string]any{
 					"content": "",
@@ -214,7 +214,7 @@ func TestChatWithTools_Success(t *testing.T) {
 
 func TestChatWithTools_NoToolCalls(t *testing.T) {
 	_, client := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(map[string]any{
+		_ = json.NewEncoder(w).Encode(map[string]any{
 			"choices": []map[string]any{{
 				"message": map[string]any{
 					"content": "just text",

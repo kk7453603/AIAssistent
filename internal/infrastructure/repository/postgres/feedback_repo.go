@@ -50,7 +50,7 @@ LIMIT $2
 	if err != nil {
 		return nil, fmt.Errorf("query recent feedback: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var results []domain.AgentFeedback
 	for rows.Next() {
@@ -76,7 +76,7 @@ GROUP BY rating
 	if err != nil {
 		return nil, fmt.Errorf("count feedback by rating: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	counts := make(map[string]int)
 	for rows.Next() {

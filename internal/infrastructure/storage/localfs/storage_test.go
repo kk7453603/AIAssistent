@@ -44,7 +44,7 @@ func TestSaveAndOpen_RoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open() error = %v", err)
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
 	data, err := io.ReadAll(reader)
 	if err != nil {
@@ -81,7 +81,7 @@ func TestSave_Overwrite(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open() error = %v", err)
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
 	data, _ := io.ReadAll(reader)
 	if string(data) != "second" {
@@ -104,7 +104,7 @@ func TestSave_EmptyContent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open() error = %v", err)
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
 	data, _ := io.ReadAll(reader)
 	if len(data) != 0 {

@@ -51,7 +51,7 @@ ORDER BY created_at DESC
 	if err != nil {
 		return nil, fmt.Errorf("list scheduled_tasks by user: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	return scanScheduledTasks(rows)
 }
 
@@ -65,7 +65,7 @@ WHERE enabled = true
 	if err != nil {
 		return nil, fmt.Errorf("list enabled scheduled_tasks: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	return scanScheduledTasks(rows)
 }
 

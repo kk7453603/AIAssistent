@@ -56,7 +56,7 @@ LIMIT $3
 	if err != nil {
 		return nil, fmt.Errorf("query agent events by type: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var events []domain.AgentEvent
 	for rows.Next() {
@@ -86,7 +86,7 @@ GROUP BY event_type
 	if err != nil {
 		return nil, fmt.Errorf("count agent events by type: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	counts := make(map[string]int)
 	for rows.Next() {

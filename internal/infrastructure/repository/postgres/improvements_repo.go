@@ -55,7 +55,7 @@ ORDER BY created_at DESC
 	if err != nil {
 		return nil, fmt.Errorf("query pending improvements: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var results []domain.AgentImprovement
 	for rows.Next() {

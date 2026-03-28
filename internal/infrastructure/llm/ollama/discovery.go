@@ -37,7 +37,7 @@ func (d *Discovery) ListModels(ctx context.Context) ([]domain.ModelInfo, error) 
 	if err != nil {
 		return nil, fmt.Errorf("ollama list models: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode >= 400 {
 		return nil, fmt.Errorf("ollama list models: status %d", resp.StatusCode)

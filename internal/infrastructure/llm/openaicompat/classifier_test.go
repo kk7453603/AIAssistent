@@ -10,7 +10,7 @@ import (
 
 func TestClassifier_Classify_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(chatResponse{
+		_ = json.NewEncoder(w).Encode(chatResponse{
 			Choices: []struct {
 				Message struct {
 					Content string `json:"content"`
@@ -39,7 +39,7 @@ func TestClassifier_Classify_Success(t *testing.T) {
 
 func TestClassifier_Classify_NilTags(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(chatResponse{
+		_ = json.NewEncoder(w).Encode(chatResponse{
 			Choices: []struct {
 				Message struct {
 					Content string `json:"content"`
@@ -67,11 +67,11 @@ func TestClassifier_Classify_Truncation(t *testing.T) {
 	var gotLen int
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body chatRequest
-		json.NewDecoder(r.Body).Decode(&body)
+		_ = json.NewDecoder(r.Body).Decode(&body)
 		if len(body.Messages) > 0 {
 			gotLen = len(body.Messages[0].Content)
 		}
-		json.NewEncoder(w).Encode(chatResponse{
+		_ = json.NewEncoder(w).Encode(chatResponse{
 			Choices: []struct {
 				Message struct {
 					Content string `json:"content"`

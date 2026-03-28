@@ -176,7 +176,7 @@ func (s *SchedulerUseCase) sendWebhook(task domain.ScheduledTask, result string)
 		log.Printf("[scheduler] webhook delivery error for task %s: %v", task.ID, err)
 		return
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode >= 400 {
 		log.Printf("[scheduler] webhook non-2xx for task %s: %d", task.ID, resp.StatusCode)

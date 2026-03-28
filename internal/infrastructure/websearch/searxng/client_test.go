@@ -27,7 +27,7 @@ func TestSearch_Success(t *testing.T) {
 			},
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -61,7 +61,7 @@ func TestSearch_LimitTruncation(t *testing.T) {
 				{Title: "R5", URL: "http://5.com", Content: "s5"},
 			},
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -94,7 +94,7 @@ func TestSearch_HTTPError(t *testing.T) {
 func TestSearch_InvalidJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte("not valid json"))
+		_, _ = w.Write([]byte("not valid json"))
 	}))
 	defer server.Close()
 
@@ -110,7 +110,7 @@ func TestSearch_InvalidJSON(t *testing.T) {
 
 func TestSearch_EmptyResults(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(searchResponse{Results: []rawResult{}})
+		_ = json.NewEncoder(w).Encode(searchResponse{Results: []rawResult{}})
 	}))
 	defer server.Close()
 

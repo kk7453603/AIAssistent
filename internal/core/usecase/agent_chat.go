@@ -203,7 +203,7 @@ func (uc *AgentChatUseCase) Complete(ctx context.Context, req domain.AgentChatRe
 		uc.agentMetrics.IntentClassifications.WithLabelValues(string(intent)).Inc()
 	}
 	// Adaptive model routing based on complexity.
-	var tier domain.ComplexityTier = domain.TierSimple
+	tier := domain.TierSimple
 	if uc.modelRouting != nil {
 		tier = classifyComplexityRules(lastUserMessage, intent)
 		if tier == TierUncertain {

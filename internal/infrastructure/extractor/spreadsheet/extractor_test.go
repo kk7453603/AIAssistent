@@ -83,7 +83,7 @@ func makeXLSX(t *testing.T, sheetData map[string][][]string) []byte {
 	for name, rows := range sheetData {
 		if first {
 			// Rename the default "Sheet1"
-			f.SetSheetName("Sheet1", name)
+			_ = f.SetSheetName("Sheet1", name)
 			first = false
 		} else {
 			_, err := f.NewSheet(name)

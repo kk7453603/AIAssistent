@@ -41,7 +41,7 @@ func (c *Client) Close() error {
 // UpsertDocument creates or updates a Document node.
 func (c *Client) UpsertDocument(ctx context.Context, doc domain.GraphNode) error {
 	session := c.driver.NewSession(ctx, neo4jdriver.SessionConfig{})
-	defer session.Close(ctx)
+	defer func() { _ = session.Close(ctx) }()
 
 	_, err := session.ExecuteWrite(ctx, func(tx neo4jdriver.ManagedTransaction) (any, error) {
 		query := `
@@ -71,7 +71,7 @@ SET d.filename    = $filename,
 // AddLink creates a LINKS_TO relationship between two Document nodes.
 func (c *Client) AddLink(ctx context.Context, sourceID, targetID string, linkType string) error {
 	session := c.driver.NewSession(ctx, neo4jdriver.SessionConfig{})
-	defer session.Close(ctx)
+	defer func() { _ = session.Close(ctx) }()
 
 	_, err := session.ExecuteWrite(ctx, func(tx neo4jdriver.ManagedTransaction) (any, error) {
 		query := `
@@ -95,7 +95,7 @@ MERGE (src)-[r:LINKS_TO {type: $link_type}]->(tgt)`
 // AddSimilarity creates or updates a SIMILAR relationship with a score.
 func (c *Client) AddSimilarity(ctx context.Context, sourceID, targetID string, score float64) error {
 	session := c.driver.NewSession(ctx, neo4jdriver.SessionConfig{})
-	defer session.Close(ctx)
+	defer func() { _ = session.Close(ctx) }()
 
 	_, err := session.ExecuteWrite(ctx, func(tx neo4jdriver.ManagedTransaction) (any, error) {
 		query := `
@@ -120,7 +120,7 @@ SET r.score = $score`
 // RemoveSimilarities deletes all SIMILAR relationships for the given document.
 func (c *Client) RemoveSimilarities(ctx context.Context, docID string) error {
 	session := c.driver.NewSession(ctx, neo4jdriver.SessionConfig{})
-	defer session.Close(ctx)
+	defer func() { _ = session.Close(ctx) }()
 
 	_, err := session.ExecuteWrite(ctx, func(tx neo4jdriver.ManagedTransaction) (any, error) {
 		query := `
@@ -145,7 +145,7 @@ func (c *Client) GetRelated(ctx context.Context, docID string, maxDepth int, lim
 	}
 
 	session := c.driver.NewSession(ctx, neo4jdriver.SessionConfig{})
-	defer session.Close(ctx)
+	defer func() { _ = session.Close(ctx) }()
 
 	query := fmt.Sprintf(`
 MATCH (d:Document {id: $id})-[r*1..%d]-(related:Document)
@@ -190,7 +190,7 @@ LIMIT $limit`, maxDepth)
 // FindByTitle finds documents whose title or filename contains the query (case-insensitive).
 func (c *Client) FindByTitle(ctx context.Context, title string) ([]domain.GraphNode, error) {
 	session := c.driver.NewSession(ctx, neo4jdriver.SessionConfig{})
-	defer session.Close(ctx)
+	defer func() { _ = session.Close(ctx) }()
 
 	query := `
 MATCH (d:Document)
@@ -234,7 +234,7 @@ LIMIT 10`
 // GetGraph returns all nodes and edges, with optional filters applied.
 func (c *Client) GetGraph(ctx context.Context, filter domain.GraphFilter) (*domain.Graph, error) {
 	session := c.driver.NewSession(ctx, neo4jdriver.SessionConfig{})
-	defer session.Close(ctx)
+	defer func() { _ = session.Close(ctx) }()
 
 	// Build WHERE clauses for node filters.
 	var whereClauses []string

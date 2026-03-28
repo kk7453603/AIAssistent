@@ -305,7 +305,7 @@ LIMIT $1`, limit)
 	if err != nil {
 		return nil, fmt.Errorf("list recent documents: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var docs []domain.Document
 	for rows.Next() {

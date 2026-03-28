@@ -143,7 +143,7 @@ LIMIT $2
 	if err != nil {
 		return nil, fmt.Errorf("list orchestrations by user: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var result []domain.Orchestration
 	for rows.Next() {

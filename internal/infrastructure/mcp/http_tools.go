@@ -179,7 +179,7 @@ func executeHTTPTool(ctx context.Context, tool HTTPToolDef, args map[string]any)
 	if err != nil {
 		return "", fmt.Errorf("http tool %q: %w", tool.Name, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {

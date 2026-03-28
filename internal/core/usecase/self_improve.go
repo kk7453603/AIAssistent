@@ -94,11 +94,11 @@ func buildSelfImprovePrompt(eventCounts, ratingCounts map[string]int, comments [
 	var sb strings.Builder
 	sb.WriteString("Analyze these agent performance metrics and suggest specific improvements.\n\nError summary:\n")
 	for t, c := range eventCounts {
-		sb.WriteString(fmt.Sprintf("- %s: %d occurrences\n", t, c))
+		fmt.Fprintf(&sb, "- %s: %d occurrences\n", t, c)
 	}
 	sb.WriteString("\nUser feedback:\n")
 	for r, c := range ratingCounts {
-		sb.WriteString(fmt.Sprintf("- %s: %d\n", r, c))
+		fmt.Fprintf(&sb, "- %s: %d\n", r, c)
 	}
 	if len(comments) > 0 {
 		sb.WriteString("\nNegative comments:\n")
@@ -106,7 +106,7 @@ func buildSelfImprovePrompt(eventCounts, ratingCounts map[string]int, comments [
 			if len(c) > 200 {
 				c = c[:200]
 			}
-			sb.WriteString(fmt.Sprintf("- %s\n", c))
+			fmt.Fprintf(&sb, "- %s\n", c)
 		}
 	}
 	sb.WriteString("\nReturn ONLY a JSON array: [{\"category\":\"system_prompt|intent_keywords|model_routing|reindex_document|eval_case|add_document\",\"description\":\"...\",\"action\":{}}]\n")

@@ -10,7 +10,7 @@ import (
 
 func TestEmbedder_Embed_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(embedResponse{
+		_ = json.NewEncoder(w).Encode(embedResponse{
 			Data: []struct {
 				Index     int       `json:"index"`
 				Embedding []float32 `json:"embedding"`
@@ -46,7 +46,7 @@ func TestEmbedder_Embed_Empty(t *testing.T) {
 
 func TestEmbedder_EmbedQuery_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(embedResponse{
+		_ = json.NewEncoder(w).Encode(embedResponse{
 			Data: []struct {
 				Index     int       `json:"index"`
 				Embedding []float32 `json:"embedding"`
@@ -71,7 +71,7 @@ func TestEmbedder_EmbedQuery_Success(t *testing.T) {
 
 func TestEmbedder_EmbedQuery_EmptyResult(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(embedResponse{})
+		_ = json.NewEncoder(w).Encode(embedResponse{})
 	}))
 	defer server.Close()
 

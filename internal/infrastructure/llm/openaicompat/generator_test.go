@@ -14,12 +14,12 @@ import (
 func TestGenerator_GenerateAnswer(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body chatRequest
-		json.NewDecoder(r.Body).Decode(&body)
+		_ = json.NewDecoder(r.Body).Decode(&body)
 		// Verify system message is present
 		if len(body.Messages) < 2 {
 			t.Error("expected at least 2 messages (system + user)")
 		}
-		json.NewEncoder(w).Encode(chatResponse{
+		_ = json.NewEncoder(w).Encode(chatResponse{
 			Choices: []struct {
 				Message struct {
 					Content string `json:"content"`
@@ -45,7 +45,7 @@ func TestGenerator_GenerateAnswer(t *testing.T) {
 
 func TestGenerator_GenerateFromPrompt(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(chatResponse{
+		_ = json.NewEncoder(w).Encode(chatResponse{
 			Choices: []struct {
 				Message struct {
 					Content string `json:"content"`
@@ -71,14 +71,14 @@ func TestGenerator_GenerateJSONFromPrompt(t *testing.T) {
 	var gotJSONMode bool
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]any
-		json.NewDecoder(r.Body).Decode(&body)
+		_ = json.NewDecoder(r.Body).Decode(&body)
 		if rf, ok := body["response_format"]; ok {
 			rfMap := rf.(map[string]any)
 			if rfMap["type"] == "json_object" {
 				gotJSONMode = true
 			}
 		}
-		json.NewEncoder(w).Encode(chatResponse{
+		_ = json.NewEncoder(w).Encode(chatResponse{
 			Choices: []struct {
 				Message struct {
 					Content string `json:"content"`

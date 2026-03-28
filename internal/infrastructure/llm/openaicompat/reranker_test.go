@@ -27,7 +27,7 @@ func TestReranker_Rerank_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		score := scores[callIdx%len(scores)]
 		callIdx++
-		json.NewEncoder(w).Encode(chatResponse{
+		_ = json.NewEncoder(w).Encode(chatResponse{
 			Choices: []struct {
 				Message struct {
 					Content string `json:"content"`
@@ -87,7 +87,7 @@ func TestReranker_Rerank_LLMError_Fallback(t *testing.T) {
 
 func TestReranker_Rerank_TopN(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(chatResponse{
+		_ = json.NewEncoder(w).Encode(chatResponse{
 			Choices: []struct {
 				Message struct {
 					Content string `json:"content"`
