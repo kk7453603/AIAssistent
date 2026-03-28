@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
-import { Check, ChevronDown, ChevronRight, Copy, Loader2 } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Copy, Loader2, Sparkles } from "lucide-react";
 import type { ChatMessage, ToolStatusDelta, OrchestrationStepEvent } from "../../api/types";
 import { parseThinkBlocks } from "../../utils/parseThinkBlocks";
 import { OrchestrationStepper } from "./OrchestrationStepper";
@@ -74,6 +74,33 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
+function useThinkingTimer(isThinking: boolean): number {
+  const [seconds, setSeconds] = useState(0);
+  const startRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (isThinking) {
+      startRef.current = Date.now();
+      const interval = setInterval(() => {
+        setSeconds(Math.floor((Date.now() - (startRef.current ?? Date.now())) / 1000));
+      }, 1000);
+      return () => clearInterval(interval);
+    } else if (startRef.current) {
+      setSeconds(Math.floor((Date.now() - startRef.current) / 1000));
+    }
+  }, [isThinking]);
+
+  return seconds;
+}
+
+function formatThinkingTime(seconds: number): string {
+  if (seconds < 1) return "";
+  if (seconds < 60) return `${seconds} sec`;
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}m ${secs}s`;
+}
+
 function ThinkBlock({
   thinking,
   toolStatus,
@@ -87,53 +114,90 @@ function ThinkBlock({
 }) {
   const [open, setOpen] = useState(false);
   const hasContent = thinking || toolStatus.length > 0 || orchSteps.length > 0;
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  const isActivelyThinking = isStreaming && !!thinking;
+  const thinkingSeconds = useThinkingTimer(isActivelyThinking);
+
   if (!hasContent) return null;
 
   const effectiveOpen = open || (orchSteps.length > 0 && isStreaming);
 
+  const isOrchestration = orchSteps.length > 0;
+
+  // Label logic
+  let label: string;
+  if (isOrchestration) {
+    label = isStreaming ? "Multi-Agent Orchestration..." : "Multi-Agent Orchestration";
+  } else if (isStreaming && thinking) {
+    label = "Thinking...";
+  } else {
+    const time = formatThinkingTime(thinkingSeconds);
+    label = time ? `Thought for ${time}` : "Thought process";
+  }
+
   return (
-    <div className="mb-3 rounded border border-gray-300 dark:border-gray-700 bg-gray-100/50 dark:bg-gray-800/50">
+    <div className="mb-3">
       <button
         onClick={() => setOpen(!open)}
-        className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+        className="group flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm transition-colors hover:bg-amber-50 dark:hover:bg-amber-950/20"
       >
-        {effectiveOpen ? (
-          <ChevronDown className="h-4 w-4" />
-        ) : (
-          <ChevronRight className="h-4 w-4" />
-        )}
-        <span>
-          {orchSteps.length > 0
-            ? "Multi-Agent Orchestration"
-            : isStreaming
-            ? "Thinking..."
-            : "Thought process"}
+        {/* Sparkles icon with amber color */}
+        <Sparkles
+          className={`h-4 w-4 ${
+            isActivelyThinking
+              ? "text-amber-500 animate-pulse"
+              : "text-amber-400 dark:text-amber-500"
+          }`}
+        />
+
+        <span className="text-gray-600 dark:text-gray-400 group-hover:text-gray-800 dark:group-hover:text-gray-200">
+          {label}
         </span>
-        {isStreaming && (
-          <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-400" />
+
+        {isActivelyThinking && (
+          <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+        )}
+
+        {effectiveOpen ? (
+          <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
+        ) : (
+          <ChevronRight className="h-3.5 w-3.5 text-gray-400" />
         )}
       </button>
-      {effectiveOpen && (
-        <div className="border-t border-gray-300 dark:border-gray-700 px-3 py-2">
+
+      {/* Animated content */}
+      <div
+        ref={contentRef}
+        className={`overflow-hidden transition-all duration-300 ease-in-out ${
+          effectiveOpen ? "max-h-[2000px] opacity-100" : "max-h-0 opacity-0"
+        }`}
+      >
+        <div className="mt-1 ml-3 border-l-2 border-amber-200 dark:border-amber-800/50 pl-4 py-2">
+          {/* Orchestration stepper */}
           {orchSteps.length > 0 && (
-            <div className="mb-2">
+            <div className="mb-3">
               <OrchestrationStepper steps={orchSteps} />
             </div>
           )}
+
+          {/* Tool status */}
           {toolStatus.length > 0 && (
-            <div className="mb-2 space-y-1">
+            <div className="mb-3 space-y-1">
               {deduplicateToolStatus(toolStatus, isStreaming).map((ts, i) => (
                 <ToolStatusLine key={i} tool={ts} />
               ))}
             </div>
           )}
+
+          {/* Thinking text */}
           {thinking && (
-            <pre className="whitespace-pre-wrap text-xs text-gray-500">
+            <div className="text-[13px] leading-relaxed text-gray-500 dark:text-gray-400 italic whitespace-pre-wrap">
               {thinking}
-            </pre>
+            </div>
           )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
