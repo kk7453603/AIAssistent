@@ -12,9 +12,10 @@ import (
 )
 
 type Queue struct {
-	conn     *nats.Conn
-	subject  string
-	executor *resilience.Executor
+	conn          *nats.Conn
+	subject       string
+	enrichSubject string
+	executor      *resilience.Executor
 }
 
 func New(url, subject string) (*Queue, error) {
@@ -65,9 +66,10 @@ func NewWithOptions(url, subject string, options Options) (*Queue, error) {
 		return nil, fmt.Errorf("connect nats: %w", err)
 	}
 	return &Queue{
-		conn:     conn,
-		subject:  subject,
-		executor: options.ResilienceExecutor,
+		conn:          conn,
+		subject:       subject,
+		enrichSubject: subject + ".enrich",
+		executor:      options.ResilienceExecutor,
 	}, nil
 }
 
@@ -98,12 +100,52 @@ func (q *Queue) PublishDocumentIngested(ctx context.Context, documentID string) 
 }
 
 func (q *Queue) PublishDocumentEnrich(ctx context.Context, documentID string) error {
-	// TODO: implement in Task 4
+	call := func(_ context.Context) error {
+		if err := q.conn.Publish(q.enrichSubject, []byte(documentID)); err != nil {
+			return fmt.Errorf("nats publish enrich: %w", err)
+		}
+		return nil
+	}
+
+	var err error
+	if q.executor != nil {
+		err = q.executor.Execute(ctx, "nats.publish_enrich", call, classifyNATSError)
+	} else {
+		err = call(ctx)
+	}
+	if err != nil {
+		return wrapTemporaryIfNeeded(err)
+	}
 	return nil
 }
 
 func (q *Queue) SubscribeDocumentEnrich(ctx context.Context, handler func(context.Context, string) error) error {
-	// TODO: implement in Task 4
+	sub, err := q.conn.QueueSubscribe(q.enrichSubject, "enrichers", func(msg *nats.Msg) {
+		if errors.Is(ctx.Err(), context.Canceled) {
+			return
+		}
+
+		handlerCtx, cancel := context.WithCancel(ctx)
+		defer cancel()
+		if err := handler(handlerCtx, string(msg.Data)); err != nil {
+			log.Printf("enrichment handler error for doc=%s: %v", string(msg.Data), err)
+		}
+	})
+	if err != nil {
+		return fmt.Errorf("nats subscribe enrich: %w", err)
+	}
+
+	if err := q.conn.Flush(); err != nil {
+		return fmt.Errorf("nats flush enrich: %w", err)
+	}
+
+	<-ctx.Done()
+	if err := sub.Drain(); err != nil {
+		return fmt.Errorf("nats drain enrich subscription: %w", err)
+	}
+	if err := q.conn.FlushTimeout(5 * time.Second); err != nil {
+		return fmt.Errorf("nats flush after enrich drain: %w", err)
+	}
 	return nil
 }
 
