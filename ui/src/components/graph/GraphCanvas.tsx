@@ -20,14 +20,19 @@ const EDGE_COLORS: Record<string, string> = {
   similarity: "#f97316",
 };
 
-function makeNodeGeometry(sourceType: string) {
+// Shared geometries — created once, reused for all nodes.
+const GEOM_SPHERE = new SphereGeometry(6, 12, 12);
+const GEOM_OCTAHEDRON = new OctahedronGeometry(5);
+const GEOM_DODECAHEDRON = new DodecahedronGeometry(7);
+
+function getGeometry(sourceType: string) {
   switch (sourceType) {
     case "web":
-      return new OctahedronGeometry(5);
+      return GEOM_OCTAHEDRON;
     case "obsidian":
-      return new DodecahedronGeometry(7);
+      return GEOM_DODECAHEDRON;
     default:
-      return new SphereGeometry(6, 16, 16);
+      return GEOM_SPHERE;
   }
 }
 
@@ -52,6 +57,13 @@ export function GraphCanvas() {
   const selectNode = useGraphStore((s) => s.selectNode);
   const setHoveredNode = useGraphStore((s) => s.setHoveredNode);
 
+  // Track hovered node in a ref to avoid re-creating nodeThreeObject on hover.
+  const hoveredRef = useRef<string | null>(null);
+  hoveredRef.current = hoveredNodeId;
+
+  // Cache Three.js objects per node ID to avoid re-creation.
+  const nodeObjectCache = useRef(new Map<string, Group>());
+
   // Convert to force-graph format
   const graphData = useMemo(() => {
     const links: GraphLink[] = edges.map((e) => ({
@@ -62,6 +74,11 @@ export function GraphCanvas() {
     }));
     return { nodes: [...nodes] as FGNode[], links: links as FGLink[] };
   }, [nodes, edges]);
+
+  // Clear cache when graph data changes
+  useEffect(() => {
+    nodeObjectCache.current.clear();
+  }, [nodes]);
 
   // ResizeObserver for responsive canvas
   useEffect(() => {
@@ -92,48 +109,58 @@ export function GraphCanvas() {
     }
   }, [selectedNodeId, nodes]);
 
-  // Set of connected node IDs for hover dimming
-  const connectedIds = useMemo(() => {
-    if (!hoveredNodeId) return null;
-    const ids = new Set<string>([hoveredNodeId]);
-    for (const e of edges) {
-      if (e.source_id === hoveredNodeId) ids.add(e.target_id);
-      if (e.target_id === hoveredNodeId) ids.add(e.source_id);
-    }
-    return ids;
-  }, [hoveredNodeId, edges]);
-
+  // Build node Three.js objects — cached, NOT dependent on hover state.
   const nodeThreeObject = useCallback(
     (node: FGNode) => {
       const gn = node as GraphNode;
+      const cached = nodeObjectCache.current.get(gn.id);
+      if (cached) return cached;
+
       const color = getCategoryColor(gn.category);
-      const geometry = makeNodeGeometry(gn.source_type);
-      const material = new MeshLambertMaterial({ color });
-
-      // Dim if hovering another node
-      if (connectedIds && !connectedIds.has(gn.id)) {
-        material.opacity = 0.15;
-        material.transparent = true;
-      }
-
-      // Scale up on hover
-      const scale = gn.id === hoveredNodeId ? 1.5 : 1;
-
+      const geometry = getGeometry(gn.source_type);
+      const material = new MeshLambertMaterial({ color, transparent: true });
       const mesh = new Mesh(geometry, material);
-      mesh.scale.set(scale, scale, scale);
 
-      const label = new SpriteText(gn.title || gn.filename, 3);
-      label.color = connectedIds && !connectedIds.has(gn.id) ? "#6b728066" : "#d1d5db";
-      label.backgroundColor = "transparent";
-      label.position.set(0, 10, 0);
-
+      const showLabel = nodes.length <= 80;
       const group = new Group();
       group.add(mesh);
-      group.add(label);
 
+      if (showLabel) {
+        const label = new SpriteText(gn.title || gn.filename, 3);
+        label.color = "#d1d5db";
+        label.backgroundColor = "transparent";
+        label.position.set(0, 10, 0);
+        group.add(label);
+      }
+
+      nodeObjectCache.current.set(gn.id, group);
       return group;
     },
-    [hoveredNodeId, connectedIds],
+    // Only recreate when nodes array reference changes (filter/fetch).
+    // Hover does NOT trigger recreation.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [nodes],
+  );
+
+  // Use nodeColor for hover dimming — cheap, no object recreation.
+  const nodeColor = useCallback(
+    (node: FGNode) => {
+      const gn = node as GraphNode;
+      const hovered = hoveredRef.current;
+      if (!hovered) return getCategoryColor(gn.category);
+      if (gn.id === hovered) return getCategoryColor(gn.category);
+      // Check if connected
+      for (const e of edges) {
+        if (
+          (e.source_id === hovered && e.target_id === gn.id) ||
+          (e.target_id === hovered && e.source_id === gn.id)
+        ) {
+          return getCategoryColor(gn.category);
+        }
+      }
+      return "#33333344"; // dimmed
+    },
+    [edges],
   );
 
   const handleNodeClick = useCallback(
@@ -148,6 +175,10 @@ export function GraphCanvas() {
     (node: FGNode | null) => {
       const gn = node as GraphNode | null;
       setHoveredNode(gn?.id ?? null);
+      // Update container cursor
+      if (containerRef.current) {
+        containerRef.current.style.cursor = gn ? "pointer" : "default";
+      }
     },
     [setHoveredNode],
   );
@@ -172,6 +203,18 @@ export function GraphCanvas() {
     [],
   );
 
+  // Tooltip on hover (lightweight, no object recreation)
+  const nodeLabel = useCallback(
+    (node: FGNode) => {
+      const gn = node as GraphNode;
+      return `<div style="background:#1f2937;color:#f3f4f6;padding:4px 8px;border-radius:6px;font-size:12px;max-width:200px">
+        <b>${gn.title || gn.filename}</b>
+        ${gn.category ? `<br/><span style="color:#9ca3af">${gn.category}</span>` : ""}
+      </div>`;
+    },
+    [],
+  );
+
   return (
     <div ref={containerRef} className="h-full w-full">
       <ForceGraph3D
@@ -180,7 +223,8 @@ export function GraphCanvas() {
         height={dimensions.height}
         graphData={graphData}
         nodeId="id"
-        nodeLabel=""
+        nodeLabel={nodeLabel}
+        nodeColor={nodeColor}
         nodeThreeObject={nodeThreeObject}
         nodeThreeObjectExtend={false}
         onNodeClick={handleNodeClick}
@@ -194,6 +238,10 @@ export function GraphCanvas() {
         linkDirectionalParticles={0}
         backgroundColor="#00000000"
         showNavInfo={false}
+        cooldownTicks={150}
+        warmupTicks={50}
+        d3AlphaDecay={0.05}
+        d3VelocityDecay={0.3}
       />
     </div>
   );
