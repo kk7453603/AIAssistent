@@ -25,6 +25,8 @@ type ObjectStorage interface {
 type MessageQueue interface {
 	PublishDocumentIngested(ctx context.Context, documentID string) error
 	SubscribeDocumentIngested(ctx context.Context, handler func(context.Context, string) error) error
+	PublishDocumentEnrich(ctx context.Context, documentID string) error
+	SubscribeDocumentEnrich(ctx context.Context, handler func(context.Context, string) error) error
 }
 
 // TextExtractor extracts plain text from a stored document.
@@ -53,6 +55,7 @@ type VectorStore interface {
 	IndexChunks(ctx context.Context, doc *domain.Document, chunks []string, vectors [][]float32) error
 	Search(ctx context.Context, queryVector []float32, limit int, filter domain.SearchFilter) ([]domain.RetrievedChunk, error)
 	SearchLexical(ctx context.Context, queryText string, limit int, filter domain.SearchFilter) ([]domain.RetrievedChunk, error)
+	UpdateChunksPayload(ctx context.Context, docID string, payload map[string]any) error
 }
 
 // AnswerGenerator creates the final user-facing answer.
@@ -107,4 +110,9 @@ type WebSearcher interface {
 // ObsidianNoteWriter creates notes in Obsidian vaults.
 type ObsidianNoteWriter interface {
 	CreateNote(ctx context.Context, vaultID, title, content, folder string) (string, error)
+}
+
+// MetadataExtractor extracts document metadata deterministically (no LLM).
+type MetadataExtractor interface {
+	ExtractMetadata(ctx context.Context, doc *domain.Document, text string) (domain.DocumentMetadata, error)
 }
