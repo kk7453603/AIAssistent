@@ -34,6 +34,11 @@ type TextExtractor interface {
 	Extract(ctx context.Context, doc *domain.Document) (string, error)
 }
 
+// ExtractorRegistry selects a TextExtractor based on MIME type.
+type ExtractorRegistry interface {
+	ForMimeType(mimeType string) TextExtractor
+}
+
 // DocumentClassifier classifies extracted text.
 type DocumentClassifier interface {
 	Classify(ctx context.Context, text string) (domain.Classification, error)
