@@ -37,6 +37,10 @@ func (f *ingestRepoFake) SaveClassification(context.Context, string, domain.Clas
 	return errors.New("not implemented")
 }
 
+func (f *ingestRepoFake) ListRecent(context.Context, int) ([]domain.Document, error) {
+	return nil, nil
+}
+
 type ingestStorageFake struct {
 	savedKey  string
 	savedBody string

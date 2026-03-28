@@ -55,6 +55,10 @@ func (f *processRepoFake) SaveClassification(_ context.Context, id string, cls d
 	return nil
 }
 
+func (f *processRepoFake) ListRecent(context.Context, int) ([]domain.Document, error) {
+	return nil, nil
+}
+
 type extractorFake struct {
 	text string
 	err  error

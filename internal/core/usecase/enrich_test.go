@@ -36,6 +36,10 @@ func (f *enrichRepoFake) SaveClassification(_ context.Context, id string, cls do
 	return nil
 }
 
+func (f *enrichRepoFake) ListRecent(context.Context, int) ([]domain.Document, error) {
+	return nil, nil
+}
+
 type enrichVectorFake struct {
 	updatedDocID   string
 	updatedPayload map[string]any
