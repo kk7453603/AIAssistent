@@ -3,6 +3,7 @@ package ports
 import (
 	"context"
 	"io"
+	"time"
 
 	"github.com/kirillkom/personal-ai-assistant/internal/core/domain"
 )
@@ -151,4 +152,26 @@ type OrchestrationStore interface {
 	Complete(ctx context.Context, orchID string, status string) error
 	GetByID(ctx context.Context, orchID string) (*domain.Orchestration, error)
 	ListByUser(ctx context.Context, userID string, limit int) ([]domain.Orchestration, error)
+}
+
+// EventStore records and queries agent execution events.
+type EventStore interface {
+	Record(ctx context.Context, event *domain.AgentEvent) error
+	ListByType(ctx context.Context, eventType string, since time.Time, limit int) ([]domain.AgentEvent, error)
+	CountByType(ctx context.Context, since time.Time) (map[string]int, error)
+}
+
+// FeedbackStore persists user feedback on agent responses.
+type FeedbackStore interface {
+	Create(ctx context.Context, fb *domain.AgentFeedback) error
+	ListRecent(ctx context.Context, since time.Time, limit int) ([]domain.AgentFeedback, error)
+	CountByRating(ctx context.Context, since time.Time) (map[string]int, error)
+}
+
+// ImprovementStore manages generated improvement suggestions.
+type ImprovementStore interface {
+	Create(ctx context.Context, imp *domain.AgentImprovement) error
+	ListPending(ctx context.Context) ([]domain.AgentImprovement, error)
+	UpdateStatus(ctx context.Context, id string, status string) error
+	MarkApplied(ctx context.Context, id string) error
 }

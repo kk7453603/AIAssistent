@@ -142,6 +142,38 @@ CREATE TABLE IF NOT EXISTS orchestrations (
 );
 CREATE INDEX IF NOT EXISTS idx_orchestrations_user_conv
     ON orchestrations(user_id, conversation_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS agent_events (
+	id TEXT PRIMARY KEY,
+	user_id TEXT,
+	conversation_id TEXT,
+	event_type TEXT NOT NULL,
+	details JSONB NOT NULL,
+	created_at TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_agent_events_type_created ON agent_events(event_type, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS agent_feedback (
+	id TEXT PRIMARY KEY,
+	user_id TEXT NOT NULL,
+	conversation_id TEXT NOT NULL,
+	message_id TEXT,
+	rating TEXT NOT NULL,
+	comment TEXT,
+	created_at TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_agent_feedback_user_created ON agent_feedback(user_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS agent_improvements (
+	id TEXT PRIMARY KEY,
+	category TEXT NOT NULL,
+	description TEXT NOT NULL,
+	action JSONB NOT NULL,
+	status TEXT NOT NULL,
+	created_at TIMESTAMPTZ NOT NULL,
+	applied_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_agent_improvements_status ON agent_improvements(status, created_at DESC);
 `
 	if _, err := tx.ExecContext(ctx, query); err != nil {
 		return fmt.Errorf("execute schema ddl: %w", err)
