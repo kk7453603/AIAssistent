@@ -42,3 +42,5 @@ Thumbs.db
 # Misc
 *.log
 *.txt
+scripts/eval/.venv/
+!scripts/eval/ragas_requirements.txt

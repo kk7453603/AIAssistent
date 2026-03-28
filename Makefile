@@ -1,4 +1,4 @@
-.PHONY: generate-openapi generate test vet test-core-cover eval eval-cases eval-compare monitoring-validate
+.PHONY: generate-openapi generate test vet test-core-cover eval eval-ragas eval-cases eval-compare monitoring-validate
 
 EVAL_API_URL ?= http://localhost:8080
 EVAL_CASES ?= scripts/eval/cases.example.jsonl
@@ -28,6 +28,13 @@ test-core-cover:
 
 eval:
 	scripts/eval/run.sh --api-url "$(EVAL_API_URL)" --cases "$(EVAL_CASES)" --k "$(EVAL_K)" --out "$(EVAL_REPORT)"
+
+eval-ragas:
+	python3 scripts/eval/ragas_eval.py \
+		--api-url "$(EVAL_API_URL)" \
+		--cases "$(EVAL_CASES)" \
+		--k $(EVAL_K) \
+		--out ./tmp/eval/ragas_report.json
 
 eval-cases:
 	scripts/eval/generate_cases_from_manifest.sh --manifest "$(EVAL_MANIFEST)" --out "$(EVAL_GENERATED_CASES)"
