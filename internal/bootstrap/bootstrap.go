@@ -15,8 +15,11 @@ import (
 	"github.com/kirillkom/personal-ai-assistant/internal/observability/metrics"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/chunking"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/extractor"
+	extdocx "github.com/kirillkom/personal-ai-assistant/internal/infrastructure/extractor/docx"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/extractor/metadata"
+	extpdf "github.com/kirillkom/personal-ai-assistant/internal/infrastructure/extractor/pdf"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/extractor/plaintext"
+	extspreadsheet "github.com/kirillkom/personal-ai-assistant/internal/infrastructure/extractor/spreadsheet"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/llm/fallback"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/llm/ollama"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/llm/openaicompat"
@@ -262,6 +265,10 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 	}
 	plaintextExtractor := plaintext.NewExtractor(storage)
 	extractorRegistry := extractor.NewRegistry(plaintextExtractor)
+	extractorRegistry.Register("application/pdf", extpdf.NewExtractor(storage))
+	extractorRegistry.Register("application/vnd.openxmlformats-officedocument.wordprocessingml.document", extdocx.NewExtractor(storage))
+	extractorRegistry.Register("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", extspreadsheet.NewExtractor(storage))
+	extractorRegistry.Register("text/csv", extspreadsheet.NewExtractor(storage))
 
 	fusionStrategy := domain.FusionStrategy(strings.ToLower(strings.TrimSpace(cfg.RAGFusionStrategy)))
 	if fusionStrategy != domain.FusionStrategyRRF {
