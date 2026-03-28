@@ -31,7 +31,7 @@ export function GraphPage({ onNavigateToVault }: Props) {
   );
 
   // Empty state
-  if (!loading && !error && graph && graph.nodes.length === 0) {
+  if (!loading && !error && graph && (!graph.nodes || graph.nodes.length === 0)) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4 text-gray-500 dark:text-gray-400">
         <Network className="h-16 w-16 opacity-30" />
