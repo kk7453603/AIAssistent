@@ -132,3 +132,14 @@ type SourceAdapter interface {
 	Ingest(ctx context.Context, req domain.SourceRequest) (*domain.IngestResult, error)
 	SourceType() string
 }
+
+// GraphStore manages the document knowledge graph.
+type GraphStore interface {
+	UpsertDocument(ctx context.Context, doc domain.GraphNode) error
+	AddLink(ctx context.Context, sourceID, targetID string, linkType string) error
+	AddSimilarity(ctx context.Context, sourceID, targetID string, score float64) error
+	RemoveSimilarities(ctx context.Context, docID string) error
+	GetRelated(ctx context.Context, docID string, maxDepth int, limit int) ([]domain.GraphRelation, error)
+	FindByTitle(ctx context.Context, title string) ([]domain.GraphNode, error)
+	GetGraph(ctx context.Context, filter domain.GraphFilter) (*domain.Graph, error)
+}
