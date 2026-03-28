@@ -202,7 +202,19 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		embedder = ollama.NewEmbedder(ollamaClient)
 	}
 
-	vectorDB := qdrant.NewWithOptions(cfg.QdrantURL, cfg.QdrantCollection, qdrant.Options{
+	// Parse search order for multi-collection store.
+	var searchOrder []string
+	for _, s := range strings.Split(strings.TrimSpace(cfg.QdrantSearchOrder), ",") {
+		s = strings.TrimSpace(s)
+		if s != "" {
+			searchOrder = append(searchOrder, s)
+		}
+	}
+	if len(searchOrder) == 0 {
+		searchOrder = []string{"upload"}
+	}
+
+	vectorDB := qdrant.NewMultiCollectionStore(cfg.QdrantURL, cfg.QdrantCollection, searchOrder, searchOrder, qdrant.Options{
 		ResilienceExecutor: resilienceExecutor,
 	})
 	memoryVector := qdrant.NewMemoryClientWithOptions(cfg.QdrantURL, cfg.QdrantMemoryCollection, qdrant.Options{
@@ -210,8 +222,8 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 	})
 
 	if cfg.QdrantEmbedDim > 0 {
-		if err := vectorDB.EnsureCollection(ctx, cfg.QdrantEmbedDim); err != nil {
-			return nil, fmt.Errorf("ensure qdrant documents collection: %w", err)
+		if err := vectorDB.EnsureCollections(ctx, cfg.QdrantEmbedDim); err != nil {
+			return nil, fmt.Errorf("ensure qdrant document collections: %w", err)
 		}
 		if err := memoryVector.EnsureCollection(ctx, cfg.QdrantEmbedDim); err != nil {
 			return nil, fmt.Errorf("ensure qdrant memory collection: %w", err)

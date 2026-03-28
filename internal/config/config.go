@@ -44,6 +44,7 @@ type Config struct {
 	QdrantCollection       string
 	QdrantMemoryCollection string
 	QdrantEmbedDim         int
+	QdrantSearchOrder      string
 
 	StoragePath string
 
@@ -155,6 +156,7 @@ func Load() Config {
 		QdrantCollection:       mustEnv("QDRANT_COLLECTION", "documents"),
 		QdrantMemoryCollection: mustEnv("QDRANT_MEMORY_COLLECTION", "conversation_memory"),
 		QdrantEmbedDim:         mustEnvInt("QDRANT_EMBED_DIM", 0),
+		QdrantSearchOrder:      mustEnv("QDRANT_SEARCH_ORDER", "upload,web,obsidian"),
 
 		StoragePath: mustEnv("STORAGE_PATH", "./data/storage"),
 
