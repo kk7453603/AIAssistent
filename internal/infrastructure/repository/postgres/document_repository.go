@@ -123,6 +123,11 @@ CREATE TABLE IF NOT EXISTS memory_summaries (
 
 CREATE INDEX IF NOT EXISTS idx_memory_summaries_user_conv_created
 	ON memory_summaries(user_id, conversation_id, created_at DESC);
+
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS source_type TEXT NOT NULL DEFAULT '';
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS title TEXT NOT NULL DEFAULT '';
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS headers JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS path TEXT NOT NULL DEFAULT '';
 `
 	if _, err := tx.ExecContext(ctx, query); err != nil {
 		return fmt.Errorf("execute schema ddl: %w", err)
@@ -140,13 +145,26 @@ func (r *DocumentRepository) Create(ctx context.Context, doc *domain.Document) e
 		return fmt.Errorf("marshal tags: %w", err)
 	}
 
+	headers := doc.Headers
+	if headers == nil {
+		headers = []string{}
+	}
+	headersJSON, err := json.Marshal(headers)
+	if err != nil {
+		return fmt.Errorf("marshal headers: %w", err)
+	}
+
 	_, err = r.db.ExecContext(ctx, `
 INSERT INTO documents (
-	id, filename, mime_type, storage_path, category, subcategory, tags, confidence, summary, status, error_message, created_at, updated_at
-) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+	id, filename, mime_type, storage_path, category, subcategory, tags, confidence, summary,
+	source_type, title, headers, path,
+	status, error_message, created_at, updated_at
+) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
 `,
 		doc.ID, doc.Filename, doc.MimeType, doc.StoragePath, doc.Category, doc.Subcategory, tagsJSON,
-		doc.Confidence, doc.Summary, string(doc.Status), doc.Error, doc.CreatedAt, doc.UpdatedAt,
+		doc.Confidence, doc.Summary,
+		doc.SourceType, doc.Title, headersJSON, doc.Path,
+		string(doc.Status), doc.Error, doc.CreatedAt, doc.UpdatedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("insert document: %w", err)
@@ -156,18 +174,23 @@ INSERT INTO documents (
 
 func (r *DocumentRepository) GetByID(ctx context.Context, id string) (*domain.Document, error) {
 	row := r.db.QueryRowContext(ctx, `
-SELECT id, filename, mime_type, storage_path, category, subcategory, tags, confidence, summary, status, error_message, created_at, updated_at
+SELECT id, filename, mime_type, storage_path, category, subcategory, tags, confidence, summary,
+	source_type, title, headers, path,
+	status, error_message, created_at, updated_at
 FROM documents
 WHERE id = $1
 `, id)
 
 	var doc domain.Document
 	var tagsRaw []byte
+	var headersRaw []byte
 	var status string
 
 	err := row.Scan(
 		&doc.ID, &doc.Filename, &doc.MimeType, &doc.StoragePath, &doc.Category, &doc.Subcategory,
-		&tagsRaw, &doc.Confidence, &doc.Summary, &status, &doc.Error, &doc.CreatedAt, &doc.UpdatedAt,
+		&tagsRaw, &doc.Confidence, &doc.Summary,
+		&doc.SourceType, &doc.Title, &headersRaw, &doc.Path,
+		&status, &doc.Error, &doc.CreatedAt, &doc.UpdatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -178,6 +201,9 @@ WHERE id = $1
 
 	if err := json.Unmarshal(tagsRaw, &doc.Tags); err != nil {
 		return nil, fmt.Errorf("unmarshal tags: %w", err)
+	}
+	if err := json.Unmarshal(headersRaw, &doc.Headers); err != nil {
+		return nil, fmt.Errorf("unmarshal headers: %w", err)
 	}
 	doc.Status = domain.DocumentStatus(status)
 	return &doc, nil
