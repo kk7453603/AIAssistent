@@ -40,6 +40,29 @@ func classifyComplexityRules(message string, intent Intent) domain.ComplexityTie
 	return TierUncertain
 }
 
+var orchestrateKeywords = []string{
+	"исследуй подробно", "проанализируй детально", "deep research",
+	"подробный анализ", "detailed analysis", "thorough investigation",
+	"исследуй и напиши", "research and write",
+}
+
+// shouldOrchestrate returns true when the request warrants multi-agent orchestration.
+func shouldOrchestrate(intent Intent, complexity domain.ComplexityTier, message string) bool {
+	if complexity != domain.TierComplex {
+		return false
+	}
+	if intent == IntentGeneral {
+		return false
+	}
+	lower := strings.ToLower(message)
+	for _, kw := range orchestrateKeywords {
+		if strings.Contains(lower, kw) {
+			return true
+		}
+	}
+	return false
+}
+
 // AutoAssignTiers automatically maps discovered models to complexity tiers.
 func AutoAssignTiers(models []domain.ModelInfo, defaultModel string) domain.ModelRouting {
 	routing := domain.ModelRouting{

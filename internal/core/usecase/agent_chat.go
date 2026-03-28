@@ -43,6 +43,7 @@ type AgentChatUseCase struct {
 	obsidianVaults  []ports.AgentVaultInfo
 	modelRouting    *domain.ModelRouting
 	graphStore      ports.GraphStore
+	orchestrator    *OrchestratorUseCase
 }
 
 func NewAgentChatUseCase(
@@ -115,6 +116,10 @@ func (uc *AgentChatUseCase) SetModelRouting(r *domain.ModelRouting) {
 
 func (uc *AgentChatUseCase) SetGraphStore(g ports.GraphStore) {
 	uc.graphStore = g
+}
+
+func (uc *AgentChatUseCase) SetOrchestrator(o *OrchestratorUseCase) {
+	uc.orchestrator = o
 }
 
 func (uc *AgentChatUseCase) Complete(ctx context.Context, req domain.AgentChatRequest, onToolStatus domain.ToolStatusCallback) (*domain.AgentRunResult, error) {
@@ -198,8 +203,9 @@ func (uc *AgentChatUseCase) Complete(ctx context.Context, req domain.AgentChatRe
 		uc.agentMetrics.IntentClassifications.WithLabelValues(string(intent)).Inc()
 	}
 	// Adaptive model routing based on complexity.
+	var tier domain.ComplexityTier = domain.TierSimple
 	if uc.modelRouting != nil {
-		tier := classifyComplexityRules(lastUserMessage, intent)
+		tier = classifyComplexityRules(lastUserMessage, intent)
 		if tier == TierUncertain {
 			tier = domain.TierComplex // safer default
 		}
@@ -207,6 +213,13 @@ func (uc *AgentChatUseCase) Complete(ctx context.Context, req domain.AgentChatRe
 		ctx = routing.WithProvider(ctx, model)
 		slog.Info("adaptive_routing", "tier", tier, "model", model, "intent", intent)
 	}
+
+	// Multi-agent orchestration for complex tasks.
+	if uc.orchestrator != nil && shouldOrchestrate(intent, tier, lastUserMessage) {
+		slog.Info("orchestrating_multi_agent", "intent", intent, "tier", tier)
+		return uc.orchestrator.Execute(ctx, req, onToolStatus)
+	}
+
 	systemPrompt := buildSystemPrompt(ctx, intent, memoryHits, uc.toolRegistry, uc.obsidianVaults)
 	toolSchemas := toolSchemasFromRegistry(uc.toolRegistry, webSearchAvailable)
 
