@@ -50,10 +50,10 @@ Definition of Done:
 - Режим retrieval переключается без изменения бизнес-логики adapter слоя.
 
 ### Этап 2.5 (Недели 4-5): Stabilize Ingest + Multilingual Rerank
-- [ ] Убрать LLM-классификацию из ingest: перейти на детерминированное извлечение метаданных (frontmatter/путь/файл) и сделать классификацию best-effort/async.
-- [ ] Унифицировать токенизацию для reranker и sparse: Unicode-aware токены (RU/EN), общий helper.
-- [ ] Расширить метаданные документа: `source_type`, `source_id`, `path`, `tags`, `headers`, `created_at`, `updated_at`.
-- [ ] Ввести `SourceAdapter`/`Ingestor` интерфейс под будущие источники (Obsidian, веб, файлы, базы знаний).
+- [x] Убрать LLM-классификацию из ingest: перейти на детерминированное извлечение метаданных (frontmatter/путь/файл) и сделать классификацию best-effort/async.
+- [x] Унифицировать токенизацию для reranker и sparse: Unicode-aware токены (RU/EN), общий helper.
+- [x] Расширить метаданные документа: `source_type`, `source_id`, `path`, `tags`, `headers`, `created_at`, `updated_at`.
+- [x] Ввести `SourceAdapter`/`Ingestor` интерфейс под будущие источники (Obsidian, веб, файлы, базы знаний).
 
 Definition of Done:
 - Ingest не падает из-за LLM-ответов; все документы проходят векторизацию.
@@ -61,9 +61,9 @@ Definition of Done:
 - Метаданные унифицированы и пригодны для multi-source фильтров.
 
 ### Этап 2.6 (Недели 5-6): Multi-Source Ready RAG
-- [ ] Единый контракт на метаданные и схему фильтров (source, tags, path, time).
-- [ ] Векторная коллекция с namespace/tenant-изолированием по источнику.
-- [ ] Конфигurable chunking на источник (md headers для Obsidian, plain/fixed для файлов).
+- [x] Единый контракт на метаданные и схему фильтров (source, tags, path, time).
+- [x] Векторная коллекция с namespace/tenant-изолированием по источнику.
+- [x] Конфигurable chunking на источник (md headers для Obsidian, plain/fixed для файлов).
 
 Definition of Done:
 - Добавление нового источника не требует изменений в retrieval core.
@@ -131,19 +131,19 @@ Specs: `docs/superpowers/specs/2026-03-22-ui-*.md`
 
 #### Уровень 2: Качество и память
 
-- [ ] PDF/DOCX/OCR document extraction
-- [ ] RAG evaluation pipeline (RAGAS, faithfulness, relevancy)
-- [ ] Adaptive model routing (автовыбор модели по типу задачи)
-- [ ] Knowledge graph (граф связей между заметками)
-- [ ] Auto-tagging & classification (автотегирование при синхронизации)
+- [x] PDF/DOCX/XLSX/CSV document extraction
+- [x] RAG evaluation pipeline (RAGAS, faithfulness, relevancy)
+- [x] Adaptive model routing (автовыбор модели по типу задачи)
+- [x] Knowledge graph (Neo4j — wikilinks, similarity, retrieval boost)
+- [x] Auto-tagging & classification (async LLM enrichment)
 - [ ] Fine-tuned embedding models for RU
 
 #### Уровень 3: Автоматизация и агенты
 
-- [ ] Multi-agent orchestration (researcher, coder, writer)
-- [ ] Scheduled tasks (recurring cron-подобный scheduler)
-- [ ] Self-improving agent (анализ ошибок → предложение улучшений)
-- [ ] Plugin system for custom tools (добавление тулов через YAML/JSON без Go кода)
+- [x] Multi-agent orchestration (dynamic orchestrator + specialist agents)
+- [x] Scheduled tasks (cron scheduler + conditional execution + webhooks)
+- [x] Self-improving agent (event analysis + auto-apply improvements)
+- [x] Plugin system for custom tools (JSON HTTP tools + MCP)
 
 #### Уровень 4: Инфраструктура
 
