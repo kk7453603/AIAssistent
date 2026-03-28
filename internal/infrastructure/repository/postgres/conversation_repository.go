@@ -5,7 +5,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/kirillkom/personal-ai-assistant/internal/core/domain"
 )
@@ -74,6 +76,10 @@ func (r *ConversationRepository) AppendMessage(ctx context.Context, message doma
 	if message.CreatedAt.IsZero() {
 		message.CreatedAt = time.Now().UTC()
 	}
+	// Defensive: strip any invalid UTF-8 bytes before INSERT to avoid
+	// PostgreSQL "invalid byte sequence for encoding UTF8" errors
+	// (e.g. truncated Cyrillic characters from SearXNG web search results).
+	message.Content = sanitizeUTF8pg(message.Content)
 	_, err := r.db.ExecContext(ctx, `
 INSERT INTO conversation_messages (id, user_id, conversation_id, role, content, tool_name, user_turn, created_at)
 VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
@@ -173,6 +179,27 @@ WHERE user_id = $1 AND conversation_id = $2
 		return fmt.Errorf("update last summary turn: %w", err)
 	}
 	return nil
+}
+
+// sanitizeUTF8pg strips invalid UTF-8 byte sequences so the string can be
+// safely inserted into PostgreSQL without "invalid byte sequence for encoding
+// UTF8" errors (e.g. truncated multi-byte Cyrillic characters from web search).
+func sanitizeUTF8pg(s string) string {
+	if utf8.ValidString(s) {
+		return s
+	}
+	var b strings.Builder
+	b.Grow(len(s))
+	for i := 0; i < len(s); {
+		r, size := utf8.DecodeRuneInString(s[i:])
+		if r == utf8.RuneError && size <= 1 {
+			i++ // skip invalid byte
+			continue
+		}
+		b.WriteRune(r)
+		i += size
+	}
+	return b.String()
 }
 
 func nullableString(v string) interface{} {

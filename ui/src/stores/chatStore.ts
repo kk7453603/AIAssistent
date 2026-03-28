@@ -123,7 +123,16 @@ export const useChatStore = create<ChatState>()(
 
                 if (delta?.tool_status) {
                   const ts: ToolStatusDelta = JSON.parse(delta.tool_status);
-                  set((s) => ({ toolStatus: [...s.toolStatus, ts] }));
+                  // Upsert by tool name: replace existing entry instead of appending duplicates
+                  set((s) => {
+                    const idx = s.toolStatus.findIndex((t) => t.tool === ts.tool);
+                    if (idx >= 0) {
+                      const updated = [...s.toolStatus];
+                      updated[idx] = ts;
+                      return { toolStatus: updated };
+                    }
+                    return { toolStatus: [...s.toolStatus, ts] };
+                  });
                   useDashboardStore.getState().addActivity(ts);
                   continue;
                 }
@@ -170,14 +179,27 @@ export const useChatStore = create<ChatState>()(
             }));
           }
         } finally {
-          // Persist final messages
-          set((s) => ({
-            isStreaming: false,
-            messagesByConversation: {
-              ...s.messagesByConversation,
-              [conversationId]: s.messages,
-            },
-          }));
+          // Finalize any remaining "running" tool statuses and persist messages
+          set((s) => {
+            const finalizedToolStatus = s.toolStatus.map((ts) =>
+              ts.status === "running" ? { ...ts, status: "ok" as const } : ts,
+            );
+            return {
+              isStreaming: false,
+              toolStatus: finalizedToolStatus,
+              messagesByConversation: {
+                ...s.messagesByConversation,
+                [conversationId]: s.messages,
+              },
+            };
+          });
+          // Also finalize any "running" entries in the dashboard activity feed
+          const dashStore = useDashboardStore.getState();
+          for (const a of dashStore.activities) {
+            if (a.status === "running") {
+              dashStore.updateActivity(a.tool, "ok");
+            }
+          }
           abortController = null;
         }
       },

@@ -23,7 +23,6 @@ export function ChatPage({ pendingReference, onReferenceClear }: Props) {
     toolStatus,
     sendMessage,
     stopStreaming,
-    clearMessages,
     loadConversation,
   } = useChatStore();
 
@@ -62,9 +61,9 @@ export function ChatPage({ pendingReference, onReferenceClear }: Props) {
   );
 
   const handleNewChat = useCallback(() => {
-    createConversation();
-    clearMessages();
-  }, [createConversation, clearMessages]);
+    const newId = createConversation();
+    loadConversation(newId);
+  }, [createConversation, loadConversation]);
 
   const handleSelectConversation = useCallback(
     (id: string) => {

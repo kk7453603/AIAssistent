@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strconv"
 	"strings"
 	"sync"
@@ -211,6 +212,10 @@ func (uc *AgentChatUseCase) Complete(ctx context.Context, req domain.AgentChatRe
 				fallbackReason = "timeout"
 			} else {
 				fallbackReason = "planner_error"
+				slog.Error("agent_planner_error",
+					"error", err.Error(),
+					"iteration", i,
+				)
 			}
 			break
 		}
@@ -399,7 +404,7 @@ func (uc *AgentChatUseCase) Complete(ctx context.Context, req domain.AgentChatRe
 		UserID:         userID,
 		ConversationID: conversationID,
 		Role:           "assistant",
-		Content:        finalAnswer,
+		Content:        sanitizeUTF8(finalAnswer),
 		UserTurn:       turn,
 		CreatedAt:      time.Now().UTC(),
 	}); err != nil {
@@ -945,11 +950,23 @@ func intFromArgs(args map[string]any, key string, fallback int) int {
 	return fallback
 }
 
-// sanitizeUTF8 replaces invalid UTF-8 byte sequences with the Unicode
-// replacement character so the string can be safely stored in PostgreSQL.
+// sanitizeUTF8 strips invalid UTF-8 byte sequences (e.g. truncated multi-byte
+// Cyrillic characters from SearXNG) so the string can be safely stored in
+// PostgreSQL without triggering "invalid byte sequence for encoding UTF8".
 func sanitizeUTF8(s string) string {
 	if utf8.ValidString(s) {
 		return s
 	}
-	return strings.ToValidUTF8(s, "\uFFFD")
+	var b strings.Builder
+	b.Grow(len(s))
+	for i := 0; i < len(s); {
+		r, size := utf8.DecodeRuneInString(s[i:])
+		if r == utf8.RuneError && size <= 1 {
+			i++ // skip invalid byte
+			continue
+		}
+		b.WriteRune(r)
+		i += size
+	}
+	return b.String()
 }
