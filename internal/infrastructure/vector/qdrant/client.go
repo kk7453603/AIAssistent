@@ -176,7 +176,7 @@ func (c *Client) IndexChunks(ctx context.Context, doc *domain.Document, chunks [
 	return nil
 }
 
-func (c *Client) UpdateChunksPayload(ctx context.Context, docID string, payload map[string]any) error {
+func (c *Client) UpdateChunksPayload(ctx context.Context, docID string, sourceType string, payload map[string]any) error {
 	reqBody := map[string]any{
 		"payload": payload,
 		"filter": map[string]any{

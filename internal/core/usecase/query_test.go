@@ -61,7 +61,7 @@ func (f *queryVectorFake) SearchLexical(_ context.Context, _ string, limit int, 
 	return []domain.RetrievedChunk{{DocumentID: "doc-2", ChunkIndex: 1, Text: "lex", Score: 0.8}}, nil
 }
 
-func (f *queryVectorFake) UpdateChunksPayload(context.Context, string, map[string]any) error {
+func (f *queryVectorFake) UpdateChunksPayload(context.Context, string, string, map[string]any) error {
 	return nil
 }
 

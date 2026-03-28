@@ -134,7 +134,7 @@ func (f *vectorFake) SearchLexical(context.Context, string, int, domain.SearchFi
 	return nil, nil
 }
 
-func (f *vectorFake) UpdateChunksPayload(context.Context, string, map[string]any) error { return nil }
+func (f *vectorFake) UpdateChunksPayload(context.Context, string, string, map[string]any) error { return nil }
 
 func TestProcessByIDSuccess(t *testing.T) {
 	repo := &processRepoFake{doc: &domain.Document{ID: "doc-1", Filename: "test.md"}}

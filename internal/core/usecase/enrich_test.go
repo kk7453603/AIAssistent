@@ -51,7 +51,7 @@ func (f *enrichVectorFake) Search(context.Context, []float32, int, domain.Search
 func (f *enrichVectorFake) SearchLexical(context.Context, string, int, domain.SearchFilter) ([]domain.RetrievedChunk, error) {
 	return nil, nil
 }
-func (f *enrichVectorFake) UpdateChunksPayload(_ context.Context, docID string, payload map[string]any) error {
+func (f *enrichVectorFake) UpdateChunksPayload(_ context.Context, docID string, _ string, payload map[string]any) error {
 	if f.updateErr != nil {
 		return f.updateErr
 	}

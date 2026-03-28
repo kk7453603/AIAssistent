@@ -23,7 +23,7 @@ func TestUpdateChunksPayload_BuildsCorrectRequest(t *testing.T) {
 	defer server.Close()
 
 	client := New(server.URL, "test-collection")
-	err := client.UpdateChunksPayload(context.Background(), "doc-123", map[string]any{
+	err := client.UpdateChunksPayload(context.Background(), "doc-123", "", map[string]any{
 		"category": "science",
 		"tags":     []string{"physics"},
 	})

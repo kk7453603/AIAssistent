@@ -60,7 +60,7 @@ func (uc *EnrichDocumentUseCase) EnrichByID(ctx context.Context, documentID stri
 		"subcategory": merged.Subcategory,
 		"tags":        merged.Tags,
 	}
-	if err := uc.vectorDB.UpdateChunksPayload(ctx, doc.ID, payload); err != nil {
+	if err := uc.vectorDB.UpdateChunksPayload(ctx, doc.ID, doc.SourceType, payload); err != nil {
 		slog.Warn("enrich_update_qdrant_failed", "document_id", documentID, "error", err)
 	}
 
