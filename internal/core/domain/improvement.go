@@ -3,32 +3,32 @@ package domain
 import "time"
 
 type AgentEvent struct {
-	ID             string
-	UserID         string
-	ConversationID string
-	EventType      string
-	Details        map[string]any
-	CreatedAt      time.Time
+	ID             string         `json:"id"`
+	UserID         string         `json:"user_id"`
+	ConversationID string         `json:"conversation_id"`
+	EventType      string         `json:"event_type"`
+	Details        map[string]any `json:"details"`
+	CreatedAt      time.Time      `json:"created_at"`
 }
 
 type AgentFeedback struct {
-	ID             string
-	UserID         string
-	ConversationID string
-	MessageID      string
-	Rating         string
-	Comment        string
-	CreatedAt      time.Time
+	ID             string    `json:"id"`
+	UserID         string    `json:"user_id"`
+	ConversationID string    `json:"conversation_id"`
+	MessageID      string    `json:"message_id,omitempty"`
+	Rating         string    `json:"rating"`
+	Comment        string    `json:"comment,omitempty"`
+	CreatedAt      time.Time `json:"created_at"`
 }
 
 type AgentImprovement struct {
-	ID          string
-	Category    string
-	Description string
-	Action      map[string]any
-	Status      string
-	CreatedAt   time.Time
-	AppliedAt   *time.Time
+	ID          string         `json:"id"`
+	Category    string         `json:"category"`
+	Description string         `json:"description"`
+	Action      map[string]any `json:"action"`
+	Status      string         `json:"status"`
+	CreatedAt   time.Time      `json:"created_at"`
+	AppliedAt   *time.Time     `json:"applied_at,omitempty"`
 }
 
 const (
