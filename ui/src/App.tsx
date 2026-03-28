@@ -6,6 +6,8 @@ import { VaultBrowserPage } from "./pages/VaultBrowserPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { useSettingsStore } from "./stores/settingsStore";
+import { useVaultStore } from "./stores/vaultStore";
+import { getApiUrl } from "./api/client";
 import { isTauri } from "./utils/isTauri";
 
 const GraphPage = lazy(() =>
@@ -153,6 +155,18 @@ export default function App() {
               onNavigateToVault={(path) => {
                 setPendingVaultPath(path);
                 setPage("vault");
+              }}
+              onViewDocument={async (docId) => {
+                try {
+                  const resp = await fetch(`${getApiUrl()}/v1/documents/${docId}/content`);
+                  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                  const data = await resp.json() as { filename: string; content: string };
+                  useVaultStore.getState().showDocument(data.filename, data.content);
+                  setPage("vault");
+                } catch {
+                  // fallback: just navigate
+                  setPage("vault");
+                }
               }}
             />
           </Suspense>

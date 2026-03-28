@@ -1,10 +1,6 @@
-import { useState } from "react";
-import { ChevronDown, ChevronRight, ExternalLink, Eye, Loader2, X } from "lucide-react";
-import Markdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { ExternalLink, FileText, X } from "lucide-react";
 import { useGraphStore } from "../../stores/graphStore";
 import { getCategoryColor } from "./GraphLegend";
-import { apiFetch } from "../../api/client";
 import type { GraphNode, GraphRelation } from "../../api/types";
 
 interface Props {
@@ -12,37 +8,17 @@ interface Props {
   edges: GraphRelation[];
   allNodes: GraphNode[];
   onNavigateToVault: (path: string) => void;
+  onViewDocument: (docId: string) => void;
 }
 
-export function NodeDetails({ node, edges, allNodes, onNavigateToVault }: Props) {
+export function NodeDetails({ node, edges, allNodes, onNavigateToVault, onViewDocument }: Props) {
   const selectNode = useGraphStore((s) => s.selectNode);
-  const [docContent, setDocContent] = useState<string | null>(null);
-  const [contentLoading, setContentLoading] = useState(false);
-  const [contentOpen, setContentOpen] = useState(false);
 
   const nodeMap = new Map(allNodes.map((n) => [n.id, n]));
 
   const relatedEdges = edges.filter(
     (e) => e.source_id === node.id || e.target_id === node.id,
   );
-
-  const handleViewContent = async () => {
-    if (docContent !== null) {
-      setContentOpen(!contentOpen);
-      return;
-    }
-    setContentLoading(true);
-    try {
-      const data = await apiFetch<{ content: string }>(`/v1/documents/${node.id}/content`);
-      setDocContent(data.content);
-      setContentOpen(true);
-    } catch {
-      setDocContent("Failed to load document content.");
-      setContentOpen(true);
-    } finally {
-      setContentLoading(false);
-    }
-  };
 
   return (
     <div className="flex flex-col h-full border-l border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
@@ -123,38 +99,21 @@ export function NodeDetails({ node, edges, allNodes, onNavigateToVault }: Props)
             </ul>
           </div>
         )}
-
-        {/* Document content preview */}
-        <div>
-          <button
-            onClick={handleViewContent}
-            disabled={contentLoading}
-            className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
-          >
-            {contentLoading ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : contentOpen ? (
-              <ChevronDown className="h-3.5 w-3.5" />
-            ) : (
-              <ChevronRight className="h-3.5 w-3.5" />
-            )}
-            <Eye className="h-3.5 w-3.5" />
-            {contentOpen ? "Hide content" : "View content"}
-          </button>
-          {contentOpen && docContent !== null && (
-            <div className="mt-2 rounded border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-3 prose dark:prose-invert prose-xs max-w-none overflow-auto max-h-[400px]">
-              <Markdown remarkPlugins={[remarkGfm]}>{docContent}</Markdown>
-            </div>
-          )}
-        </div>
       </div>
 
       {/* Footer */}
       <div className="border-t border-gray-200 dark:border-gray-800 p-4 space-y-2">
+        <button
+          onClick={() => onViewDocument(node.id)}
+          className="flex w-full items-center justify-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+        >
+          <FileText className="h-4 w-4" />
+          View Document
+        </button>
         {node.source_type === "obsidian" && node.path && (
           <button
             onClick={() => onNavigateToVault(node.path)}
-            className="flex w-full items-center justify-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            className="flex w-full items-center justify-center gap-2 rounded-md border border-gray-300 dark:border-gray-700 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
           >
             <ExternalLink className="h-4 w-4" />
             Open in Vault Browser

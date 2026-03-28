@@ -53,6 +53,7 @@ interface VaultState {
   selectVault: (name: string) => void;
   loadDir: (path: string) => Promise<void>;
   selectFile: (path: string) => Promise<void>;
+  showDocument: (filename: string, content: string) => void;
   searchVault: (query: string) => Promise<void>;
   clearSearch: () => void;
   getFileContent: (path: string) => Promise<string>;
@@ -193,6 +194,10 @@ export const useVaultStore = create<VaultState>()((set, get) => ({
         set({ selectedFilePath: path, fileContent: "Failed to read file." });
       }
     }
+  },
+
+  showDocument: (filename, content) => {
+    set({ selectedFilePath: filename, fileContent: content });
   },
 
   searchVault: async (query) => {

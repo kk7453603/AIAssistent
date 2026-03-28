@@ -9,9 +9,10 @@ import { NodeDetails } from "../components/graph/NodeDetails";
 
 interface Props {
   onNavigateToVault?: (path: string) => void;
+  onViewDocument?: (docId: string) => void;
 }
 
-export function GraphPage({ onNavigateToVault }: Props) {
+export function GraphPage({ onNavigateToVault, onViewDocument }: Props) {
   const fetch = useGraphStore((s) => s.fetch);
   const loading = useGraphStore((s) => s.loading);
   const error = useGraphStore((s) => s.error);
@@ -122,6 +123,7 @@ export function GraphPage({ onNavigateToVault }: Props) {
             edges={edges}
             allNodes={nodes}
             onNavigateToVault={onNavigateToVault ?? (() => {})}
+            onViewDocument={onViewDocument ?? (() => {})}
           />
         </div>
       )}
