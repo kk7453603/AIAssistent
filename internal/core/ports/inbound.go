@@ -10,6 +10,7 @@ import (
 // DocumentIngestor is the inbound contract for document upload orchestration.
 type DocumentIngestor interface {
 	Upload(ctx context.Context, filename, mimeType string, body io.Reader) (*domain.Document, error)
+	IngestFromSource(ctx context.Context, req domain.SourceRequest) (*domain.Document, error)
 }
 
 // DocumentQueryService is the inbound contract for RAG and prompt-based generation.

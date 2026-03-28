@@ -116,3 +116,9 @@ type ObsidianNoteWriter interface {
 type MetadataExtractor interface {
 	ExtractMetadata(ctx context.Context, doc *domain.Document, text string) (domain.DocumentMetadata, error)
 }
+
+// SourceAdapter normalizes content from any source into an ingestable document.
+type SourceAdapter interface {
+	Ingest(ctx context.Context, req domain.SourceRequest) (*domain.IngestResult, error)
+	SourceType() string
+}
