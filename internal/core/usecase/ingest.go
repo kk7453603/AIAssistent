@@ -67,6 +67,14 @@ func (uc *IngestDocumentUseCase) Upload(
 	return doc, nil
 }
 
+func (uc *IngestDocumentUseCase) IngestFromSource(ctx context.Context, req domain.SourceRequest) (*domain.Document, error) {
+	// TODO: implement in Task 7 — for now delegate to Upload for "upload" type
+	if req.SourceType == "upload" && req.Body != nil {
+		return uc.Upload(ctx, req.Filename, req.MimeType, req.Body)
+	}
+	return nil, fmt.Errorf("source type %q not yet supported", req.SourceType)
+}
+
 func sanitizeFilename(name string) string {
 	base := filepath.Base(name)
 	base = strings.ReplaceAll(base, " ", "_")

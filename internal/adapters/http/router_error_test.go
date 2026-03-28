@@ -23,6 +23,10 @@ func (f ingestErrFake) Upload(context.Context, string, string, io.Reader) (*doma
 	return nil, f.err
 }
 
+func (f ingestErrFake) IngestFromSource(context.Context, domain.SourceRequest) (*domain.Document, error) {
+	return nil, f.err
+}
+
 type queryErrFake struct {
 	err error
 }

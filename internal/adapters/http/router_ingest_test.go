@@ -39,6 +39,10 @@ func (f ingestSuccessFake) Upload(_ context.Context, filename, mimeType string, 
 	}, nil
 }
 
+func (f ingestSuccessFake) IngestFromSource(context.Context, domain.SourceRequest) (*domain.Document, error) {
+	return nil, nil
+}
+
 func newRouterForIngestTests() http.Handler {
 	return NewRouter(
 		config.Config{RAGTopK: 5},
