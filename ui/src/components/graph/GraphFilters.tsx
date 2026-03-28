@@ -1,8 +1,8 @@
 import { Search } from "lucide-react";
 import {
   useGraphStore,
-  selectUniqueSourceTypes,
-  selectUniqueCategories,
+  useUniqueSourceTypes,
+  useUniqueCategories,
 } from "../../stores/graphStore";
 import { getCategoryColor } from "./GraphLegend";
 
@@ -16,8 +16,8 @@ export function GraphFilters() {
   const minScore = useGraphStore((s) => s.minScore);
   const setMinScore = useGraphStore((s) => s.setMinScore);
 
-  const allSourceTypes = useGraphStore(selectUniqueSourceTypes);
-  const allCategories = useGraphStore(selectUniqueCategories);
+  const allSourceTypes = useUniqueSourceTypes();
+  const allCategories = useUniqueCategories();
 
   return (
     <div className="flex flex-col gap-5 overflow-y-auto p-4">

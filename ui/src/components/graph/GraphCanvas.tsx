@@ -10,7 +10,7 @@ import {
   Mesh,
   Group,
 } from "three";
-import { useGraphStore, selectFilteredGraph } from "../../stores/graphStore";
+import { useGraphStore, useFilteredGraph } from "../../stores/graphStore";
 import { getCategoryColor } from "./GraphLegend";
 import type { GraphNode } from "../../api/types";
 
@@ -46,7 +46,7 @@ export function GraphCanvas() {
   const fgRef = useRef<ForceGraphMethods<FGNode, FGLink> | undefined>(undefined);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
 
-  const { nodes, edges } = useGraphStore(selectFilteredGraph);
+  const { nodes, edges } = useFilteredGraph();
   const hoveredNodeId = useGraphStore((s) => s.hoveredNodeId);
   const selectedNodeId = useGraphStore((s) => s.selectedNodeId);
   const selectNode = useGraphStore((s) => s.selectNode);

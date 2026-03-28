@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from "react";
 import { Network, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useState } from "react";
-import { useGraphStore, selectFilteredGraph } from "../stores/graphStore";
+import { useGraphStore, useFilteredGraph } from "../stores/graphStore";
 import { GraphCanvas } from "../components/graph/GraphCanvas";
 import { GraphFilters } from "../components/graph/GraphFilters";
 import { GraphLegend } from "../components/graph/GraphLegend";
@@ -17,7 +17,7 @@ export function GraphPage({ onNavigateToVault }: Props) {
   const error = useGraphStore((s) => s.error);
   const graph = useGraphStore((s) => s.graph);
   const selectedNodeId = useGraphStore((s) => s.selectedNodeId);
-  const { nodes, edges } = useGraphStore(selectFilteredGraph);
+  const { nodes, edges } = useFilteredGraph();
 
   const [showFilters, setShowFilters] = useState(true);
 

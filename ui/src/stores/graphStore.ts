@@ -1,4 +1,6 @@
 import { create } from "zustand";
+import { useShallow } from "zustand/react/shallow";
+import { useMemo } from "react";
 import { fetchGraph } from "../api/graph";
 import type { Graph, GraphNode, GraphRelation } from "../api/types";
 
@@ -74,49 +76,67 @@ export const useGraphStore = create<GraphState>()((set, get) => ({
   setHoveredNode: (id) => set({ hoveredNodeId: id }),
 }));
 
-// --- Derived selectors ---
+// --- Derived hooks (avoid infinite re-render from object selectors) ---
 
-export function selectFilteredGraph(state: GraphState): {
+export function useFilteredGraph(): {
   nodes: GraphNode[];
   edges: GraphRelation[];
 } {
-  const { graph, sourceTypes, categories, searchQuery, minScore } = state;
-  if (!graph) return { nodes: [], edges: [] };
-
-  let nodes = graph.nodes;
-
-  if (sourceTypes.length > 0) {
-    nodes = nodes.filter((n) => sourceTypes.includes(n.source_type));
-  }
-  if (categories.length > 0) {
-    nodes = nodes.filter((n) => categories.includes(n.category));
-  }
-  if (searchQuery.trim()) {
-    const q = searchQuery.toLowerCase();
-    nodes = nodes.filter(
-      (n) =>
-        n.title.toLowerCase().includes(q) ||
-        n.filename.toLowerCase().includes(q),
+  const { graph, sourceTypes, categories, searchQuery, minScore } =
+    useGraphStore(
+      useShallow((s) => ({
+        graph: s.graph,
+        sourceTypes: s.sourceTypes,
+        categories: s.categories,
+        searchQuery: s.searchQuery,
+        minScore: s.minScore,
+      })),
     );
-  }
 
-  const nodeIds = new Set(nodes.map((n) => n.id));
-  const edges = graph.edges.filter(
-    (e) =>
-      nodeIds.has(e.source_id) &&
-      nodeIds.has(e.target_id) &&
-      e.weight >= minScore,
-  );
+  return useMemo(() => {
+    if (!graph) return { nodes: [], edges: [] };
 
-  return { nodes, edges };
+    let nodes = graph.nodes;
+
+    if (sourceTypes.length > 0) {
+      nodes = nodes.filter((n) => sourceTypes.includes(n.source_type));
+    }
+    if (categories.length > 0) {
+      nodes = nodes.filter((n) => categories.includes(n.category));
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      nodes = nodes.filter(
+        (n) =>
+          n.title.toLowerCase().includes(q) ||
+          n.filename.toLowerCase().includes(q),
+      );
+    }
+
+    const nodeIds = new Set(nodes.map((n) => n.id));
+    const edges = graph.edges.filter(
+      (e) =>
+        nodeIds.has(e.source_id) &&
+        nodeIds.has(e.target_id) &&
+        e.weight >= minScore,
+    );
+
+    return { nodes, edges };
+  }, [graph, sourceTypes, categories, searchQuery, minScore]);
 }
 
-export function selectUniqueSourceTypes(state: GraphState): string[] {
-  if (!state.graph) return [];
-  return [...new Set(state.graph.nodes.map((n) => n.source_type))].sort();
+export function useUniqueSourceTypes(): string[] {
+  const graph = useGraphStore((s) => s.graph);
+  return useMemo(() => {
+    if (!graph) return [];
+    return [...new Set(graph.nodes.map((n) => n.source_type))].sort();
+  }, [graph]);
 }
 
-export function selectUniqueCategories(state: GraphState): string[] {
-  if (!state.graph) return [];
-  return [...new Set(state.graph.nodes.map((n) => n.category))].sort();
+export function useUniqueCategories(): string[] {
+  const graph = useGraphStore((s) => s.graph);
+  return useMemo(() => {
+    if (!graph) return [];
+    return [...new Set(graph.nodes.map((n) => n.category))].sort();
+  }, [graph]);
 }
