@@ -21,6 +21,7 @@ import (
 	"github.com/kirillkom/personal-ai-assistant/internal/config"
 	"github.com/kirillkom/personal-ai-assistant/internal/core/domain"
 	"github.com/kirillkom/personal-ai-assistant/internal/core/ports"
+	paamcp "github.com/kirillkom/personal-ai-assistant/internal/infrastructure/mcp"
 	"github.com/kirillkom/personal-ai-assistant/internal/observability/metrics"
 	"golang.org/x/time/rate"
 )
@@ -52,13 +53,15 @@ type Router struct {
 	obsidianSyncPoll               time.Duration
 	obsidianMu                     sync.Mutex
 
-	mcpHandler http.Handler
+	mcpHandler   http.Handler
+	httpToolDefs []paamcp.HTTPToolDef
 
 	graphStore       ports.GraphStore
 	feedbackStore    ports.FeedbackStore
 	eventStore       ports.EventStore
 	improvementStore ports.ImprovementStore
 	scheduleStore    ports.ScheduleStore
+	docRepo          ports.DocumentRepository
 }
 
 func NewRouter(
@@ -173,6 +176,25 @@ func (rt *Router) SetScheduleStore(s ports.ScheduleStore) {
 	rt.scheduleStore = s
 }
 
+// SetDocumentRepository sets the document repository used by the GET /v1/documents endpoint.
+func (rt *Router) SetDocumentRepository(r ports.DocumentRepository) {
+	rt.docRepo = r
+}
+
+// SetHTTPToolDefs stores the list of HTTP tool definitions for the GET /v1/tools endpoint.
+func (rt *Router) SetHTTPToolDefs(defs []paamcp.HTTPToolDef) {
+	rt.httpToolDefs = defs
+}
+
+func (rt *Router) handleListTools(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if rt.httpToolDefs == nil {
+		_ = json.NewEncoder(w).Encode([]any{})
+		return
+	}
+	_ = json.NewEncoder(w).Encode(rt.httpToolDefs)
+}
+
 func (rt *Router) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /openapi.json", serveOpenAPISpecJSON)
@@ -198,6 +220,10 @@ func (rt *Router) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/schedules", rt.handleListSchedules)
 	mux.HandleFunc("DELETE /v1/schedules/{id}", rt.handleDeleteSchedule)
 	mux.HandleFunc("PATCH /v1/schedules/{id}", rt.handleUpdateSchedule)
+
+	mux.HandleFunc("GET /v1/documents", rt.handleListDocuments)
+
+	mux.HandleFunc("GET /v1/tools", rt.handleListTools)
 
 	if rt.mcpHandler != nil {
 		mux.Handle("/mcp", rt.mcpHandler)
@@ -726,6 +752,29 @@ func (rt *Router) handleGetImprovements(w http.ResponseWriter, r *http.Request) 
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(items)
+}
+
+func (rt *Router) handleListDocuments(w http.ResponseWriter, r *http.Request) {
+	if rt.docRepo == nil {
+		writeError(w, http.StatusServiceUnavailable, fmt.Errorf("document repository not configured"))
+		return
+	}
+	limit := 50
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if v, err := strconv.Atoi(l); err == nil && v > 0 {
+			limit = v
+		}
+	}
+	docs, err := rt.docRepo.ListRecent(r.Context(), limit)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if docs == nil {
+		docs = []domain.Document{}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(docs)
 }
 
 func (rt *Router) handlePatchImprovement(w http.ResponseWriter, r *http.Request) {

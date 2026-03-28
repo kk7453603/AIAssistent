@@ -1,17 +1,19 @@
 import { useState } from "react";
-import { Bot, Globe, Server, Settings } from "lucide-react";
+import { Bot, Globe, Server, Settings, Wrench } from "lucide-react";
 import { GeneralTab } from "../components/settings/GeneralTab";
 import { ModelsTab } from "../components/settings/ModelsTab";
 import { MCPTab } from "../components/settings/MCPTab";
 import { AgentTab } from "../components/settings/AgentTab";
+import { ToolsTab } from "../components/settings/ToolsTab";
 
-type Tab = "general" | "models" | "mcp" | "agent";
+type Tab = "general" | "models" | "mcp" | "agent" | "tools";
 
 const TABS: { key: Tab; label: string; icon: typeof Settings }[] = [
   { key: "general", label: "General", icon: Settings },
   { key: "models", label: "Models", icon: Globe },
   { key: "mcp", label: "MCP", icon: Server },
   { key: "agent", label: "Agent", icon: Bot },
+  { key: "tools", label: "Tools", icon: Wrench },
 ];
 
 export function SettingsPage() {
@@ -43,6 +45,7 @@ export function SettingsPage() {
           {tab === "models" && <ModelsTab />}
           {tab === "mcp" && <MCPTab />}
           {tab === "agent" && <AgentTab />}
+          {tab === "tools" && <ToolsTab />}
         </div>
       </div>
     </div>

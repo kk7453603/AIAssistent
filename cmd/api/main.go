@@ -39,6 +39,8 @@ func main() {
 	rt.SetEventStore(app.EventStore)
 	rt.SetImprovementStore(app.ImprovementStore)
 	rt.SetScheduleStore(app.ScheduleStore)
+	rt.SetDocumentRepository(app.Repo)
+	rt.SetHTTPToolDefs(app.ToolRegistry.ListHTTPToolDefs())
 
 	// Populate agent system prompt with available Obsidian vaults.
 	if vaultList := rt.ListVaultIDs(); len(vaultList) > 0 {

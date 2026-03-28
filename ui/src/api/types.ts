@@ -123,3 +123,17 @@ export interface AgentImprovement {
   created_at: string;
   applied_at: string | null;
 }
+
+// --- HTTP Tools ---
+
+export interface HTTPToolDef {
+  name: string;
+  description: string;
+  url: string;
+  method: string;
+  params: Record<string, string> | null;
+  body_template: Record<string, unknown> | null;
+  headers: Record<string, string> | null;
+  output_path: string;
+  timeout_seconds: number;
+}

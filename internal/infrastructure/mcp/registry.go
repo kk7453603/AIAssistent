@@ -64,6 +64,20 @@ func (r *ToolRegistry) CallMCPTool(ctx context.Context, name string, args map[st
 	return r.clientManager.CallTool(ctx, name, args)
 }
 
+// ListHTTPToolDefs returns the registered HTTP tool definitions (read-only copy).
+func (r *ToolRegistry) ListHTTPToolDefs() []HTTPToolDef {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if len(r.httpExecutors) == 0 {
+		return nil
+	}
+	out := make([]HTTPToolDef, 0, len(r.httpExecutors))
+	for _, def := range r.httpExecutors {
+		out = append(out, def)
+	}
+	return out
+}
+
 // Close releases resources held by the underlying client manager.
 func (r *ToolRegistry) Close() {
 	if r.clientManager != nil {
