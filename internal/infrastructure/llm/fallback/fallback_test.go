@@ -132,3 +132,75 @@ func TestClassifier_NoFallbackOnFatal(t *testing.T) {
 		t.Fatal("expected error, got nil")
 	}
 }
+
+func TestGenerator_AllProvidersFail(t *testing.T) {
+	retryableErr := &openaicompat.ProviderError{StatusCode: 503, Body: "service down", Operation: "chat"}
+	fallbackErr := errors.New("fallback also broken")
+
+	primary := &mockGenerator{err: retryableErr}
+	fb := &mockGenerator{err: fallbackErr}
+	logger := slog.Default()
+
+	g := NewGenerator(primary, fb, logger)
+	_, err := g.GenerateAnswer(context.Background(), "q", nil)
+	if err == nil {
+		t.Fatal("expected error when both providers fail, got nil")
+	}
+	if err.Error() != "fallback also broken" {
+		t.Fatalf("expected fallback error, got %v", err)
+	}
+}
+
+func TestGenerator_SecondProviderSucceeds(t *testing.T) {
+	retryableErr := &openaicompat.ProviderError{StatusCode: 502, Body: "bad gateway", Operation: "chat"}
+	primary := &mockGenerator{err: retryableErr}
+	fb := &mockGenerator{answer: "second provider ok"}
+	logger := slog.Default()
+
+	g := NewGenerator(primary, fb, logger)
+
+	// Test GenerateAnswer
+	ans, err := g.GenerateAnswer(context.Background(), "q", nil)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if ans != "second provider ok" {
+		t.Fatalf("expected 'second provider ok', got %q", ans)
+	}
+
+	// Test GenerateJSONFromPrompt
+	ans, err = g.GenerateJSONFromPrompt(context.Background(), "json prompt")
+	if err != nil {
+		t.Fatalf("GenerateJSONFromPrompt: expected no error, got %v", err)
+	}
+	if ans != "second provider ok" {
+		t.Fatalf("expected 'second provider ok', got %q", ans)
+	}
+
+	// Test ChatWithTools
+	res, err := g.ChatWithTools(context.Background(), []domain.ChatMessage{{Role: "user", Content: "hi"}}, nil)
+	if err != nil {
+		t.Fatalf("ChatWithTools: expected no error, got %v", err)
+	}
+	if res.Content != "second provider ok" {
+		t.Fatalf("expected 'second provider ok', got %q", res.Content)
+	}
+}
+
+func TestGenerator_EmptyProviders(t *testing.T) {
+	// Both primary and fallback return nil errors but empty answers
+	// This tests that the Generator works when constructed with minimal mocks
+	primary := &mockGenerator{answer: "", err: nil}
+	fb := &mockGenerator{answer: "unused", err: nil}
+	logger := slog.Default()
+
+	g := NewGenerator(primary, fb, logger)
+	ans, err := g.GenerateAnswer(context.Background(), "q", nil)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	// Primary succeeds (no error), so primary answer is returned even if empty
+	if ans != "" {
+		t.Fatalf("expected empty answer from primary, got %q", ans)
+	}
+}

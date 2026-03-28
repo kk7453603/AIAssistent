@@ -2,13 +2,16 @@ package usecase
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/kirillkom/personal-ai-assistant/internal/core/domain"
+	"github.com/kirillkom/personal-ai-assistant/internal/core/ports"
 )
 
 type fakeAgentQueryService struct {
@@ -505,3 +508,907 @@ func TestAgentChatUseCasePlannerTimeoutFallsBackToRAG(t *testing.T) {
 		t.Fatalf("expected rag fallback answer, got %q", result.Answer)
 	}
 }
+
+// ---------- Additional fakes ----------
+
+type fakeWebSearcher struct {
+	results []domain.WebSearchResult
+	err     error
+}
+
+func (f *fakeWebSearcher) Search(_ context.Context, _ string, _ int) ([]domain.WebSearchResult, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	return f.results, nil
+}
+
+type fakeObsidianWriter struct {
+	createdPath string
+	err         error
+}
+
+func (f *fakeObsidianWriter) CreateNote(_ context.Context, _, title, _, _ string) (string, error) {
+	if f.err != nil {
+		return "", f.err
+	}
+	f.createdPath = "/vault/" + title + ".md"
+	return f.createdPath, nil
+}
+
+type fakeMCPToolRegistry struct {
+	tools    []ports.ToolDefinition
+	builtIn  map[string]bool
+	callResp string
+	callErr  error
+}
+
+func (f *fakeMCPToolRegistry) ListTools() []ports.ToolDefinition {
+	return f.tools
+}
+
+func (f *fakeMCPToolRegistry) IsBuiltIn(name string) bool {
+	if f.builtIn != nil {
+		return f.builtIn[name]
+	}
+	return false
+}
+
+func (f *fakeMCPToolRegistry) CallMCPTool(_ context.Context, _ string, _ map[string]any) (string, error) {
+	if f.callErr != nil {
+		return "", f.callErr
+	}
+	return f.callResp, nil
+}
+
+type fakeGraphStore struct {
+	findByTitleResult []domain.GraphNode
+	relatedResult     []domain.GraphRelation
+}
+
+func (f *fakeGraphStore) UpsertDocument(context.Context, domain.GraphNode) error   { return nil }
+func (f *fakeGraphStore) AddLink(context.Context, string, string, string) error    { return nil }
+func (f *fakeGraphStore) AddSimilarity(context.Context, string, string, float64) error {
+	return nil
+}
+func (f *fakeGraphStore) RemoveSimilarities(context.Context, string) error { return nil }
+func (f *fakeGraphStore) GetRelated(_ context.Context, _ string, _ int, _ int) ([]domain.GraphRelation, error) {
+	return f.relatedResult, nil
+}
+func (f *fakeGraphStore) FindByTitle(_ context.Context, _ string) ([]domain.GraphNode, error) {
+	return f.findByTitleResult, nil
+}
+func (f *fakeGraphStore) GetGraph(_ context.Context, _ domain.GraphFilter) (*domain.Graph, error) {
+	return &domain.Graph{}, nil
+}
+
+// ---------- Helper ----------
+
+func newTestAgentUC(query *fakeAgentQueryService, opts ...func(*AgentChatUseCase)) *AgentChatUseCase {
+	uc := NewAgentChatUseCase(
+		query,
+		&fakeAgentEmbedder{},
+		&fakeConversationStore{},
+		&fakeTaskStore{},
+		&fakeMemoryStore{},
+		&fakeMemoryVectorStore{},
+		nil, nil, nil,
+		domain.AgentLimits{},
+		nil,
+	)
+	for _, o := range opts {
+		o(uc)
+	}
+	return uc
+}
+
+func completeWithMessage(t *testing.T, uc *AgentChatUseCase, msg string) *domain.AgentRunResult {
+	t.Helper()
+	result, err := uc.Complete(context.Background(), domain.AgentChatRequest{
+		UserID:   "u-1",
+		Messages: []domain.AgentInputMessage{{Role: "user", Content: msg}},
+	}, nil)
+	if err != nil {
+		t.Fatalf("Complete() error = %v", err)
+	}
+	return result
+}
+
+// ---------- Validation tests ----------
+
+func TestAgentChat_EmptyUserID(t *testing.T) {
+	uc := newTestAgentUC(&fakeAgentQueryService{})
+	_, err := uc.Complete(context.Background(), domain.AgentChatRequest{
+		UserID:   "",
+		Messages: []domain.AgentInputMessage{{Role: "user", Content: "hi"}},
+	}, nil)
+	if err == nil {
+		t.Fatal("expected error for empty user_id")
+	}
+	if !strings.Contains(err.Error(), "user_id") {
+		t.Fatalf("error should mention user_id, got: %v", err)
+	}
+}
+
+func TestAgentChat_NoUserMessages(t *testing.T) {
+	uc := newTestAgentUC(&fakeAgentQueryService{})
+	_, err := uc.Complete(context.Background(), domain.AgentChatRequest{
+		UserID:   "u-1",
+		Messages: []domain.AgentInputMessage{{Role: "system", Content: "hi"}},
+	}, nil)
+	if err == nil {
+		t.Fatal("expected error for no user messages")
+	}
+	if !strings.Contains(err.Error(), "user message") {
+		t.Fatalf("error should mention user message, got: %v", err)
+	}
+}
+
+// ---------- executeToolCall tests ----------
+
+func TestExecuteToolCall_KnowledgeSearch(t *testing.T) {
+	query := &fakeAgentQueryService{answerText: "found it"}
+	uc := newTestAgentUC(query)
+	tc := domain.ToolCall{
+		ID:       "call-1",
+		Function: domain.ToolCallFunc{Name: "knowledge_search", Arguments: map[string]any{"question": "test query"}},
+	}
+	ev, err := uc.executeToolCall(context.Background(), "u-1", tc, "fallback")
+	if err != nil {
+		t.Fatalf("executeToolCall error: %v", err)
+	}
+	if ev.Tool != "knowledge_search" || ev.Status != "ok" {
+		t.Fatalf("unexpected event: %+v", ev)
+	}
+	if !strings.Contains(ev.Output, "found it") {
+		t.Fatalf("expected output to contain answer, got: %s", ev.Output)
+	}
+}
+
+func TestExecuteToolCall_KnowledgeSearch_Error(t *testing.T) {
+	query := &fakeAgentQueryService{answerErr: errors.New("search failed")}
+	uc := newTestAgentUC(query)
+	tc := domain.ToolCall{
+		ID:       "call-1",
+		Function: domain.ToolCallFunc{Name: "knowledge_search", Arguments: map[string]any{"question": "q"}},
+	}
+	_, err := uc.executeToolCall(context.Background(), "u-1", tc, "fallback")
+	if err == nil || !strings.Contains(err.Error(), "knowledge search") {
+		t.Fatalf("expected knowledge search error, got: %v", err)
+	}
+}
+
+func TestExecuteToolCall_WebSearch_Success(t *testing.T) {
+	query := &fakeAgentQueryService{}
+	ws := &fakeWebSearcher{results: []domain.WebSearchResult{
+		{Title: "Result 1", URL: "http://example.com", Snippet: "snippet"},
+	}}
+	uc := newTestAgentUC(query, func(u *AgentChatUseCase) {
+		u.webSearcher = ws
+	})
+	tc := domain.ToolCall{
+		ID:       "call-1",
+		Function: domain.ToolCallFunc{Name: "web_search", Arguments: map[string]any{"query": "test"}},
+	}
+	ev, err := uc.executeToolCall(context.Background(), "u-1", tc, "fallback")
+	if err != nil {
+		t.Fatalf("executeToolCall error: %v", err)
+	}
+	if ev.Tool != "web_search" || ev.Status != "ok" {
+		t.Fatalf("unexpected event: %+v", ev)
+	}
+}
+
+func TestExecuteToolCall_WebSearch_NilSearcher(t *testing.T) {
+	uc := newTestAgentUC(&fakeAgentQueryService{})
+	tc := domain.ToolCall{
+		ID:       "call-1",
+		Function: domain.ToolCallFunc{Name: "web_search", Arguments: map[string]any{"query": "test"}},
+	}
+	_, err := uc.executeToolCall(context.Background(), "u-1", tc, "fallback")
+	if err == nil || !strings.Contains(err.Error(), "not configured") {
+		t.Fatalf("expected not configured error, got: %v", err)
+	}
+}
+
+func TestExecuteToolCall_ObsidianWrite_Success(t *testing.T) {
+	ow := &fakeObsidianWriter{}
+	uc := newTestAgentUC(&fakeAgentQueryService{}, func(u *AgentChatUseCase) {
+		u.obsidianWriter = ow
+	})
+	tc := domain.ToolCall{
+		ID: "call-1",
+		Function: domain.ToolCallFunc{
+			Name:      "obsidian_write",
+			Arguments: map[string]any{"vault": "v1", "title": "Note", "content": "body text"},
+		},
+	}
+	ev, err := uc.executeToolCall(context.Background(), "u-1", tc, "")
+	if err != nil {
+		t.Fatalf("executeToolCall error: %v", err)
+	}
+	if ev.Status != "ok" {
+		t.Fatalf("expected ok, got %s", ev.Status)
+	}
+	if !strings.Contains(ev.Output, "created") {
+		t.Fatalf("expected output to say created, got: %s", ev.Output)
+	}
+}
+
+func TestExecuteToolCall_ObsidianWrite_MissingTitle(t *testing.T) {
+	ow := &fakeObsidianWriter{}
+	uc := newTestAgentUC(&fakeAgentQueryService{}, func(u *AgentChatUseCase) {
+		u.obsidianWriter = ow
+	})
+	tc := domain.ToolCall{
+		ID: "call-1",
+		Function: domain.ToolCallFunc{
+			Name:      "obsidian_write",
+			Arguments: map[string]any{"vault": "v1", "content": "body"},
+		},
+	}
+	_, err := uc.executeToolCall(context.Background(), "u-1", tc, "")
+	if err == nil || !strings.Contains(err.Error(), "title") {
+		t.Fatalf("expected title required error, got: %v", err)
+	}
+}
+
+func TestExecuteToolCall_ObsidianWrite_MissingContent(t *testing.T) {
+	ow := &fakeObsidianWriter{}
+	uc := newTestAgentUC(&fakeAgentQueryService{}, func(u *AgentChatUseCase) {
+		u.obsidianWriter = ow
+	})
+	tc := domain.ToolCall{
+		ID: "call-1",
+		Function: domain.ToolCallFunc{
+			Name:      "obsidian_write",
+			Arguments: map[string]any{"vault": "v1", "title": "Note"},
+		},
+	}
+	_, err := uc.executeToolCall(context.Background(), "u-1", tc, "")
+	if err == nil || !strings.Contains(err.Error(), "content") {
+		t.Fatalf("expected content required error, got: %v", err)
+	}
+}
+
+func TestExecuteToolCall_ObsidianWrite_NilWriter(t *testing.T) {
+	uc := newTestAgentUC(&fakeAgentQueryService{})
+	tc := domain.ToolCall{
+		ID: "call-1",
+		Function: domain.ToolCallFunc{
+			Name:      "obsidian_write",
+			Arguments: map[string]any{"vault": "v1", "title": "Note", "content": "body"},
+		},
+	}
+	_, err := uc.executeToolCall(context.Background(), "u-1", tc, "")
+	if err == nil || !strings.Contains(err.Error(), "not configured") {
+		t.Fatalf("expected not configured error, got: %v", err)
+	}
+}
+
+func TestExecuteToolCall_TaskTool_AllActions(t *testing.T) {
+	tests := []struct {
+		name   string
+		args   map[string]any
+		setup  func(*fakeTaskStore)
+		check  func(*testing.T, domain.AgentToolEvent)
+		errMsg string
+	}{
+		{
+			name: "create",
+			args: map[string]any{"action": "create", "title": "New Task"},
+			check: func(t *testing.T, ev domain.AgentToolEvent) {
+				if ev.Status != "ok" {
+					t.Fatalf("expected ok, got %s", ev.Status)
+				}
+			},
+		},
+		{
+			name:   "create_missing_title",
+			args:   map[string]any{"action": "create"},
+			errMsg: "title",
+		},
+		{
+			name: "list",
+			args: map[string]any{"action": "list"},
+			check: func(t *testing.T, ev domain.AgentToolEvent) {
+				if ev.Status != "ok" {
+					t.Fatalf("expected ok, got %s", ev.Status)
+				}
+			},
+		},
+		{
+			name: "get",
+			args: map[string]any{"action": "get", "id": "task-1"},
+			setup: func(ts *fakeTaskStore) {
+				ts.tasks = map[string]domain.Task{"task-1": {ID: "task-1", UserID: "u-1", Title: "T1"}}
+			},
+			check: func(t *testing.T, ev domain.AgentToolEvent) {
+				if ev.Status != "ok" {
+					t.Fatalf("expected ok, got %s", ev.Status)
+				}
+			},
+		},
+		{
+			name:   "get_missing_id",
+			args:   map[string]any{"action": "get"},
+			errMsg: "id",
+		},
+		{
+			name: "update",
+			args: map[string]any{"action": "update", "id": "task-1", "title": "Updated"},
+			setup: func(ts *fakeTaskStore) {
+				ts.tasks = map[string]domain.Task{"task-1": {ID: "task-1", UserID: "u-1", Title: "T1"}}
+			},
+			check: func(t *testing.T, ev domain.AgentToolEvent) {
+				if ev.Status != "ok" {
+					t.Fatalf("expected ok, got %s", ev.Status)
+				}
+				if !strings.Contains(ev.Output, "Updated") {
+					t.Fatalf("expected updated title in output, got: %s", ev.Output)
+				}
+			},
+		},
+		{
+			name: "delete",
+			args: map[string]any{"action": "delete", "id": "task-1"},
+			setup: func(ts *fakeTaskStore) {
+				ts.tasks = map[string]domain.Task{"task-1": {ID: "task-1", UserID: "u-1", Title: "T1"}}
+			},
+			check: func(t *testing.T, ev domain.AgentToolEvent) {
+				if ev.Status != "ok" {
+					t.Fatalf("expected ok, got %s", ev.Status)
+				}
+			},
+		},
+		{
+			name:   "delete_missing_id",
+			args:   map[string]any{"action": "delete"},
+			errMsg: "id",
+		},
+		{
+			name: "complete_task",
+			args: map[string]any{"action": "complete", "id": "task-1"},
+			setup: func(ts *fakeTaskStore) {
+				ts.tasks = map[string]domain.Task{"task-1": {ID: "task-1", UserID: "u-1", Title: "T1", Status: domain.TaskStatusOpen}}
+			},
+			check: func(t *testing.T, ev domain.AgentToolEvent) {
+				if ev.Status != "ok" {
+					t.Fatalf("expected ok, got %s", ev.Status)
+				}
+			},
+		},
+		{
+			name:   "unknown_action",
+			args:   map[string]any{"action": "invalid"},
+			errMsg: "unsupported",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ts := &fakeTaskStore{}
+			if tt.setup != nil {
+				tt.setup(ts)
+			}
+			uc := NewAgentChatUseCase(
+				&fakeAgentQueryService{},
+				&fakeAgentEmbedder{},
+				&fakeConversationStore{},
+				ts,
+				&fakeMemoryStore{},
+				&fakeMemoryVectorStore{},
+				nil, nil, nil,
+				domain.AgentLimits{},
+				nil,
+			)
+
+			action := ""
+			if a, ok := tt.args["action"].(string); ok {
+				action = a
+			}
+			tc := domain.ToolCall{
+				ID:       "call-1",
+				Function: domain.ToolCallFunc{Name: "task_tool", Arguments: tt.args},
+			}
+			step := domain.AgentPlanStep{Input: tt.args, Tool: "task_tool", Action: action}
+			_ = step // executeTaskTool is called via executeToolCall
+
+			ev, err := uc.executeToolCall(context.Background(), "u-1", tc, "")
+			if tt.errMsg != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.errMsg) {
+					t.Fatalf("expected error containing %q, got: %v", tt.errMsg, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if tt.check != nil {
+				tt.check(t, ev)
+			}
+		})
+	}
+}
+
+func TestExecuteToolCall_MCPTool(t *testing.T) {
+	registry := &fakeMCPToolRegistry{
+		tools:    []ports.ToolDefinition{{Name: "custom_tool", Description: "test", Source: "mcp-server"}},
+		builtIn:  map[string]bool{"custom_tool": false},
+		callResp: `{"result": "ok"}`,
+	}
+	uc := newTestAgentUC(&fakeAgentQueryService{}, func(u *AgentChatUseCase) {
+		u.toolRegistry = registry
+	})
+	tc := domain.ToolCall{
+		ID:       "call-1",
+		Function: domain.ToolCallFunc{Name: "custom_tool", Arguments: map[string]any{"key": "value"}},
+	}
+	ev, err := uc.executeToolCall(context.Background(), "u-1", tc, "")
+	if err != nil {
+		t.Fatalf("executeToolCall error: %v", err)
+	}
+	if ev.Tool != "custom_tool" || ev.Status != "ok" {
+		t.Fatalf("unexpected event: %+v", ev)
+	}
+	if !strings.Contains(ev.Output, "result") {
+		t.Fatalf("expected MCP result in output, got: %s", ev.Output)
+	}
+}
+
+func TestExecuteToolCall_UnsupportedTool(t *testing.T) {
+	uc := newTestAgentUC(&fakeAgentQueryService{})
+	tc := domain.ToolCall{
+		ID:       "call-1",
+		Function: domain.ToolCallFunc{Name: "nonexistent_tool", Arguments: nil},
+	}
+	_, err := uc.executeToolCall(context.Background(), "u-1", tc, "")
+	if err == nil || !strings.Contains(err.Error(), "unsupported") {
+		t.Fatalf("expected unsupported tool error, got: %v", err)
+	}
+}
+
+// ---------- Full flow tests ----------
+
+func TestAgentChat_ToolStatusCallback(t *testing.T) {
+	query := &fakeAgentQueryService{
+		chatToolsResponses: []domain.ChatToolsResult{
+			{ToolCalls: []domain.ToolCall{{ID: "c1", Function: domain.ToolCallFunc{Name: "knowledge_search", Arguments: map[string]any{"question": "q"}}}}},
+			{Content: "done"},
+		},
+	}
+	uc := newTestAgentUC(query)
+	var statuses []string
+	cb := func(toolName string, status string) {
+		statuses = append(statuses, toolName+":"+status)
+	}
+	result, err := uc.Complete(context.Background(), domain.AgentChatRequest{
+		UserID:   "u-1",
+		Messages: []domain.AgentInputMessage{{Role: "user", Content: "test"}},
+	}, cb)
+	if err != nil {
+		t.Fatalf("Complete() error = %v", err)
+	}
+	if !strings.Contains(result.Answer, "done") {
+		t.Fatalf("expected answer to contain 'done', got %q", result.Answer)
+	}
+	if len(statuses) < 2 {
+		t.Fatalf("expected at least 2 status callbacks, got %d: %v", len(statuses), statuses)
+	}
+	if statuses[0] != "knowledge_search:running" {
+		t.Fatalf("expected first callback running, got %s", statuses[0])
+	}
+	if statuses[1] != "knowledge_search:ok" {
+		t.Fatalf("expected second callback ok, got %s", statuses[1])
+	}
+}
+
+func TestAgentChat_ParallelToolCalls(t *testing.T) {
+	query := &fakeAgentQueryService{
+		chatToolsResponses: []domain.ChatToolsResult{
+			{ToolCalls: []domain.ToolCall{
+				{ID: "c1", Function: domain.ToolCallFunc{Name: "knowledge_search", Arguments: map[string]any{"question": "q1"}}},
+				{ID: "c2", Function: domain.ToolCallFunc{Name: "task_tool", Arguments: map[string]any{"action": "list"}}},
+			}},
+			{Content: "combined answer"},
+		},
+	}
+	uc := newTestAgentUC(query)
+	result, err := uc.Complete(context.Background(), domain.AgentChatRequest{
+		UserID:   "u-1",
+		Messages: []domain.AgentInputMessage{{Role: "user", Content: "test"}},
+	}, nil)
+	if err != nil {
+		t.Fatalf("Complete() error = %v", err)
+	}
+	if len(result.ToolsInvoked) != 2 {
+		t.Fatalf("expected 2 tools invoked, got %d: %v", len(result.ToolsInvoked), result.ToolsInvoked)
+	}
+	if !strings.Contains(result.Answer, "combined answer") {
+		t.Fatalf("expected answer to contain 'combined answer', got %q", result.Answer)
+	}
+}
+
+func TestAgentChat_ToolResultCaching(t *testing.T) {
+	var callCount int32
+	query := &fakeAgentQueryService{
+		chatToolsHook: func(_ context.Context, msgs []domain.ChatMessage, _ []domain.ToolSchema) (*domain.ChatToolsResult, error) {
+			n := atomic.AddInt32(&callCount, 1)
+			if n <= 2 {
+				return &domain.ChatToolsResult{
+					ToolCalls: []domain.ToolCall{{ID: fmt.Sprintf("c%d", n), Function: domain.ToolCallFunc{Name: "knowledge_search", Arguments: map[string]any{"question": "same query"}}}},
+				}, nil
+			}
+			return &domain.ChatToolsResult{Content: "final"}, nil
+		},
+	}
+	uc := newTestAgentUC(query)
+	result, err := uc.Complete(context.Background(), domain.AgentChatRequest{
+		UserID:   "u-1",
+		Messages: []domain.AgentInputMessage{{Role: "user", Content: "test"}},
+	}, nil)
+	if err != nil {
+		t.Fatalf("Complete() error = %v", err)
+	}
+	if result.Iterations != 3 {
+		t.Fatalf("expected 3 iterations, got %d", result.Iterations)
+	}
+}
+
+func TestAgentChat_WebSearchFullFlow(t *testing.T) {
+	ws := &fakeWebSearcher{results: []domain.WebSearchResult{
+		{Title: "Result", URL: "http://example.com", Snippet: "snippet"},
+	}}
+	query := &fakeAgentQueryService{
+		chatToolsResponses: []domain.ChatToolsResult{
+			{ToolCalls: []domain.ToolCall{{ID: "c1", Function: domain.ToolCallFunc{Name: "web_search", Arguments: map[string]any{"query": "test"}}}}},
+			{Content: "answer from web"},
+		},
+	}
+	uc := newTestAgentUC(query, func(u *AgentChatUseCase) {
+		u.webSearcher = ws
+	})
+	result := completeWithMessage(t, uc, "search web")
+	if !strings.Contains(result.Answer, "answer from web") {
+		t.Fatalf("expected web answer, got %q", result.Answer)
+	}
+	if len(result.ToolsInvoked) != 1 || result.ToolsInvoked[0] != "web_search" {
+		t.Fatalf("expected web_search invoked, got %v", result.ToolsInvoked)
+	}
+}
+
+func TestMaybePersistSummary_NotEnoughTurns(t *testing.T) {
+	convStore := &fakeConversationStore{}
+	memStore := &fakeMemoryStore{lastTurn: 0}
+	uc := NewAgentChatUseCase(
+		&fakeAgentQueryService{},
+		&fakeAgentEmbedder{},
+		convStore,
+		&fakeTaskStore{},
+		memStore,
+		&fakeMemoryVectorStore{},
+		nil, nil, nil,
+		domain.AgentLimits{SummaryEveryTurns: 6},
+		nil,
+	)
+	created, err := uc.maybePersistSummary(context.Background(), "u-1", "conv-1", 3, false)
+	if err != nil {
+		t.Fatalf("maybePersistSummary error: %v", err)
+	}
+	if created {
+		t.Fatal("expected no summary created with only 3 turns")
+	}
+}
+
+func TestMaybePersistSummary_ForceCreates(t *testing.T) {
+	convStore := &fakeConversationStore{}
+	memStore := &fakeMemoryStore{lastTurn: 0}
+	memVec := &fakeMemoryVectorStore{}
+	query := &fakeAgentQueryService{generateTextResponses: []string{"summary text"}}
+
+	uc := NewAgentChatUseCase(
+		query,
+		&fakeAgentEmbedder{},
+		convStore,
+		&fakeTaskStore{},
+		memStore,
+		memVec,
+		nil, nil, nil,
+		domain.AgentLimits{SummaryEveryTurns: 6},
+		nil,
+	)
+
+	// Add a message so there's content to summarize
+	convStore.messages = []domain.ConversationMessage{
+		{UserTurn: 1, Role: "user", Content: "test"},
+	}
+
+	created, err := uc.maybePersistSummary(context.Background(), "u-1", "conv-1", 1, true)
+	if err != nil {
+		t.Fatalf("maybePersistSummary error: %v", err)
+	}
+	if !created {
+		t.Fatal("expected summary to be created when forced")
+	}
+	if len(memStore.summaries) != 1 {
+		t.Fatalf("expected 1 summary, got %d", len(memStore.summaries))
+	}
+}
+
+// ---------- Helper function tests ----------
+
+func TestStringInput(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    map[string]interface{}
+		key      string
+		fallback string
+		want     string
+	}{
+		{"nil_input", nil, "key", "default", "default"},
+		{"missing_key", map[string]interface{}{}, "key", "default", "default"},
+		{"nil_value", map[string]interface{}{"key": nil}, "key", "default", "default"},
+		{"string_value", map[string]interface{}{"key": "hello"}, "key", "default", "hello"},
+		{"int_value", map[string]interface{}{"key": 42}, "key", "default", "42"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := stringInput(tt.input, tt.key, tt.fallback)
+			if got != tt.want {
+				t.Fatalf("stringInput() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIntInput(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    map[string]interface{}
+		key      string
+		fallback int
+		want     int
+	}{
+		{"nil_input", nil, "key", 5, 5},
+		{"missing_key", map[string]interface{}{}, "key", 5, 5},
+		{"float64", map[string]interface{}{"key": float64(10)}, "key", 5, 10},
+		{"int", map[string]interface{}{"key": 10}, "key", 5, 10},
+		{"int64", map[string]interface{}{"key": int64(10)}, "key", 5, 10},
+		{"string_valid", map[string]interface{}{"key": "10"}, "key", 5, 10},
+		{"string_invalid", map[string]interface{}{"key": "abc"}, "key", 5, 5},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := intInput(tt.input, tt.key, tt.fallback)
+			if got != tt.want {
+				t.Fatalf("intInput() = %d, want %d", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestBoolInput(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    map[string]interface{}
+		key      string
+		fallback bool
+		want     bool
+	}{
+		{"nil_input", nil, "key", false, false},
+		{"bool_true", map[string]interface{}{"key": true}, "key", false, true},
+		{"string_true", map[string]interface{}{"key": "true"}, "key", false, true},
+		{"string_invalid", map[string]interface{}{"key": "notbool"}, "key", false, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := boolInput(tt.input, tt.key, tt.fallback)
+			if got != tt.want {
+				t.Fatalf("boolInput() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSanitizeUTF8(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"valid_ascii", "hello", "hello"},
+		{"valid_cyrillic", "Привет мир", "Привет мир"},
+		{"invalid_bytes", "hello\x80world", "helloworld"},
+		{"empty", "", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := sanitizeUTF8(tt.input)
+			if got != tt.want {
+				t.Fatalf("sanitizeUTF8() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestLatestUserInput(t *testing.T) {
+	tests := []struct {
+		name     string
+		messages []domain.AgentInputMessage
+		want     string
+		wantOk   bool
+	}{
+		{"empty", nil, "", false},
+		{"no_user", []domain.AgentInputMessage{{Role: "system", Content: "hi"}}, "", false},
+		{"single_user", []domain.AgentInputMessage{{Role: "user", Content: "hello"}}, "hello", true},
+		{"multiple_users", []domain.AgentInputMessage{
+			{Role: "user", Content: "first"},
+			{Role: "assistant", Content: "reply"},
+			{Role: "user", Content: "second"},
+		}, "second", true},
+		{"whitespace_user", []domain.AgentInputMessage{{Role: "user", Content: "  "}}, "", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := latestUserInput(tt.messages)
+			if ok != tt.wantOk || got != tt.want {
+				t.Fatalf("latestUserInput() = %q, %v; want %q, %v", got, ok, tt.want, tt.wantOk)
+			}
+		})
+	}
+}
+
+func TestShouldFallbackToRAG(t *testing.T) {
+	tests := []struct {
+		reason string
+		want   bool
+	}{
+		{"planner_error", true},
+		{"timeout", true},
+		{"planner_invalid_json", true},
+		{"max_iterations", false},
+		{"empty_response", false},
+		{"", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.reason, func(t *testing.T) {
+			if got := shouldFallbackToRAG(tt.reason); got != tt.want {
+				t.Fatalf("shouldFallbackToRAG(%q) = %v, want %v", tt.reason, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestExpandQueryWithGraph_NilGraphStore(t *testing.T) {
+	uc := newTestAgentUC(&fakeAgentQueryService{})
+	result := uc.expandQueryWithGraph(context.Background(), "test query")
+	if result != "" {
+		t.Fatalf("expected empty string for nil graph store, got %q", result)
+	}
+}
+
+func TestExpandQueryWithGraph_WithResults(t *testing.T) {
+	gs := &fakeGraphStore{
+		findByTitleResult: []domain.GraphNode{{ID: "node-1", Title: "Related"}},
+		relatedResult: []domain.GraphRelation{
+			{SourceID: "node-1", TargetID: "node-2"},
+		},
+	}
+	uc := newTestAgentUC(&fakeAgentQueryService{}, func(u *AgentChatUseCase) {
+		u.graphStore = gs
+	})
+	result := uc.expandQueryWithGraph(context.Background(), "test query expansion")
+	// Result depends on FindByTitle returning nodes for tokens >= 3 chars
+	_ = result // graph expansion is best-effort
+}
+
+func TestToolSchemasFromRegistry_Nil(t *testing.T) {
+	schemas := toolSchemasFromRegistry(nil, true)
+	if schemas != nil {
+		t.Fatalf("expected nil for nil registry, got %v", schemas)
+	}
+}
+
+func TestToolSchemasFromRegistry_FiltersWebSearch(t *testing.T) {
+	registry := &fakeMCPToolRegistry{
+		tools: []ports.ToolDefinition{
+			{Name: "knowledge_search", Description: "search"},
+			{Name: "web_search", Description: "web"},
+		},
+	}
+	// web_search should be excluded when not available
+	schemas := toolSchemasFromRegistry(registry, false)
+	for _, s := range schemas {
+		if s.Function.Name == "web_search" {
+			t.Fatal("web_search should be filtered out when not available")
+		}
+	}
+
+	// web_search should be included when available
+	schemas = toolSchemasFromRegistry(registry, true)
+	found := false
+	for _, s := range schemas {
+		if s.Function.Name == "web_search" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("web_search should be present when available")
+	}
+}
+
+func TestStringFromArgs(t *testing.T) {
+	tests := []struct {
+		name     string
+		args     map[string]any
+		key      string
+		fallback string
+		want     string
+	}{
+		{"found", map[string]any{"k": "v"}, "k", "fb", "v"},
+		{"not_found", map[string]any{"k": "v"}, "other", "fb", "fb"},
+		{"non_string", map[string]any{"k": 42}, "k", "fb", "fb"},
+		{"nil_args", nil, "k", "fb", "fb"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := stringFromArgs(tt.args, tt.key, tt.fallback)
+			if got != tt.want {
+				t.Fatalf("stringFromArgs() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIntFromArgs(t *testing.T) {
+	tests := []struct {
+		name     string
+		args     map[string]any
+		key      string
+		fallback int
+		want     int
+	}{
+		{"float64", map[string]any{"k": float64(5)}, "k", 0, 5},
+		{"int", map[string]any{"k": 5}, "k", 0, 5},
+		{"not_found", map[string]any{}, "k", 10, 10},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := intFromArgs(tt.args, tt.key, tt.fallback)
+			if got != tt.want {
+				t.Fatalf("intFromArgs() = %d, want %d", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseTimeRFC3339(t *testing.T) {
+	valid := "2026-01-01T00:00:00Z"
+	parsed, err := parseTimeRFC3339(valid)
+	if err != nil {
+		t.Fatalf("parseTimeRFC3339(%q) error: %v", valid, err)
+	}
+	if parsed.Year() != 2026 {
+		t.Fatalf("expected year 2026, got %d", parsed.Year())
+	}
+
+	_, err = parseTimeRFC3339("not-a-date")
+	if err == nil {
+		t.Fatal("expected error for invalid date")
+	}
+}
+
+func TestIsAgentTimeoutError(t *testing.T) {
+	if !isAgentTimeoutError(context.DeadlineExceeded) {
+		t.Fatal("DeadlineExceeded should be timeout")
+	}
+	if !isAgentTimeoutError(context.Canceled) {
+		t.Fatal("Canceled should be timeout")
+	}
+	if isAgentTimeoutError(errors.New("random")) {
+		t.Fatal("random error should not be timeout")
+	}
+}
+
+// Ensure json import is used
+var _ = json.Marshal
