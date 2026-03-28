@@ -75,3 +75,20 @@ export interface OrchestrationStepEvent {
   result: string;
   duration_ms: number;
 }
+
+// --- Scheduled Tasks ---
+
+export interface ScheduledTask {
+  id: string;
+  user_id: string;
+  cron_expr: string;
+  prompt: string;
+  condition: string;
+  webhook_url: string;
+  enabled: boolean;
+  last_run_at: string | null;
+  last_result: string;
+  last_status: string;
+  created_at: string;
+  updated_at: string;
+}
