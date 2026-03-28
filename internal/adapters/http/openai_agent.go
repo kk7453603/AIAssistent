@@ -37,12 +37,32 @@ func (rt *Router) tryAgentCompletion(
 		}
 	}
 
-	result, err := rt.agentSvc.Complete(ctx, domain.AgentChatRequest{
+	var orchStepEvents []orchStepEntry
+	var orchStepMu sync.Mutex
+
+	agentReq := domain.AgentChatRequest{
 		UserID:         userID,
 		ConversationID: conversationID,
 		SessionEnd:     sessionEnd,
 		Messages:       inputMessages,
-	}, onToolStatus)
+	}
+	if stream {
+		agentReq.OnOrchStep = func(status domain.OrchestrationStatus) {
+			orchStepMu.Lock()
+			orchStepEvents = append(orchStepEvents, orchStepEntry{
+				Type:            "orchestration_step",
+				OrchestrationID: status.OrchestrationID,
+				StepIndex:       status.StepIndex,
+				AgentName:       status.AgentName,
+				Task:            status.Task,
+				Status:          status.Status,
+				Result:          status.Result,
+			})
+			orchStepMu.Unlock()
+		}
+	}
+
+	result, err := rt.agentSvc.Complete(ctx, agentReq, onToolStatus)
 	if err != nil {
 		return nil, true, err
 	}
@@ -106,6 +126,7 @@ func (rt *Router) tryAgentCompletion(
 	if stream {
 		return agentSSEResponse{
 			ToolEvents: toolStatusEvents,
+			OrchSteps:  orchStepEvents,
 			Chunks:     buildTextStreamChunks(completionID, created, modelID, result.Answer, rt.openAICompatStreamChunkChars),
 		}, true, nil
 	}

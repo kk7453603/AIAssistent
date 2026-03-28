@@ -78,6 +78,7 @@ type AgentChatRequest struct {
 	ConversationID string              `json:"conversation_id,omitempty"`
 	SessionEnd     bool                `json:"session_end"`
 	Messages       []AgentInputMessage `json:"messages"`
+	OnOrchStep     OrchStepCallback    `json:"-"`
 }
 
 type AgentToolEvent struct {

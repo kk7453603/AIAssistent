@@ -16,13 +16,25 @@ type toolStatusEntry struct {
 	Status string `json:"status"`
 }
 
+type orchStepEntry struct {
+	Type            string  `json:"type"`
+	OrchestrationID string  `json:"orchestration_id"`
+	StepIndex       int     `json:"step_index"`
+	AgentName       string  `json:"agent_name"`
+	Task            string  `json:"task"`
+	Status          string  `json:"status"`
+	Result          string  `json:"result,omitempty"`
+	DurationMS      float64 `json:"duration_ms,omitempty"`
+}
+
 type chatCompletionsSSEResponse struct {
 	Chunks []apigen.ChatCompletionChunk
 }
 
-// agentSSEResponse writes tool-status SSE events first, then content chunks.
+// agentSSEResponse writes tool-status SSE events first, then orchestration step events, then content chunks.
 type agentSSEResponse struct {
 	ToolEvents []toolStatusEntry
+	OrchSteps  []orchStepEntry
 	Chunks     []apigen.ChatCompletionChunk
 }
 
@@ -50,6 +62,24 @@ func (response agentSSEResponse) VisitChatCompletionsResponse(w http.ResponseWri
 		}
 		data, _ := json.Marshal(chunk)
 		if _, err := fmt.Fprintf(w, "data: %s\n\n", data); err != nil {
+			return err
+		}
+		flusher.Flush()
+	}
+
+	// Emit orchestration step events.
+	for _, os := range response.OrchSteps {
+		data, _ := json.Marshal(os)
+		chunk := map[string]any{
+			"id":     "orchestration-step",
+			"object": "chat.completion.chunk",
+			"choices": []map[string]any{{
+				"index": 0,
+				"delta": map[string]any{"orchestration_step": string(data)},
+			}},
+		}
+		chunkData, _ := json.Marshal(chunk)
+		if _, err := fmt.Fprintf(w, "data: %s\n\n", chunkData); err != nil {
 			return err
 		}
 		flusher.Flush()
