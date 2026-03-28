@@ -264,7 +264,7 @@ make monitoring-validate
 
 ## Скриншоты
 
-<!-- TODO: add screenshots -->
+![UI](img/image.png)
 
 ---
 
