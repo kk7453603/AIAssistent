@@ -21,6 +21,7 @@ export function ChatPage({ pendingReference, onReferenceClear }: Props) {
     messages,
     isStreaming,
     toolStatus,
+    orchSteps,
     sendMessage,
     stopStreaming,
     loadConversation,
@@ -128,6 +129,7 @@ export function ChatPage({ pendingReference, onReferenceClear }: Props) {
         <MessageList
           messages={messages}
           toolStatus={toolStatus}
+          orchSteps={orchSteps}
           isStreaming={isStreaming}
         />
         <InputBar

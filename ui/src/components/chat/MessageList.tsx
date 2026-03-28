@@ -1,14 +1,15 @@
 import { useEffect, useRef } from "react";
-import type { ChatMessage, ToolStatusDelta } from "../../api/types";
+import type { ChatMessage, ToolStatusDelta, OrchestrationStepEvent } from "../../api/types";
 import { MessageBubble } from "./MessageBubble";
 
 interface Props {
   messages: ChatMessage[];
   toolStatus: ToolStatusDelta[];
+  orchSteps: OrchestrationStepEvent[];
   isStreaming: boolean;
 }
 
-export function MessageList({ messages, toolStatus, isStreaming }: Props) {
+export function MessageList({ messages, toolStatus, orchSteps, isStreaming }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -32,6 +33,11 @@ export function MessageList({ messages, toolStatus, isStreaming }: Props) {
           toolStatus={
             i === messages.length - 1 && msg.role === "assistant"
               ? toolStatus
+              : []
+          }
+          orchSteps={
+            i === messages.length - 1 && msg.role === "assistant"
+              ? orchSteps
               : []
           }
           isStreaming={

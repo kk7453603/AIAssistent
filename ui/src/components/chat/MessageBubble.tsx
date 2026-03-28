@@ -3,12 +3,14 @@ import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import { Check, ChevronDown, ChevronRight, Copy, Loader2 } from "lucide-react";
-import type { ChatMessage, ToolStatusDelta } from "../../api/types";
+import type { ChatMessage, ToolStatusDelta, OrchestrationStepEvent } from "../../api/types";
 import { parseThinkBlocks } from "../../utils/parseThinkBlocks";
+import { OrchestrationStepper } from "./OrchestrationStepper";
 
 interface Props {
   message: ChatMessage;
   toolStatus: ToolStatusDelta[];
+  orchSteps: OrchestrationStepEvent[];
   isStreaming: boolean;
 }
 
@@ -75,15 +77,19 @@ function CopyButton({ text }: { text: string }) {
 function ThinkBlock({
   thinking,
   toolStatus,
+  orchSteps,
   isStreaming,
 }: {
   thinking: string;
   toolStatus: ToolStatusDelta[];
+  orchSteps: OrchestrationStepEvent[];
   isStreaming: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const hasContent = thinking || toolStatus.length > 0;
+  const hasContent = thinking || toolStatus.length > 0 || orchSteps.length > 0;
   if (!hasContent) return null;
+
+  const effectiveOpen = open || (orchSteps.length > 0 && isStreaming);
 
   return (
     <div className="mb-3 rounded border border-gray-300 dark:border-gray-700 bg-gray-100/50 dark:bg-gray-800/50">
@@ -91,20 +97,29 @@ function ThinkBlock({
         onClick={() => setOpen(!open)}
         className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
       >
-        {open ? (
+        {effectiveOpen ? (
           <ChevronDown className="h-4 w-4" />
         ) : (
           <ChevronRight className="h-4 w-4" />
         )}
         <span>
-          {isStreaming ? "Thinking..." : "Thought process"}
+          {orchSteps.length > 0
+            ? "Multi-Agent Orchestration"
+            : isStreaming
+            ? "Thinking..."
+            : "Thought process"}
         </span>
         {isStreaming && (
           <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-400" />
         )}
       </button>
-      {open && (
+      {effectiveOpen && (
         <div className="border-t border-gray-300 dark:border-gray-700 px-3 py-2">
+          {orchSteps.length > 0 && (
+            <div className="mb-2">
+              <OrchestrationStepper steps={orchSteps} />
+            </div>
+          )}
           {toolStatus.length > 0 && (
             <div className="mb-2 space-y-1">
               {deduplicateToolStatus(toolStatus, isStreaming).map((ts, i) => (
@@ -123,7 +138,7 @@ function ThinkBlock({
   );
 }
 
-export function MessageBubble({ message, toolStatus, isStreaming }: Props) {
+export function MessageBubble({ message, toolStatus, orchSteps, isStreaming }: Props) {
   const isUser = message.role === "user";
 
   if (isUser) {
@@ -144,6 +159,7 @@ export function MessageBubble({ message, toolStatus, isStreaming }: Props) {
         <ThinkBlock
           thinking={thinking}
           toolStatus={toolStatus}
+          orchSteps={orchSteps}
           isStreaming={isStreaming}
         />
         <div className="prose dark:prose-invert prose-sm max-w-none">
