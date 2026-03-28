@@ -92,6 +92,9 @@ type Config struct {
 	SelfImproveIntervalHours int
 	SelfImproveAutoApply     bool
 
+	HTTPTools     string // JSON array of HTTP tool definitions
+	HTTPToolsFile string // path to JSON file with HTTP tool definitions
+
 	LLMFallbackProvider string // fallback provider: "ollama", "openai-compat", "huggingface", etc.
 	LLMFallbackURL      string
 	LLMFallbackKey      string
@@ -219,6 +222,9 @@ func Load() Config {
 		SelfImproveEnabled:       mustEnvBool("SELF_IMPROVE_ENABLED", false),
 		SelfImproveIntervalHours: mustEnvInt("SELF_IMPROVE_INTERVAL_HOURS", 24),
 		SelfImproveAutoApply:     mustEnvBool("SELF_IMPROVE_AUTO_APPLY", true),
+
+		HTTPTools:     os.Getenv("HTTP_TOOLS"),
+		HTTPToolsFile: os.Getenv("HTTP_TOOLS_FILE"),
 
 		LLMFallbackProvider: mustEnv("LLM_FALLBACK_PROVIDER", ""),
 		LLMFallbackURL:      mustEnv("LLM_FALLBACK_URL", ""),

@@ -331,6 +331,23 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 	mcpClientMgr := paamcp.NewClientManager(ctx, mcpConfigs)
 	toolRegistry := paamcp.NewToolRegistry(mcpClientMgr)
 
+	// Register HTTP tools from config.
+	if cfg.HTTPToolsFile != "" {
+		if httpTools, err := paamcp.LoadHTTPToolsFromFile(cfg.HTTPToolsFile); err != nil {
+			slog.Warn("http_tools_file_load_error", "error", err)
+		} else if len(httpTools) > 0 {
+			paamcp.RegisterHTTPTools(toolRegistry, httpTools)
+			slog.Info("http_tools_registered_from_file", "count", len(httpTools))
+		}
+	} else if cfg.HTTPTools != "" {
+		if httpTools, err := paamcp.ParseHTTPTools(cfg.HTTPTools); err != nil {
+			slog.Warn("http_tools_parse_error", "error", err)
+		} else if len(httpTools) > 0 {
+			paamcp.RegisterHTTPTools(toolRegistry, httpTools)
+			slog.Info("http_tools_registered", "count", len(httpTools))
+		}
+	}
+
 	agentUC := usecase.NewAgentChatUseCase(
 		queryUC,
 		embedder,

@@ -23,6 +23,7 @@ type ToolRegistry struct {
 	mu            sync.RWMutex
 	clientManager *ClientManager
 	builtinDefs   []ports.ToolDefinition
+	httpExecutors map[string]HTTPToolDef
 }
 
 // NewToolRegistry creates a registry backed by the given client manager.
@@ -51,8 +52,12 @@ func (r *ToolRegistry) IsBuiltIn(name string) bool {
 	return builtinTools[strings.ToLower(strings.TrimSpace(name))]
 }
 
-// CallMCPTool routes a call to an external MCP server.
+// CallMCPTool routes a call to an HTTP tool or external MCP server.
 func (r *ToolRegistry) CallMCPTool(ctx context.Context, name string, args map[string]any) (string, error) {
+	// Check HTTP tools first.
+	if r.IsHTTPTool(name) {
+		return r.CallHTTPTool(ctx, name, args)
+	}
 	if r.clientManager == nil {
 		return "", fmt.Errorf("no MCP clients configured")
 	}
