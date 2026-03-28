@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import { Activity, FolderOpen, MessageSquare, Settings } from "lucide-react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { Activity, FolderOpen, MessageSquare, Network, Settings } from "lucide-react";
 import { ConnectionStatus } from "./components/ConnectionStatus";
 import { ChatPage } from "./pages/ChatPage";
 import { VaultBrowserPage } from "./pages/VaultBrowserPage";
@@ -8,11 +8,16 @@ import { SettingsPage } from "./pages/SettingsPage";
 import { useSettingsStore } from "./stores/settingsStore";
 import { isTauri } from "./utils/isTauri";
 
-type Page = "chat" | "vault" | "dashboard" | "settings";
+const GraphPage = lazy(() =>
+  import("./pages/GraphPage").then((m) => ({ default: m.GraphPage })),
+);
+
+type Page = "chat" | "vault" | "dashboard" | "graph" | "settings";
 
 export default function App() {
   const [page, setPage] = useState<Page>("chat");
   const [pendingRef, setPendingRef] = useState<string | null>(null);
+  const [_pendingVaultPath, setPendingVaultPath] = useState<string | null>(null);
   const loadSettings = useSettingsStore((s) => s.load);
   const theme = useSettingsStore((s) => s.theme);
 
@@ -89,6 +94,7 @@ export default function App() {
     { key: "chat", label: "Chat", icon: MessageSquare },
     { key: "vault", label: "Vaults", icon: FolderOpen },
     { key: "dashboard", label: "Dashboard", icon: Activity },
+    { key: "graph", label: "Graph", icon: Network },
     { key: "settings", label: "Settings", icon: Settings },
   ];
 
@@ -131,6 +137,22 @@ export default function App() {
           <VaultBrowserPage onReferenceInChat={handleReferenceInChat} />
         )}
         {page === "dashboard" && <DashboardPage />}
+        {page === "graph" && (
+          <Suspense
+            fallback={
+              <div className="flex h-full items-center justify-center">
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+              </div>
+            }
+          >
+            <GraphPage
+              onNavigateToVault={(path) => {
+                setPendingVaultPath(path);
+                setPage("vault");
+              }}
+            />
+          </Suspense>
+        )}
         {page === "settings" && <SettingsPage />}
       </main>
     </div>
