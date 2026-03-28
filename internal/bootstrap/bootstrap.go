@@ -62,6 +62,7 @@ type App struct {
 
 	ScheduleStore ports.ScheduleStore
 	SchedulerUC   *usecase.SchedulerUseCase
+	Storage       ports.ObjectStorage
 
 	closeFn func()
 }
@@ -450,6 +451,7 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 
 		ScheduleStore: scheduleStore,
 		SchedulerUC:   schedulerUC,
+		Storage:       storage,
 
 		closeFn: func() {
 			toolRegistry.Close()

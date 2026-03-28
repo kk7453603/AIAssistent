@@ -62,6 +62,7 @@ type Router struct {
 	improvementStore ports.ImprovementStore
 	scheduleStore    ports.ScheduleStore
 	docRepo          ports.DocumentRepository
+	objectStorage    ports.ObjectStorage
 }
 
 func NewRouter(
@@ -181,6 +182,11 @@ func (rt *Router) SetDocumentRepository(r ports.DocumentRepository) {
 	rt.docRepo = r
 }
 
+// SetObjectStorage sets the object storage for document content endpoint.
+func (rt *Router) SetObjectStorage(s ports.ObjectStorage) {
+	rt.objectStorage = s
+}
+
 // SetHTTPToolDefs stores the list of HTTP tool definitions for the GET /v1/tools endpoint.
 func (rt *Router) SetHTTPToolDefs(defs []paamcp.HTTPToolDef) {
 	rt.httpToolDefs = defs
@@ -222,6 +228,7 @@ func (rt *Router) Handler() http.Handler {
 	mux.HandleFunc("PATCH /v1/schedules/{id}", rt.handleUpdateSchedule)
 
 	mux.HandleFunc("GET /v1/documents", rt.handleListDocuments)
+	mux.HandleFunc("GET /v1/documents/{id}/content", rt.handleGetDocumentContent)
 
 	mux.HandleFunc("GET /v1/tools", rt.handleListTools)
 
@@ -775,6 +782,40 @@ func (rt *Router) handleListDocuments(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(docs)
+}
+
+func (rt *Router) handleGetDocumentContent(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		writeError(w, http.StatusBadRequest, fmt.Errorf("id is required"))
+		return
+	}
+	if rt.docRepo == nil || rt.objectStorage == nil {
+		writeError(w, http.StatusServiceUnavailable, fmt.Errorf("document service not configured"))
+		return
+	}
+	doc, err := rt.docRepo.GetByID(r.Context(), id)
+	if err != nil {
+		writeError(w, http.StatusNotFound, err)
+		return
+	}
+	reader, err := rt.objectStorage.Open(r.Context(), doc.StoragePath)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, fmt.Errorf("open file: %w", err))
+		return
+	}
+	defer func() { _ = reader.Close() }()
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, fmt.Errorf("read file: %w", err))
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]string{
+		"id":       doc.ID,
+		"filename": doc.Filename,
+		"content":  string(data),
+	})
 }
 
 func (rt *Router) handlePatchImprovement(w http.ResponseWriter, r *http.Request) {
