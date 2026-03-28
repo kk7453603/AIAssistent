@@ -71,7 +71,7 @@ func (c *MemoryClient) doRequest(
 		}
 		if isRetryableHTTPStatus(resp.StatusCode) {
 			body, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			return &HTTPStatusError{
 				Operation:  "memory " + operation,
 				StatusCode: resp.StatusCode,
@@ -109,12 +109,12 @@ func (c *MemoryClient) IndexSummary(ctx context.Context, summary domain.MemorySu
 		return err
 	}
 
-	body, err := json.Marshal(map[string]interface{}{
-		"points": []map[string]interface{}{
+	body, err := json.Marshal(map[string]any{
+		"points": []map[string]any{
 			{
 				"id":     summary.ID,
 				"vector": vector,
-				"payload": map[string]interface{}{
+				"payload": map[string]any{
 					"user_id":         summary.UserID,
 					"conversation_id": summary.ConversationID,
 					"summary_id":      summary.ID,
@@ -134,7 +134,7 @@ func (c *MemoryClient) IndexSummary(ctx context.Context, summary domain.MemorySu
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
 		return fmt.Errorf("memory upsert status: %s: %s", resp.Status, strings.TrimSpace(string(body)))
@@ -155,7 +155,7 @@ func (c *MemoryClient) SearchSummaries(
 		limit = 4
 	}
 
-	reqBody := map[string]interface{}{
+	reqBody := map[string]any{
 		"query":        queryVector,
 		"limit":        limit,
 		"with_payload": true,
@@ -171,7 +171,7 @@ func (c *MemoryClient) SearchSummaries(
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
 		return nil, fmt.Errorf("memory query status: %s: %s", resp.Status, strings.TrimSpace(string(body)))
@@ -198,24 +198,24 @@ func (c *MemoryClient) SearchSummaries(
 	return out, nil
 }
 
-func buildMemoryFilter(userID, conversationID string) map[string]interface{} {
-	must := []map[string]interface{}{
+func buildMemoryFilter(userID, conversationID string) map[string]any {
+	must := []map[string]any{
 		{
 			"key": "user_id",
-			"match": map[string]interface{}{
+			"match": map[string]any{
 				"value": userID,
 			},
 		},
 	}
 	if strings.TrimSpace(conversationID) != "" {
-		must = append(must, map[string]interface{}{
+		must = append(must, map[string]any{
 			"key": "conversation_id",
-			"match": map[string]interface{}{
+			"match": map[string]any{
 				"value": conversationID,
 			},
 		})
 	}
-	return map[string]interface{}{"must": must}
+	return map[string]any{"must": must}
 }
 
 func (c *MemoryClient) ensureCollection(ctx context.Context, vectorSize int) error {
@@ -226,8 +226,8 @@ func (c *MemoryClient) ensureCollection(ctx context.Context, vectorSize int) err
 	}
 	c.ensureMu.Unlock()
 
-	body, err := json.Marshal(map[string]interface{}{
-		"vectors": map[string]interface{}{
+	body, err := json.Marshal(map[string]any{
+		"vectors": map[string]any{
 			"size":     vectorSize,
 			"distance": "Cosine",
 		},
@@ -241,7 +241,7 @@ func (c *MemoryClient) ensureCollection(ctx context.Context, vectorSize int) err
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode >= 300 && resp.StatusCode != http.StatusConflict {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
 		return fmt.Errorf("memory ensure collection status: %s: %s", resp.Status, strings.TrimSpace(string(body)))

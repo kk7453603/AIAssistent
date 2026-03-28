@@ -60,7 +60,7 @@ func TestMemoryClientSearchSummariesFilterAndDecode(t *testing.T) {
 	var queryBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost && r.URL.Path == "/collections/memory/points/query" {
-			defer r.Body.Close()
+			defer func() { _ = r.Body.Close() }()
 			if err := json.NewDecoder(r.Body).Decode(&queryBody); err != nil {
 				t.Fatalf("decode query body: %v", err)
 			}
