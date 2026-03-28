@@ -5,7 +5,7 @@
 **AI-ассистент на Go с каскадным поиском, RAG-пайплайном, интеграцией с Obsidian и десктопным UI на Tauri.**
 
 ![Go Version](https://img.shields.io/badge/Go-1.25.6-00ADD8?logo=go&logoColor=white)
-[![Coverage](https://kk7453603.github.io/AIAssistent/coverage.svg)](https://kk7453603.github.io/AIAssistent/coverage.html)
+![Coverage](https://kk7453603.github.io/AIAssistent/badges/coverage.svg)
 [![License: PolyForm Small Business 1.0.0](https://img.shields.io/badge/License-PolyForm%20Small%20Business%201.0.0-blue.svg)](https://polyformproject.org/licenses/small-business/1.0.0)
 
 ---

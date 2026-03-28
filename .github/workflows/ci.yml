@@ -20,12 +20,24 @@ jobs:
         run: go test ./... -race -coverprofile=coverage.out
       - name: Coverage badge
         if: github.ref == 'refs/heads/main'
-        uses: ncruces/go-coverage-report@v0
+        run: |
+          COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | tr -d '%')
+          COLOR=red
+          if (( $(echo "$COVERAGE >= 80" | bc -l) )); then COLOR=brightgreen
+          elif (( $(echo "$COVERAGE >= 60" | bc -l) )); then COLOR=green
+          elif (( $(echo "$COVERAGE >= 40" | bc -l) )); then COLOR=yellow
+          elif (( $(echo "$COVERAGE >= 20" | bc -l) )); then COLOR=orange
+          fi
+          mkdir -p badges
+          curl -s "https://img.shields.io/badge/coverage-${COVERAGE}%25-${COLOR}" > badges/coverage.svg
+      - name: Deploy badge
+        if: github.ref == 'refs/heads/main'
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          coverage-file: coverage.out
-          report: true
-          chart: true
-          amend: true
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./badges
+          destination_dir: badges
+          keep_files: true
 
   lint:
     runs-on: ubuntu-latest
