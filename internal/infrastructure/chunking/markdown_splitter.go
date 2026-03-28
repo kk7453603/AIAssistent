@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-var markdownHeadingRe = regexp.MustCompile(`^\\s{0,3}#{1,6}\\s+`)
+var markdownHeadingRe = regexp.MustCompile(`^\s{0,3}#{1,6}\s+`)
 
 type MarkdownSplitter struct {
 	fallback *Splitter

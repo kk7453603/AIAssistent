@@ -50,12 +50,17 @@ type Chunker interface {
 	Split(text string) []string
 }
 
+// ChunkerRegistry selects a Chunker based on source type.
+type ChunkerRegistry interface {
+	ForSource(sourceType string) Chunker
+}
+
 // VectorStore indexes chunks and performs semantic search.
 type VectorStore interface {
 	IndexChunks(ctx context.Context, doc *domain.Document, chunks []string, vectors [][]float32) error
 	Search(ctx context.Context, queryVector []float32, limit int, filter domain.SearchFilter) ([]domain.RetrievedChunk, error)
 	SearchLexical(ctx context.Context, queryText string, limit int, filter domain.SearchFilter) ([]domain.RetrievedChunk, error)
-	UpdateChunksPayload(ctx context.Context, docID string, payload map[string]any) error
+	UpdateChunksPayload(ctx context.Context, docID string, sourceType string, payload map[string]any) error
 }
 
 // AnswerGenerator creates the final user-facing answer.
