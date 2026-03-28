@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"math"
@@ -53,7 +54,8 @@ type Router struct {
 
 	mcpHandler http.Handler
 
-	graphStore ports.GraphStore
+	graphStore    ports.GraphStore
+	feedbackStore ports.FeedbackStore
 }
 
 func NewRouter(
@@ -148,6 +150,11 @@ func (rt *Router) SetGraphStore(g ports.GraphStore) {
 	rt.graphStore = g
 }
 
+// SetFeedbackStore sets the feedback store used by the POST /v1/feedback endpoint.
+func (rt *Router) SetFeedbackStore(f ports.FeedbackStore) {
+	rt.feedbackStore = f
+}
+
 func (rt *Router) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /openapi.json", serveOpenAPISpecJSON)
@@ -163,6 +170,7 @@ func (rt *Router) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/obsidian/vaults/{id}/files/content", rt.handleObsidianFileContent)
 
 	mux.HandleFunc("GET /v1/graph", rt.handleGetGraph)
+	mux.HandleFunc("POST /v1/feedback", rt.handlePostFeedback)
 
 	if rt.mcpHandler != nil {
 		mux.Handle("/mcp", rt.mcpHandler)
@@ -449,6 +457,43 @@ func (rt *Router) handleGetGraph(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(graph)
+}
+
+func (rt *Router) handlePostFeedback(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		ConversationID string `json:"conversation_id"`
+		MessageID      string `json:"message_id"`
+		Rating         string `json:"rating"`
+		Comment        string `json:"comment"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	if req.Rating != "up" && req.Rating != "down" {
+		writeError(w, http.StatusBadRequest, fmt.Errorf("rating must be 'up' or 'down'"))
+		return
+	}
+	if rt.feedbackStore == nil {
+		writeError(w, http.StatusServiceUnavailable, fmt.Errorf("feedback not enabled"))
+		return
+	}
+
+	fb := &domain.AgentFeedback{
+		UserID:         r.Header.Get("X-User-ID"),
+		ConversationID: req.ConversationID,
+		MessageID:      req.MessageID,
+		Rating:         req.Rating,
+		Comment:        req.Comment,
+	}
+	if err := rt.feedbackStore.Create(r.Context(), fb); err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok", "id": fb.ID})
 }
 
 func serveOpenAPISpecJSON(w http.ResponseWriter, _ *http.Request) {
