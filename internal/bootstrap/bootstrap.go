@@ -218,14 +218,34 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		}
 	}
 	chunkStrategy := strings.ToLower(strings.TrimSpace(cfg.ChunkStrategy))
-	var chunker ports.Chunker = chunking.NewSplitter(cfg.ChunkSize, cfg.ChunkOverlap)
+	var defaultChunker ports.Chunker
 	switch chunkStrategy {
 	case "", "fixed":
-		// default splitter
+		defaultChunker = chunking.NewSplitter(cfg.ChunkSize, cfg.ChunkOverlap)
 	case "markdown", "md":
-		chunker = chunking.NewMarkdownSplitter(cfg.ChunkSize, cfg.ChunkOverlap)
+		defaultChunker = chunking.NewMarkdownSplitter(cfg.ChunkSize, cfg.ChunkOverlap)
 	default:
 		return nil, fmt.Errorf("unsupported CHUNK_STRATEGY=%q: use fixed or markdown", cfg.ChunkStrategy)
+	}
+
+	chunkerRegistry := chunking.NewRegistry(defaultChunker)
+	if chunkConfigs := config.ParseChunkConfig(cfg.ChunkConfig); chunkConfigs != nil {
+		for sourceType, cc := range chunkConfigs {
+			size := cc.Size
+			if size <= 0 {
+				size = cfg.ChunkSize
+			}
+			overlap := cc.Overlap
+			if overlap < 0 {
+				overlap = cfg.ChunkOverlap
+			}
+			switch strings.ToLower(cc.Strategy) {
+			case "markdown", "md":
+				chunkerRegistry.Register(sourceType, chunking.NewMarkdownSplitter(size, overlap))
+			default:
+				chunkerRegistry.Register(sourceType, chunking.NewSplitter(size, overlap))
+			}
+		}
 	}
 	extractor := plaintext.NewExtractor(storage)
 
@@ -241,7 +261,7 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 	}
 	ingestUC := usecase.NewIngestDocumentUseCase(repo, storage, queue, sourceAdapters)
 	metaExtractor := metadata.New()
-	processUC := usecase.NewProcessDocumentUseCase(repo, extractor, metaExtractor, chunker, embedder, vectorDB, queue)
+	processUC := usecase.NewProcessDocumentUseCase(repo, extractor, metaExtractor, chunkerRegistry, embedder, vectorDB, queue)
 	enrichUC := usecase.NewEnrichDocumentUseCase(repo, extractor, classifier, vectorDB)
 	queryUC := usecase.NewQueryUseCase(embedder, vectorDB, generator, usecase.QueryOptions{
 		RetrievalMode:         domain.RetrievalMode(strings.ToLower(strings.TrimSpace(cfg.RAGRetrievalMode))),

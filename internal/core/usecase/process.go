@@ -14,7 +14,7 @@ type ProcessDocumentUseCase struct {
 	repo          ports.DocumentRepository
 	extractor     ports.TextExtractor
 	metaExtractor ports.MetadataExtractor
-	chunker       ports.Chunker
+	chunkers      ports.ChunkerRegistry
 	embedder      ports.Embedder
 	vectorDB      ports.VectorStore
 	queue         ports.MessageQueue
@@ -24,7 +24,7 @@ func NewProcessDocumentUseCase(
 	repo ports.DocumentRepository,
 	extractor ports.TextExtractor,
 	metaExtractor ports.MetadataExtractor,
-	chunker ports.Chunker,
+	chunkers ports.ChunkerRegistry,
 	embedder ports.Embedder,
 	vectorDB ports.VectorStore,
 	queue ports.MessageQueue,
@@ -33,7 +33,7 @@ func NewProcessDocumentUseCase(
 		repo:          repo,
 		extractor:     extractor,
 		metaExtractor: metaExtractor,
-		chunker:       chunker,
+		chunkers:      chunkers,
 		embedder:      embedder,
 		vectorDB:      vectorDB,
 		queue:         queue,
@@ -76,7 +76,7 @@ func (uc *ProcessDocumentUseCase) processPipeline(ctx context.Context, documentI
 		return nil, err
 	}
 
-	chunks, err := uc.chunk(ctx, text)
+	chunks, err := uc.chunk(ctx, text, meta.SourceType)
 	if err != nil {
 		return nil, err
 	}
@@ -127,8 +127,9 @@ func (uc *ProcessDocumentUseCase) extractMetadata(ctx context.Context, doc *doma
 	return meta, nil
 }
 
-func (uc *ProcessDocumentUseCase) chunk(_ context.Context, text string) ([]string, error) {
-	chunks := uc.chunker.Split(text)
+func (uc *ProcessDocumentUseCase) chunk(_ context.Context, text string, sourceType string) ([]string, error) {
+	chunker := uc.chunkers.ForSource(sourceType)
+	chunks := chunker.Split(text)
 	if len(chunks) == 0 {
 		return nil, domain.WrapError(domain.ErrInvalidInput, "chunk document", errors.New("chunking produced zero chunks"))
 	}

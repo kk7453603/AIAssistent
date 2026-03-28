@@ -1,9 +1,12 @@
 package config
 
 import (
+	"encoding/json"
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/kirillkom/personal-ai-assistant/internal/core/domain"
 )
 
 type Config struct {
@@ -54,6 +57,7 @@ type Config struct {
 	ChunkSize           int
 	ChunkOverlap        int
 	ChunkStrategy       string
+	ChunkConfig         string // JSON: {"obsidian":{"strategy":"markdown","chunk_size":1200,"overlap":150}}
 	RAGTopK             int
 	RAGRetrievalMode    string
 	RAGHybridCandidates int
@@ -164,6 +168,7 @@ func Load() Config {
 		ChunkSize:           mustEnvInt("CHUNK_SIZE", 900),
 		ChunkOverlap:        mustEnvInt("CHUNK_OVERLAP", 150),
 		ChunkStrategy:       mustEnv("CHUNK_STRATEGY", "fixed"),
+		ChunkConfig:         os.Getenv("CHUNK_CONFIG"),
 		RAGTopK:             mustEnvInt("RAG_TOP_K", 5),
 		RAGRetrievalMode:    mustEnv("RAG_RETRIEVAL_MODE", "semantic"),
 		RAGHybridCandidates: mustEnvInt("RAG_HYBRID_CANDIDATES", 30),
@@ -252,6 +257,18 @@ func (c Config) ParseExtraProviders() []ExtraLLMProvider {
 			Key:   mustEnv(prefix+"KEY", ""),
 			Model: mustEnv(prefix+"MODEL", ""),
 		})
+	}
+	return result
+}
+
+// ParseChunkConfig parses the CHUNK_CONFIG JSON env variable into a map of source type → ChunkConfig.
+func ParseChunkConfig(raw string) map[string]domain.ChunkConfig {
+	if raw == "" {
+		return nil
+	}
+	var result map[string]domain.ChunkConfig
+	if err := json.Unmarshal([]byte(raw), &result); err != nil {
+		return nil
 	}
 	return result
 }

@@ -23,3 +23,10 @@ type IngestResult struct {
 	Path       string
 	ExtraMeta  map[string]string
 }
+
+// ChunkConfig holds per-source chunking parameters.
+type ChunkConfig struct {
+	Strategy string `json:"strategy"`
+	Size     int    `json:"chunk_size"`
+	Overlap  int    `json:"overlap"`
+}

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/kirillkom/personal-ai-assistant/internal/core/domain"
+	"github.com/kirillkom/personal-ai-assistant/internal/core/ports"
 )
 
 type statusCall struct {
@@ -104,6 +105,14 @@ type chunkerFake struct {
 
 func (f *chunkerFake) Split(string) []string { return f.chunks }
 
+type chunkerRegistryFake struct {
+	chunks []string
+}
+
+func (f *chunkerRegistryFake) ForSource(string) ports.Chunker {
+	return &chunkerFake{chunks: f.chunks}
+}
+
 type embedderFake struct {
 	vectors [][]float32
 	err     error
@@ -143,7 +152,7 @@ func TestProcessByIDSuccess(t *testing.T) {
 		repo,
 		&extractorFake{text: "Some text"},
 		&metadataExtractorFake{meta: domain.DocumentMetadata{Category: "general", SourceType: "markdown"}},
-		&chunkerFake{chunks: []string{"a", "b"}},
+		&chunkerRegistryFake{chunks: []string{"a", "b"}},
 		&embedderFake{vectors: [][]float32{{1}, {2}}},
 		&vectorFake{},
 		q,
@@ -169,7 +178,7 @@ func TestProcessByIDMarksFailedOnExtractError(t *testing.T) {
 		repo,
 		&extractorFake{err: errors.New("extract fail")},
 		&metadataExtractorFake{},
-		&chunkerFake{chunks: []string{"a"}},
+		&chunkerRegistryFake{chunks: []string{"a"}},
 		&embedderFake{vectors: [][]float32{{1}}},
 		&vectorFake{},
 		&queueFake{},
@@ -193,7 +202,7 @@ func TestProcessByIDMarksFailedOnVectorMismatch(t *testing.T) {
 		repo,
 		&extractorFake{text: "text"},
 		&metadataExtractorFake{meta: domain.DocumentMetadata{Category: "general"}},
-		&chunkerFake{chunks: []string{"a", "b"}},
+		&chunkerRegistryFake{chunks: []string{"a", "b"}},
 		&embedderFake{vectors: [][]float32{{1}}},
 		&vectorFake{},
 		&queueFake{},
