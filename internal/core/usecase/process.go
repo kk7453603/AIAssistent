@@ -219,7 +219,10 @@ func (uc *ProcessDocumentUseCase) indexGraph(ctx context.Context, doc *domain.Do
 }
 
 func (uc *ProcessDocumentUseCase) applyMetadata(doc *domain.Document, meta domain.DocumentMetadata) {
-	doc.SourceType = meta.SourceType
+	// Only set SourceType from metadata if not already set by SourceAdapter.
+	if doc.SourceType == "" {
+		doc.SourceType = meta.SourceType
+	}
 	doc.Category = meta.Category
 	doc.Tags = meta.Tags
 	doc.Title = meta.Title
