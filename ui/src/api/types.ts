@@ -32,3 +32,33 @@ export interface ToolStatusDelta {
   tool: string;
   status: "running" | "ok" | "error";
 }
+
+// --- Knowledge Graph ---
+
+export interface GraphNode {
+  id: string;
+  filename: string;
+  source_type: string;
+  category: string;
+  title: string;
+  path: string;
+}
+
+export interface GraphRelation {
+  source_id: string;
+  target_id: string;
+  type: string;
+  weight: number;
+}
+
+export interface Graph {
+  nodes: GraphNode[];
+  edges: GraphRelation[];
+}
+
+export interface GraphFilter {
+  source_types?: string[];
+  categories?: string[];
+  min_score?: number;
+  max_depth?: number;
+}
