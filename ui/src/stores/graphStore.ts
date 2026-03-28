@@ -94,7 +94,7 @@ export function useFilteredGraph(): {
     );
 
   return useMemo(() => {
-    if (!graph) return { nodes: [], edges: [] };
+    if (!graph || !graph.nodes) return { nodes: [], edges: [] };
 
     let nodes = graph.nodes;
 
@@ -114,7 +114,7 @@ export function useFilteredGraph(): {
     }
 
     const nodeIds = new Set(nodes.map((n) => n.id));
-    const edges = graph.edges.filter(
+    const edges = (graph.edges ?? []).filter(
       (e) =>
         nodeIds.has(e.source_id) &&
         nodeIds.has(e.target_id) &&
@@ -128,7 +128,7 @@ export function useFilteredGraph(): {
 export function useUniqueSourceTypes(): string[] {
   const graph = useGraphStore((s) => s.graph);
   return useMemo(() => {
-    if (!graph) return [];
+    if (!graph?.nodes) return [];
     return [...new Set(graph.nodes.map((n) => n.source_type))].sort();
   }, [graph]);
 }
@@ -136,7 +136,7 @@ export function useUniqueSourceTypes(): string[] {
 export function useUniqueCategories(): string[] {
   const graph = useGraphStore((s) => s.graph);
   return useMemo(() => {
-    if (!graph) return [];
+    if (!graph?.nodes) return [];
     return [...new Set(graph.nodes.map((n) => n.category))].sort();
   }, [graph]);
 }
