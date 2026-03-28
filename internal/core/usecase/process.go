@@ -18,6 +18,7 @@ type ProcessDocumentUseCase struct {
 	embedder      ports.Embedder
 	vectorDB      ports.VectorStore
 	queue         ports.MessageQueue
+	graphStore    ports.GraphStore
 }
 
 func NewProcessDocumentUseCase(
@@ -28,6 +29,7 @@ func NewProcessDocumentUseCase(
 	embedder ports.Embedder,
 	vectorDB ports.VectorStore,
 	queue ports.MessageQueue,
+	graphStore ports.GraphStore,
 ) *ProcessDocumentUseCase {
 	return &ProcessDocumentUseCase{
 		repo:          repo,
@@ -37,6 +39,7 @@ func NewProcessDocumentUseCase(
 		embedder:      embedder,
 		vectorDB:      vectorDB,
 		queue:         queue,
+		graphStore:    graphStore,
 	}
 }
 
@@ -90,6 +93,11 @@ func (uc *ProcessDocumentUseCase) processPipeline(ctx context.Context, documentI
 
 	if err := uc.index(ctx, doc, chunks, vectors); err != nil {
 		return nil, err
+	}
+
+	// Index in knowledge graph (best-effort).
+	if uc.graphStore != nil {
+		uc.indexGraph(ctx, doc, text, vectors)
 	}
 
 	// Publish enrichment event (best-effort — don't fail the pipeline).
@@ -167,6 +175,47 @@ func (uc *ProcessDocumentUseCase) markFailed(ctx context.Context, documentID str
 		return nil
 	}
 	return uc.markStatus(ctx, documentID, domain.StatusFailed, processErr.Error())
+}
+
+func (uc *ProcessDocumentUseCase) indexGraph(ctx context.Context, doc *domain.Document, text string, vectors [][]float32) {
+	node := domain.GraphNode{
+		ID: doc.ID, Filename: doc.Filename, SourceType: doc.SourceType,
+		Category: doc.Category, Title: doc.Title, Path: doc.Path,
+	}
+	if err := uc.graphStore.UpsertDocument(ctx, node); err != nil {
+		slog.Warn("graph_upsert_failed", "document_id", doc.ID, "error", err)
+		return
+	}
+
+	// Extract and resolve wikilinks.
+	for _, target := range extractWikilinks(text) {
+		nodes, err := uc.graphStore.FindByTitle(ctx, target)
+		if err != nil || len(nodes) == 0 {
+			continue
+		}
+		_ = uc.graphStore.AddLink(ctx, doc.ID, nodes[0].ID, "wikilink")
+	}
+
+	// Extract and resolve markdown links.
+	for _, target := range extractMarkdownLinks(text) {
+		nodes, err := uc.graphStore.FindByTitle(ctx, target)
+		if err != nil || len(nodes) == 0 {
+			continue
+		}
+		_ = uc.graphStore.AddLink(ctx, doc.ID, nodes[0].ID, "markdown_link")
+	}
+
+	// Semantic similarity via Qdrant (use first chunk embedding as doc embedding).
+	if len(vectors) > 0 {
+		similar, err := uc.vectorDB.Search(ctx, vectors[0], 10, domain.SearchFilter{})
+		if err == nil {
+			for _, s := range similar {
+				if s.DocumentID != doc.ID && s.Score > 0.75 {
+					_ = uc.graphStore.AddSimilarity(ctx, doc.ID, s.DocumentID, s.Score)
+				}
+			}
+		}
+	}
 }
 
 func (uc *ProcessDocumentUseCase) applyMetadata(doc *domain.Document, meta domain.DocumentMetadata) {

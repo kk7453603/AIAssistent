@@ -108,6 +108,24 @@ func (f *queueFake) SubscribeDocumentEnrich(context.Context, func(context.Contex
 	return nil
 }
 
+type graphStoreFake struct{}
+
+func (f *graphStoreFake) UpsertDocument(context.Context, domain.GraphNode) error { return nil }
+func (f *graphStoreFake) AddLink(context.Context, string, string, string) error  { return nil }
+func (f *graphStoreFake) AddSimilarity(context.Context, string, string, float64) error {
+	return nil
+}
+func (f *graphStoreFake) RemoveSimilarities(context.Context, string) error { return nil }
+func (f *graphStoreFake) GetRelated(context.Context, string, int, int) ([]domain.GraphRelation, error) {
+	return nil, nil
+}
+func (f *graphStoreFake) FindByTitle(context.Context, string) ([]domain.GraphNode, error) {
+	return nil, nil
+}
+func (f *graphStoreFake) GetGraph(context.Context, domain.GraphFilter) (*domain.Graph, error) {
+	return &domain.Graph{}, nil
+}
+
 type chunkerFake struct {
 	chunks []string
 }
@@ -165,6 +183,7 @@ func TestProcessByIDSuccess(t *testing.T) {
 		&embedderFake{vectors: [][]float32{{1}, {2}}},
 		&vectorFake{},
 		q,
+		&graphStoreFake{},
 	)
 
 	if err := uc.ProcessByID(context.Background(), "doc-1"); err != nil {
@@ -191,6 +210,7 @@ func TestProcessByIDMarksFailedOnExtractError(t *testing.T) {
 		&embedderFake{vectors: [][]float32{{1}}},
 		&vectorFake{},
 		&queueFake{},
+		&graphStoreFake{},
 	)
 
 	err := uc.ProcessByID(context.Background(), "doc-1")
@@ -215,6 +235,7 @@ func TestProcessByIDMarksFailedOnVectorMismatch(t *testing.T) {
 		&embedderFake{vectors: [][]float32{{1}}},
 		&vectorFake{},
 		&queueFake{},
+		&graphStoreFake{},
 	)
 
 	err := uc.ProcessByID(context.Background(), "doc-1")

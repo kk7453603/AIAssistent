@@ -32,6 +32,7 @@ import (
 	sourceobsidian "github.com/kirillkom/personal-ai-assistant/internal/infrastructure/source/obsidian"
 	sourceupload "github.com/kirillkom/personal-ai-assistant/internal/infrastructure/source/upload"
 	sourceweb "github.com/kirillkom/personal-ai-assistant/internal/infrastructure/source/web"
+	graphpkg "github.com/kirillkom/personal-ai-assistant/internal/infrastructure/graph"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/vector/qdrant"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/websearch/searxng"
 )
@@ -282,7 +283,7 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 	}
 	ingestUC := usecase.NewIngestDocumentUseCase(repo, storage, queue, sourceAdapters)
 	metaExtractor := metadata.New()
-	processUC := usecase.NewProcessDocumentUseCase(repo, extractorRegistry, metaExtractor, chunkerRegistry, embedder, vectorDB, queue)
+	processUC := usecase.NewProcessDocumentUseCase(repo, extractorRegistry, metaExtractor, chunkerRegistry, embedder, vectorDB, queue, graphpkg.NewNoopStore())
 	enrichUC := usecase.NewEnrichDocumentUseCase(repo, extractorRegistry, classifier, vectorDB)
 	queryUC := usecase.NewQueryUseCase(embedder, vectorDB, generator, usecase.QueryOptions{
 		RetrievalMode:         domain.RetrievalMode(strings.ToLower(strings.TrimSpace(cfg.RAGRetrievalMode))),
