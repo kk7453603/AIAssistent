@@ -1,5 +1,6 @@
 import { ActivityFeed } from "../components/dashboard/ActivityFeed";
 import { MCPStatus } from "../components/dashboard/MCPStatus";
+import { SchedulesWidget } from "../components/dashboard/SchedulesWidget";
 import { ToolStats } from "../components/dashboard/ToolStats";
 
 export function DashboardPage() {
@@ -18,6 +19,13 @@ export function DashboardPage() {
             MCP Servers
           </h2>
           <MCPStatus />
+        </section>
+
+        <section>
+          <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
+            Scheduled Tasks
+          </h2>
+          <SchedulesWidget />
         </section>
 
         <section>
