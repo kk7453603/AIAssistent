@@ -42,6 +42,7 @@ type AgentChatUseCase struct {
 	agentMetrics    *metrics.AgentMetrics
 	obsidianVaults  []ports.AgentVaultInfo
 	modelRouting    *domain.ModelRouting
+	graphStore      ports.GraphStore
 }
 
 func NewAgentChatUseCase(
@@ -110,6 +111,10 @@ func (uc *AgentChatUseCase) SetObsidianVaults(vaults []ports.AgentVaultInfo) {
 
 func (uc *AgentChatUseCase) SetModelRouting(r *domain.ModelRouting) {
 	uc.modelRouting = r
+}
+
+func (uc *AgentChatUseCase) SetGraphStore(g ports.GraphStore) {
+	uc.graphStore = g
 }
 
 func (uc *AgentChatUseCase) Complete(ctx context.Context, req domain.AgentChatRequest, onToolStatus domain.ToolStatusCallback) (*domain.AgentRunResult, error) {
@@ -908,6 +913,9 @@ func (uc *AgentChatUseCase) executeToolCall(ctx context.Context, userID string, 
 	case agentToolKnowledgeSearch:
 		question := stringFromArgs(args, "question", fallbackQuestion)
 		limit := intFromArgs(args, "limit", uc.limits.KnowledgeTopK)
+		if expanded := uc.expandQueryWithGraph(ctx, question); expanded != "" {
+			question = question + " " + expanded
+		}
 		answer, err := uc.querySvc.Answer(ctx, question, limit, domain.SearchFilter{})
 		if err != nil {
 			return domain.AgentToolEvent{}, fmt.Errorf("knowledge search: %w", err)
@@ -978,6 +986,61 @@ func intFromArgs(args map[string]any, key string, fallback int) int {
 		}
 	}
 	return fallback
+}
+
+func (uc *AgentChatUseCase) expandQueryWithGraph(ctx context.Context, query string) string {
+	if uc.graphStore == nil {
+		return ""
+	}
+
+	tokens := strings.Fields(query)
+	var expansions []string
+	seen := make(map[string]bool)
+
+	for _, token := range tokens {
+		if len(token) < 3 {
+			continue
+		}
+		nodes, err := uc.graphStore.FindByTitle(ctx, token)
+		if err != nil || len(nodes) == 0 {
+			continue
+		}
+
+		limit := 2
+		if len(nodes) < limit {
+			limit = len(nodes)
+		}
+		for _, node := range nodes[:limit] {
+			related, err := uc.graphStore.GetRelated(ctx, node.ID, 1, 3)
+			if err != nil {
+				continue
+			}
+			for _, rel := range related {
+				targetID := rel.TargetID
+				if targetID == node.ID {
+					targetID = rel.SourceID
+				}
+				// Look up the target node's title.
+				targetNodes, err := uc.graphStore.FindByTitle(ctx, targetID)
+				if err != nil || len(targetNodes) == 0 {
+					continue
+				}
+				title := targetNodes[0].Title
+				if title != "" && !seen[title] {
+					seen[title] = true
+					expansions = append(expansions, title)
+				}
+			}
+		}
+	}
+
+	if len(expansions) > 5 {
+		expansions = expansions[:5]
+	}
+	if len(expansions) > 0 {
+		slog.Info("graph_query_expansion", "expansions", expansions)
+	}
+	return strings.Join(expansions, " ")
 }
 
 // sanitizeUTF8 strips invalid UTF-8 byte sequences (e.g. truncated multi-byte
