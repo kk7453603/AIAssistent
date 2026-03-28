@@ -1,0 +1,192 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "title": "RAGAS Evaluation Summary",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 0 },
+      "targets": [],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "textMode": "value_and_name",
+        "colorMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "orange", "value": 0.5 },
+              { "color": "green", "value": 0.75 }
+            ]
+          },
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        }
+      },
+      "description": "Configure JSON API datasource pointing to RAGAS report file. See docs for setup instructions."
+    },
+    {
+      "title": "Faithfulness",
+      "type": "gauge",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 4 },
+      "targets": [],
+      "options": {
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "orange", "value": 0.5 },
+              { "color": "green", "value": 0.75 }
+            ]
+          },
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        }
+      },
+      "description": "Measures factual consistency of the generated answer with the retrieved context."
+    },
+    {
+      "title": "Answer Relevancy",
+      "type": "gauge",
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 4 },
+      "targets": [],
+      "options": {
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "orange", "value": 0.5 },
+              { "color": "green", "value": 0.75 }
+            ]
+          },
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        }
+      },
+      "description": "How relevant the answer is to the question asked."
+    },
+    {
+      "title": "Context Precision",
+      "type": "gauge",
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 4 },
+      "targets": [],
+      "options": {
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "orange", "value": 0.5 },
+              { "color": "green", "value": 0.75 }
+            ]
+          },
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        }
+      },
+      "description": "Measures the proportion of retrieved contexts that are relevant to the question."
+    },
+    {
+      "title": "Answer Correctness",
+      "type": "gauge",
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 4 },
+      "targets": [],
+      "options": {
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "orange", "value": 0.5 },
+              { "color": "green", "value": 0.75 }
+            ]
+          },
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        }
+      },
+      "description": "Semantic similarity between generated answer and ground truth."
+    },
+    {
+      "title": "Per-Question Scores",
+      "type": "table",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 10 },
+      "targets": [],
+      "options": {
+        "showHeader": true,
+        "sortBy": []
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "align": "auto", "displayMode": "auto" }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "faithfulness" },
+            "properties": [
+              { "id": "custom.displayMode", "value": "color-background" },
+              { "id": "thresholds", "value": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "orange", "value": 0.5 }, { "color": "green", "value": 0.75 }] } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "answer_relevancy" },
+            "properties": [
+              { "id": "custom.displayMode", "value": "color-background" },
+              { "id": "thresholds", "value": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "orange", "value": 0.5 }, { "color": "green", "value": 0.75 }] } }
+            ]
+          }
+        ]
+      },
+      "description": "Detailed per-question RAGAS scores. Configure JSON API datasource to read from ragas_report.json."
+    },
+    {
+      "title": "Setup Instructions",
+      "type": "text",
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 20 },
+      "options": {
+        "mode": "markdown",
+        "content": "## RAGAS Dashboard Setup\n\n1. Run RAGAS evaluation: `make eval-ragas`\n2. Report saved to `./tmp/eval/ragas_report.json`\n3. Install Grafana JSON API plugin: `grafana-cli plugins install marcusolsson-json-datasource`\n4. Add JSON API datasource pointing to the report file URL\n5. Update panel targets to use the datasource\n\n### Metrics\n- **Faithfulness**: Factual consistency with retrieved context (0-1)\n- **Answer Relevancy**: How relevant the answer is to the question (0-1)\n- **Context Precision**: Proportion of relevant retrieved contexts (0-1)\n- **Answer Correctness**: Semantic similarity with ground truth (0-1)\n\n### Thresholds\n- 🟢 Green: ≥ 0.75 (good)\n- 🟡 Orange: 0.50–0.75 (needs improvement)\n- 🔴 Red: < 0.50 (poor)"
+      }
+    }
+  ],
+  "refresh": "",
+  "schemaVersion": 39,
+  "tags": ["paa", "ragas", "evaluation"],
+  "templating": { "list": [] },
+  "time": { "from": "now-7d", "to": "now" },
+  "timepicker": {},
+  "timezone": "",
+  "title": "PAA — RAGAS Evaluation",
+  "uid": "paa-ragas-eval",
+  "version": 1
+}
