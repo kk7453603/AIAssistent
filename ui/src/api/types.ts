@@ -93,6 +93,22 @@ export interface ScheduledTask {
   updated_at: string;
 }
 
+// --- Documents ---
+
+export interface DocumentInfo {
+  id: string;
+  filename: string;
+  mime_type: string;
+  source_type: string;
+  category: string;
+  title: string;
+  summary: string;
+  status: string;
+  error: string;
+  created_at: string;
+  updated_at: string;
+}
+
 // --- Self-Improving Agent ---
 
 export interface EventSummary {

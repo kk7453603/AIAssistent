@@ -291,6 +291,48 @@ WHERE id = $1
 	return nil
 }
 
+func (r *DocumentRepository) ListRecent(ctx context.Context, limit int) ([]domain.Document, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	rows, err := r.db.QueryContext(ctx, `
+SELECT id, filename, mime_type, storage_path, category, subcategory, tags, confidence, summary,
+	source_type, title, headers, path,
+	status, error_message, created_at, updated_at
+FROM documents
+ORDER BY created_at DESC
+LIMIT $1`, limit)
+	if err != nil {
+		return nil, fmt.Errorf("list recent documents: %w", err)
+	}
+	defer rows.Close()
+
+	var docs []domain.Document
+	for rows.Next() {
+		var doc domain.Document
+		var tagsRaw []byte
+		var headersRaw []byte
+		var status string
+		if err := rows.Scan(
+			&doc.ID, &doc.Filename, &doc.MimeType, &doc.StoragePath, &doc.Category, &doc.Subcategory,
+			&tagsRaw, &doc.Confidence, &doc.Summary,
+			&doc.SourceType, &doc.Title, &headersRaw, &doc.Path,
+			&status, &doc.Error, &doc.CreatedAt, &doc.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan document row: %w", err)
+		}
+		if err := json.Unmarshal(tagsRaw, &doc.Tags); err != nil {
+			return nil, fmt.Errorf("unmarshal tags: %w", err)
+		}
+		if err := json.Unmarshal(headersRaw, &doc.Headers); err != nil {
+			return nil, fmt.Errorf("unmarshal headers: %w", err)
+		}
+		doc.Status = domain.DocumentStatus(status)
+		docs = append(docs, doc)
+	}
+	return docs, rows.Err()
+}
+
 func (r *DocumentRepository) SaveClassification(ctx context.Context, id string, cls domain.Classification) error {
 	tagsJSON, err := json.Marshal(cls.Tags)
 	if err != nil {

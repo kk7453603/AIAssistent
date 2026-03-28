@@ -14,6 +14,7 @@ type DocumentRepository interface {
 	GetByID(ctx context.Context, id string) (*domain.Document, error)
 	UpdateStatus(ctx context.Context, id string, status domain.DocumentStatus, errMessage string) error
 	SaveClassification(ctx context.Context, id string, cls domain.Classification) error
+	ListRecent(ctx context.Context, limit int) ([]domain.Document, error)
 }
 
 // ObjectStorage stores source documents.

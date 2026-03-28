@@ -1,4 +1,5 @@
 import { ActivityFeed } from "../components/dashboard/ActivityFeed";
+import { DocumentsWidget } from "../components/dashboard/DocumentsWidget";
 import { MCPStatus } from "../components/dashboard/MCPStatus";
 import { SchedulesWidget } from "../components/dashboard/SchedulesWidget";
 import { SelfImproveWidget } from "../components/dashboard/SelfImproveWidget";
@@ -8,6 +9,13 @@ export function DashboardPage() {
   return (
     <div className="h-full overflow-y-auto p-6">
       <div className="mx-auto max-w-5xl space-y-8">
+        <section>
+          <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
+            Documents
+          </h2>
+          <DocumentsWidget />
+        </section>
+
         <section>
           <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
             Tool Statistics
