@@ -174,6 +174,23 @@ CREATE TABLE IF NOT EXISTS agent_improvements (
 	applied_at TIMESTAMPTZ
 );
 CREATE INDEX IF NOT EXISTS idx_agent_improvements_status ON agent_improvements(status, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS scheduled_tasks (
+	id TEXT PRIMARY KEY,
+	user_id TEXT NOT NULL,
+	cron_expr TEXT NOT NULL,
+	prompt TEXT NOT NULL,
+	condition TEXT,
+	webhook_url TEXT,
+	enabled BOOLEAN NOT NULL DEFAULT true,
+	last_run_at TIMESTAMPTZ,
+	last_result TEXT,
+	last_status TEXT,
+	created_at TIMESTAMPTZ NOT NULL,
+	updated_at TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_user_enabled
+	ON scheduled_tasks(user_id, enabled, updated_at DESC);
 `
 	if _, err := tx.ExecContext(ctx, query); err != nil {
 		return fmt.Errorf("execute schema ddl: %w", err)

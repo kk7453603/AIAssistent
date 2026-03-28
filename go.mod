@@ -47,6 +47,7 @@ require (
 	github.com/prometheus/procfs v0.16.1 // indirect
 	github.com/richardlehane/mscfb v1.0.6 // indirect
 	github.com/richardlehane/msoleps v1.0.6 // indirect
+	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/spf13/cast v1.7.1 // indirect
 	github.com/tiendc/go-deepcopy v1.7.2 // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect

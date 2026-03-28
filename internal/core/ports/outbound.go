@@ -175,3 +175,14 @@ type ImprovementStore interface {
 	UpdateStatus(ctx context.Context, id string, status string) error
 	MarkApplied(ctx context.Context, id string) error
 }
+
+// ScheduleStore persists and queries scheduled tasks.
+type ScheduleStore interface {
+	Create(ctx context.Context, task *domain.ScheduledTask) error
+	ListByUser(ctx context.Context, userID string) ([]domain.ScheduledTask, error)
+	ListEnabled(ctx context.Context) ([]domain.ScheduledTask, error)
+	GetByID(ctx context.Context, id string) (*domain.ScheduledTask, error)
+	Update(ctx context.Context, task *domain.ScheduledTask) error
+	Delete(ctx context.Context, id string) error
+	RecordRun(ctx context.Context, id string, result string, status string) error
+}
