@@ -11,6 +11,16 @@ const (
 	StatusFailed     DocumentStatus = "failed"
 )
 
+type DocumentMetadata struct {
+	SourceType string   `json:"source_type"`
+	Category   string   `json:"category"`
+	Tags       []string `json:"tags"`
+	Title      string   `json:"title"`
+	Summary    string   `json:"summary"`
+	Headers    []string `json:"headers"`
+	Path       string   `json:"path"`
+}
+
 type Document struct {
 	ID          string         `json:"id"`
 	Filename    string         `json:"filename"`
@@ -21,6 +31,10 @@ type Document struct {
 	Tags        []string       `json:"tags,omitempty"`
 	Confidence  float64        `json:"confidence,omitempty"`
 	Summary     string         `json:"summary,omitempty"`
+	SourceType  string         `json:"source_type"`
+	Title       string         `json:"title"`
+	Headers     []string       `json:"headers,omitempty"`
+	Path        string         `json:"path"`
 	Status      DocumentStatus `json:"status"`
 	Error       string         `json:"error,omitempty"`
 	CreatedAt   time.Time      `json:"created_at"`
