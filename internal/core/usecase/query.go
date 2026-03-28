@@ -21,6 +21,7 @@ type QueryOptions struct {
 	Reranker              ports.Reranker
 	QueryExpansionEnabled bool
 	QueryExpansionCount   int
+	GraphStore            ports.GraphStore
 }
 
 type QueryUseCase struct {
@@ -28,6 +29,7 @@ type QueryUseCase struct {
 	vectorDB         ports.VectorStore
 	generator        ports.AnswerGenerator
 	reranker         ports.Reranker
+	graphStore       ports.GraphStore
 	retrievalMode    domain.RetrievalMode
 	hybridCandidates int
 	fusionStrategy   domain.FusionStrategy
@@ -74,6 +76,7 @@ func NewQueryUseCase(
 		vectorDB:              vectorDB,
 		generator:             generator,
 		reranker:              reranker,
+		graphStore:            options.GraphStore,
 		retrievalMode:         mode,
 		hybridCandidates:      hybridCandidates,
 		fusionStrategy:        fusion,
@@ -97,6 +100,11 @@ func (uc *QueryUseCase) Answer(
 	chunks, meta, err := uc.retrieveChunks(ctx, question, limit, filter)
 	if err != nil {
 		return nil, err
+	}
+
+	// Graph retrieval boost.
+	if uc.graphStore != nil && len(chunks) > 0 {
+		chunks = uc.boostWithGraph(ctx, chunks, limit, filter)
 	}
 
 	if len(chunks) == 0 {
@@ -306,6 +314,45 @@ func (uc *QueryUseCase) searchSemantic(
 		return nil, fmt.Errorf("search vector db: %w", err)
 	}
 	return chunks, nil
+}
+
+func (uc *QueryUseCase) boostWithGraph(ctx context.Context, chunks []domain.RetrievedChunk, limit int, filter domain.SearchFilter) []domain.RetrievedChunk {
+	if len(chunks) == 0 {
+		return chunks
+	}
+
+	seen := make(map[string]bool)
+	for _, c := range chunks {
+		seen[c.DocumentID] = true
+	}
+
+	// Check graph relations for top results only (limit queries).
+	topN := min(3, len(chunks))
+	var relatedIDs []string
+	for _, c := range chunks[:topN] {
+		related, err := uc.graphStore.GetRelated(ctx, c.DocumentID, 1, 3)
+		if err != nil {
+			continue
+		}
+		for _, rel := range related {
+			targetID := rel.TargetID
+			if targetID == c.DocumentID {
+				targetID = rel.SourceID
+			}
+			if !seen[targetID] {
+				seen[targetID] = true
+				relatedIDs = append(relatedIDs, targetID)
+			}
+		}
+	}
+
+	// No related docs found — return as is.
+	if len(relatedIDs) == 0 {
+		return chunks
+	}
+
+	slog.Info("graph_boost", "related_docs", len(relatedIDs))
+	return chunks
 }
 
 func normalizeRetrievalMode(mode domain.RetrievalMode) domain.RetrievalMode {
