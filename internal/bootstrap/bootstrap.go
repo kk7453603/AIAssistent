@@ -25,7 +25,9 @@ import (
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/repository/postgres"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/resilience"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/storage/localfs"
+	sourceobsidian "github.com/kirillkom/personal-ai-assistant/internal/infrastructure/source/obsidian"
 	sourceupload "github.com/kirillkom/personal-ai-assistant/internal/infrastructure/source/upload"
+	sourceweb "github.com/kirillkom/personal-ai-assistant/internal/infrastructure/source/web"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/vector/qdrant"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/websearch/searxng"
 )
@@ -233,7 +235,9 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 	}
 
 	sourceAdapters := map[string]ports.SourceAdapter{
-		"upload": sourceupload.New(),
+		"upload":   sourceupload.New(),
+		"obsidian": sourceobsidian.New(),
+		"web":      sourceweb.New(nil),
 	}
 	ingestUC := usecase.NewIngestDocumentUseCase(repo, storage, queue, sourceAdapters)
 	metaExtractor := metadata.New()
