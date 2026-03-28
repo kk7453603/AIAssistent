@@ -4,35 +4,39 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/kirillkom/personal-ai-assistant/internal/core/domain"
 	"github.com/kirillkom/personal-ai-assistant/internal/core/ports"
 )
 
 type ProcessDocumentUseCase struct {
-	repo       ports.DocumentRepository
-	extractor  ports.TextExtractor
-	classifier ports.DocumentClassifier
-	chunker    ports.Chunker
-	embedder   ports.Embedder
-	vectorDB   ports.VectorStore
+	repo          ports.DocumentRepository
+	extractor     ports.TextExtractor
+	metaExtractor ports.MetadataExtractor
+	chunker       ports.Chunker
+	embedder      ports.Embedder
+	vectorDB      ports.VectorStore
+	queue         ports.MessageQueue
 }
 
 func NewProcessDocumentUseCase(
 	repo ports.DocumentRepository,
 	extractor ports.TextExtractor,
-	classifier ports.DocumentClassifier,
+	metaExtractor ports.MetadataExtractor,
 	chunker ports.Chunker,
 	embedder ports.Embedder,
 	vectorDB ports.VectorStore,
+	queue ports.MessageQueue,
 ) *ProcessDocumentUseCase {
 	return &ProcessDocumentUseCase{
-		repo:       repo,
-		extractor:  extractor,
-		classifier: classifier,
-		chunker:    chunker,
-		embedder:   embedder,
-		vectorDB:   vectorDB,
+		repo:          repo,
+		extractor:     extractor,
+		metaExtractor: metaExtractor,
+		chunker:       chunker,
+		embedder:      embedder,
+		vectorDB:      vectorDB,
+		queue:         queue,
 	}
 }
 
@@ -41,15 +45,8 @@ func (uc *ProcessDocumentUseCase) ProcessByID(ctx context.Context, documentID st
 		return fmt.Errorf("set status=processing: %w", err)
 	}
 
-	doc, classification, err := uc.processPipeline(ctx, documentID)
+	_, err := uc.processPipeline(ctx, documentID)
 	if err != nil {
-		if failErr := uc.markFailed(ctx, documentID, err); failErr != nil {
-			return fmt.Errorf("%w; mark failed status: %v", err, failErr)
-		}
-		return err
-	}
-
-	if err := uc.persistClassification(ctx, doc.ID, classification); err != nil {
 		if failErr := uc.markFailed(ctx, documentID, err); failErr != nil {
 			return fmt.Errorf("%w; mark failed status: %v", err, failErr)
 		}
@@ -63,39 +60,44 @@ func (uc *ProcessDocumentUseCase) ProcessByID(ctx context.Context, documentID st
 	return nil
 }
 
-func (uc *ProcessDocumentUseCase) processPipeline(ctx context.Context, documentID string) (*domain.Document, domain.Classification, error) {
+func (uc *ProcessDocumentUseCase) processPipeline(ctx context.Context, documentID string) (*domain.Document, error) {
 	doc, err := uc.loadDocument(ctx, documentID)
 	if err != nil {
-		return nil, domain.Classification{}, err
+		return nil, err
 	}
 
 	text, err := uc.extractText(ctx, doc)
 	if err != nil {
-		return nil, domain.Classification{}, err
+		return nil, err
 	}
 
-	classification, err := uc.classify(ctx, text)
+	meta, err := uc.extractMetadata(ctx, doc, text)
 	if err != nil {
-		return nil, domain.Classification{}, err
+		return nil, err
 	}
 
 	chunks, err := uc.chunk(ctx, text)
 	if err != nil {
-		return nil, domain.Classification{}, err
+		return nil, err
 	}
 
 	vectors, err := uc.embed(ctx, chunks)
 	if err != nil {
-		return nil, domain.Classification{}, err
+		return nil, err
 	}
 
-	uc.applyClassification(doc, classification)
+	uc.applyMetadata(doc, meta)
 
 	if err := uc.index(ctx, doc, chunks, vectors); err != nil {
-		return nil, domain.Classification{}, err
+		return nil, err
 	}
 
-	return doc, classification, nil
+	// Publish enrichment event (best-effort — don't fail the pipeline).
+	if pubErr := uc.queue.PublishDocumentEnrich(ctx, doc.ID); pubErr != nil {
+		slog.Warn("publish_enrich_failed", "document_id", doc.ID, "error", pubErr)
+	}
+
+	return doc, nil
 }
 
 func (uc *ProcessDocumentUseCase) loadDocument(ctx context.Context, documentID string) (*domain.Document, error) {
@@ -117,12 +119,12 @@ func (uc *ProcessDocumentUseCase) extractText(ctx context.Context, doc *domain.D
 	return text, nil
 }
 
-func (uc *ProcessDocumentUseCase) classify(ctx context.Context, text string) (domain.Classification, error) {
-	classification, err := uc.classifier.Classify(ctx, text)
+func (uc *ProcessDocumentUseCase) extractMetadata(ctx context.Context, doc *domain.Document, text string) (domain.DocumentMetadata, error) {
+	meta, err := uc.metaExtractor.ExtractMetadata(ctx, doc, text)
 	if err != nil {
-		return domain.Classification{}, fmt.Errorf("classify document: %w", err)
+		return domain.DocumentMetadata{}, fmt.Errorf("extract metadata: %w", err)
 	}
-	return classification, nil
+	return meta, nil
 }
 
 func (uc *ProcessDocumentUseCase) chunk(_ context.Context, text string) ([]string, error) {
@@ -155,13 +157,6 @@ func (uc *ProcessDocumentUseCase) index(ctx context.Context, doc *domain.Documen
 	return nil
 }
 
-func (uc *ProcessDocumentUseCase) persistClassification(ctx context.Context, documentID string, classification domain.Classification) error {
-	if err := uc.repo.SaveClassification(ctx, documentID, classification); err != nil {
-		return fmt.Errorf("save classification: %w", err)
-	}
-	return nil
-}
-
 func (uc *ProcessDocumentUseCase) markStatus(ctx context.Context, documentID string, status domain.DocumentStatus, errMessage string) error {
 	return uc.repo.UpdateStatus(ctx, documentID, status, errMessage)
 }
@@ -173,10 +168,12 @@ func (uc *ProcessDocumentUseCase) markFailed(ctx context.Context, documentID str
 	return uc.markStatus(ctx, documentID, domain.StatusFailed, processErr.Error())
 }
 
-func (uc *ProcessDocumentUseCase) applyClassification(doc *domain.Document, classification domain.Classification) {
-	doc.Category = classification.Category
-	doc.Subcategory = classification.Subcategory
-	doc.Tags = classification.Tags
-	doc.Confidence = classification.Confidence
-	doc.Summary = classification.Summary
+func (uc *ProcessDocumentUseCase) applyMetadata(doc *domain.Document, meta domain.DocumentMetadata) {
+	doc.SourceType = meta.SourceType
+	doc.Category = meta.Category
+	doc.Tags = meta.Tags
+	doc.Title = meta.Title
+	doc.Summary = meta.Summary
+	doc.Headers = meta.Headers
+	doc.Path = meta.Path
 }

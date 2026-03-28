@@ -66,16 +66,36 @@ func (f *extractorFake) Extract(context.Context, *domain.Document) (string, erro
 	return f.text, nil
 }
 
-type classifierFake struct {
-	cls domain.Classification
-	err error
+type metadataExtractorFake struct {
+	meta domain.DocumentMetadata
+	err  error
 }
 
-func (f *classifierFake) Classify(context.Context, string) (domain.Classification, error) {
+func (f *metadataExtractorFake) ExtractMetadata(context.Context, *domain.Document, string) (domain.DocumentMetadata, error) {
 	if f.err != nil {
-		return domain.Classification{}, f.err
+		return domain.DocumentMetadata{}, f.err
 	}
-	return f.cls, nil
+	return f.meta, nil
+}
+
+type queueFake struct {
+	publishedEnrichIDs []string
+	publishErr         error
+}
+
+func (f *queueFake) PublishDocumentIngested(context.Context, string) error { return nil }
+func (f *queueFake) SubscribeDocumentIngested(context.Context, func(context.Context, string) error) error {
+	return nil
+}
+func (f *queueFake) PublishDocumentEnrich(_ context.Context, docID string) error {
+	if f.publishErr != nil {
+		return f.publishErr
+	}
+	f.publishedEnrichIDs = append(f.publishedEnrichIDs, docID)
+	return nil
+}
+func (f *queueFake) SubscribeDocumentEnrich(context.Context, func(context.Context, string) error) error {
+	return nil
 }
 
 type chunkerFake struct {
@@ -117,14 +137,16 @@ func (f *vectorFake) SearchLexical(context.Context, string, int, domain.SearchFi
 func (f *vectorFake) UpdateChunksPayload(context.Context, string, map[string]any) error { return nil }
 
 func TestProcessByIDSuccess(t *testing.T) {
-	repo := &processRepoFake{doc: &domain.Document{ID: "doc-1"}}
+	repo := &processRepoFake{doc: &domain.Document{ID: "doc-1", Filename: "test.md"}}
+	q := &queueFake{}
 	uc := NewProcessDocumentUseCase(
 		repo,
-		&extractorFake{text: "text"},
-		&classifierFake{cls: domain.Classification{Category: "general"}},
+		&extractorFake{text: "Some text"},
+		&metadataExtractorFake{meta: domain.DocumentMetadata{Category: "general", SourceType: "markdown"}},
 		&chunkerFake{chunks: []string{"a", "b"}},
 		&embedderFake{vectors: [][]float32{{1}, {2}}},
 		&vectorFake{},
+		q,
 	)
 
 	if err := uc.ProcessByID(context.Background(), "doc-1"); err != nil {
@@ -136,8 +158,8 @@ func TestProcessByIDSuccess(t *testing.T) {
 	if repo.statusCalls[0].status != domain.StatusProcessing || repo.statusCalls[1].status != domain.StatusReady {
 		t.Fatalf("unexpected status sequence: %+v", repo.statusCalls)
 	}
-	if repo.classificationID != "doc-1" {
-		t.Fatalf("expected classification save for doc-1, got %s", repo.classificationID)
+	if len(q.publishedEnrichIDs) != 1 || q.publishedEnrichIDs[0] != "doc-1" {
+		t.Fatalf("expected enrich publish for doc-1, got %v", q.publishedEnrichIDs)
 	}
 }
 
@@ -146,10 +168,11 @@ func TestProcessByIDMarksFailedOnExtractError(t *testing.T) {
 	uc := NewProcessDocumentUseCase(
 		repo,
 		&extractorFake{err: errors.New("extract fail")},
-		&classifierFake{},
+		&metadataExtractorFake{},
 		&chunkerFake{chunks: []string{"a"}},
 		&embedderFake{vectors: [][]float32{{1}}},
 		&vectorFake{},
+		&queueFake{},
 	)
 
 	err := uc.ProcessByID(context.Background(), "doc-1")
@@ -169,10 +192,11 @@ func TestProcessByIDMarksFailedOnVectorMismatch(t *testing.T) {
 	uc := NewProcessDocumentUseCase(
 		repo,
 		&extractorFake{text: "text"},
-		&classifierFake{cls: domain.Classification{Category: "general"}},
+		&metadataExtractorFake{meta: domain.DocumentMetadata{Category: "general"}},
 		&chunkerFake{chunks: []string{"a", "b"}},
 		&embedderFake{vectors: [][]float32{{1}}},
 		&vectorFake{},
+		&queueFake{},
 	)
 
 	err := uc.ProcessByID(context.Background(), "doc-1")

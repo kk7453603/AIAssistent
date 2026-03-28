@@ -14,6 +14,7 @@ import (
 	"github.com/kirillkom/personal-ai-assistant/internal/core/usecase"
 	"github.com/kirillkom/personal-ai-assistant/internal/observability/metrics"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/chunking"
+	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/extractor/metadata"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/extractor/plaintext"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/llm/fallback"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/llm/ollama"
@@ -230,7 +231,8 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 	}
 
 	ingestUC := usecase.NewIngestDocumentUseCase(repo, storage, queue)
-	processUC := usecase.NewProcessDocumentUseCase(repo, extractor, classifier, chunker, embedder, vectorDB)
+	metaExtractor := metadata.New()
+	processUC := usecase.NewProcessDocumentUseCase(repo, extractor, metaExtractor, chunker, embedder, vectorDB, queue)
 	queryUC := usecase.NewQueryUseCase(embedder, vectorDB, generator, usecase.QueryOptions{
 		RetrievalMode:         domain.RetrievalMode(strings.ToLower(strings.TrimSpace(cfg.RAGRetrievalMode))),
 		HybridCandidates:      cfg.RAGHybridCandidates,
