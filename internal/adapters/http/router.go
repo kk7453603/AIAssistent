@@ -10,6 +10,7 @@ import (
 	"mime/multipart"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -51,6 +52,8 @@ type Router struct {
 	obsidianMu                     sync.Mutex
 
 	mcpHandler http.Handler
+
+	graphStore ports.GraphStore
 }
 
 func NewRouter(
@@ -140,6 +143,11 @@ func (rt *Router) SetMCPHandler(h http.Handler) {
 	rt.mcpHandler = h
 }
 
+// SetGraphStore sets the graph store used by the GET /v1/graph endpoint.
+func (rt *Router) SetGraphStore(g ports.GraphStore) {
+	rt.graphStore = g
+}
+
 func (rt *Router) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /openapi.json", serveOpenAPISpecJSON)
@@ -153,6 +161,8 @@ func (rt *Router) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/obsidian/vaults/{id}/notes", rt.handleObsidianCreateNote)
 	mux.HandleFunc("GET /v1/obsidian/vaults/{id}/files", rt.handleObsidianListFiles)
 	mux.HandleFunc("GET /v1/obsidian/vaults/{id}/files/content", rt.handleObsidianFileContent)
+
+	mux.HandleFunc("GET /v1/graph", rt.handleGetGraph)
 
 	if rt.mcpHandler != nil {
 		mux.Handle("/mcp", rt.mcpHandler)
@@ -404,6 +414,41 @@ func isClientDisconnectError(err error) bool {
 	return strings.Contains(msg, "broken pipe") ||
 		strings.Contains(msg, "connection reset by peer") ||
 		strings.Contains(msg, "use of closed network connection")
+}
+
+func (rt *Router) handleGetGraph(w http.ResponseWriter, r *http.Request) {
+	filter := domain.GraphFilter{
+		MaxDepth: 2,
+		MinScore: 0.5,
+	}
+	if st := r.URL.Query().Get("source_types"); st != "" {
+		filter.SourceTypes = strings.Split(st, ",")
+	}
+	if ms := r.URL.Query().Get("min_score"); ms != "" {
+		if v, err := strconv.ParseFloat(ms, 64); err == nil {
+			filter.MinScore = v
+		}
+	}
+	if md := r.URL.Query().Get("max_depth"); md != "" {
+		if v, err := strconv.Atoi(md); err == nil {
+			filter.MaxDepth = v
+		}
+	}
+
+	store := rt.graphStore
+	if store == nil {
+		writeError(w, http.StatusServiceUnavailable, errors.New("graph store not configured"))
+		return
+	}
+
+	graph, err := store.GetGraph(r.Context(), filter)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(graph)
 }
 
 func serveOpenAPISpecJSON(w http.ResponseWriter, _ *http.Request) {

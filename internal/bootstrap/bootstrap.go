@@ -33,6 +33,7 @@ import (
 	sourceupload "github.com/kirillkom/personal-ai-assistant/internal/infrastructure/source/upload"
 	sourceweb "github.com/kirillkom/personal-ai-assistant/internal/infrastructure/source/web"
 	graphpkg "github.com/kirillkom/personal-ai-assistant/internal/infrastructure/graph"
+	graphneo4j "github.com/kirillkom/personal-ai-assistant/internal/infrastructure/graph/neo4j"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/vector/qdrant"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/websearch/searxng"
 )
@@ -51,6 +52,7 @@ type App struct {
 	MCPClientMgr     *paamcp.ClientManager
 	WebSearcher      ports.WebSearcher
 	Tasks            ports.TaskStore
+	GraphStore       ports.GraphStore
 	ModelProviderMap map[string]string // model ID → provider name (e.g., "paa-huggingface" → "huggingface")
 
 	closeFn func()
@@ -281,9 +283,19 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		"obsidian": sourceobsidian.New(),
 		"web":      sourceweb.New(nil),
 	}
+	// Knowledge graph.
+	var graphStore ports.GraphStore = graphpkg.NewNoopStore()
+	if cfg.GraphEnabled {
+		neo4jClient, err := graphneo4j.New(cfg.Neo4jURL, cfg.Neo4jUser, cfg.Neo4jPassword)
+		if err != nil {
+			return nil, fmt.Errorf("connect neo4j: %w", err)
+		}
+		graphStore = neo4jClient
+	}
+
 	ingestUC := usecase.NewIngestDocumentUseCase(repo, storage, queue, sourceAdapters)
 	metaExtractor := metadata.New()
-	processUC := usecase.NewProcessDocumentUseCase(repo, extractorRegistry, metaExtractor, chunkerRegistry, embedder, vectorDB, queue, graphpkg.NewNoopStore())
+	processUC := usecase.NewProcessDocumentUseCase(repo, extractorRegistry, metaExtractor, chunkerRegistry, embedder, vectorDB, queue, graphStore)
 	enrichUC := usecase.NewEnrichDocumentUseCase(repo, extractorRegistry, classifier, vectorDB)
 	queryUC := usecase.NewQueryUseCase(embedder, vectorDB, generator, usecase.QueryOptions{
 		RetrievalMode:         domain.RetrievalMode(strings.ToLower(strings.TrimSpace(cfg.RAGRetrievalMode))),
@@ -294,6 +306,7 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		Reranker:              reranker,
 		QueryExpansionEnabled: cfg.QueryExpansionEnabled,
 		QueryExpansionCount:   cfg.QueryExpansionCount,
+		GraphStore:            graphStore,
 	})
 	// Web search (optional).
 	var webSearcher ports.WebSearcher
@@ -335,6 +348,8 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		metrics.NewAgentMetrics("agent"),
 	)
 
+	agentUC.SetGraphStore(graphStore)
+
 	// Adaptive model routing.
 	if routingCfg := config.ParseModelRouting(cfg.ModelRouting); routingCfg != nil {
 		agentUC.SetModelRouting(routingCfg)
@@ -363,10 +378,16 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		MCPClientMgr:   mcpClientMgr,
 		WebSearcher:    webSearcher,
 		Tasks:          taskRepo,
+		GraphStore:     graphStore,
 
 		closeFn: func() {
 			toolRegistry.Close()
 			queue.Close()
+			if cfg.GraphEnabled {
+				if closer, ok := graphStore.(interface{ Close() error }); ok {
+					_ = closer.Close()
+				}
+			}
 			_ = db.Close()
 		},
 	}, nil

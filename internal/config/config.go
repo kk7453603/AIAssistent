@@ -119,6 +119,14 @@ type Config struct {
 	NATSReconnectWaitMS      int
 	NATSMaxReconnects        int
 	NATSRetryOnFailedConnect bool
+
+	Neo4jURL                  string
+	Neo4jUser                 string
+	Neo4jPassword             string
+	GraphEnabled              bool
+	GraphSimilarityThreshold  float64
+	GraphBoostFactor          float64
+	GraphRefreshIntervalHours int
 }
 
 func Load() Config {
@@ -231,6 +239,14 @@ func Load() Config {
 		NATSReconnectWaitMS:      mustEnvInt("NATS_RECONNECT_WAIT_MS", 2000),
 		NATSMaxReconnects:        mustEnvInt("NATS_MAX_RECONNECTS", 60),
 		NATSRetryOnFailedConnect: mustEnvBool("NATS_RETRY_ON_FAILED_CONNECT", true),
+
+		Neo4jURL:                  mustEnv("NEO4J_URL", "bolt://localhost:7687"),
+		Neo4jUser:                 mustEnv("NEO4J_USER", "neo4j"),
+		Neo4jPassword:             mustEnv("NEO4J_PASSWORD", "password"),
+		GraphEnabled:              mustEnvBool("GRAPH_ENABLED", false),
+		GraphSimilarityThreshold:  mustEnvFloat("GRAPH_SIMILARITY_THRESHOLD", 0.75),
+		GraphBoostFactor:          mustEnvFloat("GRAPH_BOOST_FACTOR", 0.7),
+		GraphRefreshIntervalHours: mustEnvInt("GRAPH_REFRESH_INTERVAL_HOURS", 24),
 	}
 }
 
