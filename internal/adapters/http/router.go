@@ -54,9 +54,11 @@ type Router struct {
 
 	mcpHandler http.Handler
 
-	graphStore    ports.GraphStore
-	feedbackStore ports.FeedbackStore
-	scheduleStore ports.ScheduleStore
+	graphStore       ports.GraphStore
+	feedbackStore    ports.FeedbackStore
+	eventStore       ports.EventStore
+	improvementStore ports.ImprovementStore
+	scheduleStore    ports.ScheduleStore
 }
 
 func NewRouter(
@@ -156,6 +158,16 @@ func (rt *Router) SetFeedbackStore(f ports.FeedbackStore) {
 	rt.feedbackStore = f
 }
 
+// SetEventStore sets the event store used by the GET /v1/events/summary endpoint.
+func (rt *Router) SetEventStore(e ports.EventStore) {
+	rt.eventStore = e
+}
+
+// SetImprovementStore sets the improvement store used by the /v1/improvements endpoints.
+func (rt *Router) SetImprovementStore(i ports.ImprovementStore) {
+	rt.improvementStore = i
+}
+
 // SetScheduleStore sets the schedule store used by the /v1/schedules endpoints.
 func (rt *Router) SetScheduleStore(s ports.ScheduleStore) {
 	rt.scheduleStore = s
@@ -177,6 +189,10 @@ func (rt *Router) Handler() http.Handler {
 
 	mux.HandleFunc("GET /v1/graph", rt.handleGetGraph)
 	mux.HandleFunc("POST /v1/feedback", rt.handlePostFeedback)
+	mux.HandleFunc("GET /v1/events/summary", rt.handleGetEventsSummary)
+	mux.HandleFunc("GET /v1/feedback/summary", rt.handleGetFeedbackSummary)
+	mux.HandleFunc("GET /v1/improvements", rt.handleGetImprovements)
+	mux.HandleFunc("PATCH /v1/improvements/{id}", rt.handlePatchImprovement)
 
 	mux.HandleFunc("POST /v1/schedules", rt.handleCreateSchedule)
 	mux.HandleFunc("GET /v1/schedules", rt.handleListSchedules)
@@ -648,4 +664,97 @@ func (rt *Router) handleUpdateSchedule(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(task)
+}
+
+func (rt *Router) handleGetEventsSummary(w http.ResponseWriter, r *http.Request) {
+	if rt.eventStore == nil {
+		writeError(w, http.StatusServiceUnavailable, fmt.Errorf("event store not configured"))
+		return
+	}
+	since := time.Now().AddDate(0, 0, -7)
+	if s := r.URL.Query().Get("since"); s != "" {
+		if t, err := time.Parse(time.RFC3339, s); err == nil {
+			since = t
+		}
+	}
+	counts, err := rt.eventStore.CountByType(r.Context(), since)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(counts)
+}
+
+func (rt *Router) handleGetFeedbackSummary(w http.ResponseWriter, r *http.Request) {
+	if rt.feedbackStore == nil {
+		writeError(w, http.StatusServiceUnavailable, fmt.Errorf("feedback store not configured"))
+		return
+	}
+	since := time.Now().AddDate(0, 0, -7)
+	if s := r.URL.Query().Get("since"); s != "" {
+		if t, err := time.Parse(time.RFC3339, s); err == nil {
+			since = t
+		}
+	}
+	counts, err := rt.feedbackStore.CountByRating(r.Context(), since)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	recent, err := rt.feedbackStore.ListRecent(r.Context(), since, 10)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"counts": counts,
+		"recent": recent,
+	})
+}
+
+func (rt *Router) handleGetImprovements(w http.ResponseWriter, r *http.Request) {
+	if rt.improvementStore == nil {
+		writeError(w, http.StatusServiceUnavailable, fmt.Errorf("improvement store not configured"))
+		return
+	}
+	items, err := rt.improvementStore.ListPending(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(items)
+}
+
+func (rt *Router) handlePatchImprovement(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		writeError(w, http.StatusBadRequest, fmt.Errorf("id is required"))
+		return
+	}
+	if rt.improvementStore == nil {
+		writeError(w, http.StatusServiceUnavailable, fmt.Errorf("improvement store not configured"))
+		return
+	}
+	var req struct {
+		Status string `json:"status"` // "approved", "dismissed"
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	if req.Status == "approved" {
+		if err := rt.improvementStore.MarkApplied(r.Context(), id); err != nil {
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
+	} else {
+		if err := rt.improvementStore.UpdateStatus(r.Context(), id, req.Status); err != nil {
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

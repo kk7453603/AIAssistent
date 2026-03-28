@@ -55,9 +55,10 @@ type App struct {
 	GraphStore       ports.GraphStore
 	ModelProviderMap map[string]string // model ID → provider name (e.g., "paa-huggingface" → "huggingface")
 
-	EventStore    ports.EventStore
-	FeedbackStore ports.FeedbackStore
-	SelfImproveUC *usecase.SelfImproveUseCase
+	EventStore       ports.EventStore
+	FeedbackStore    ports.FeedbackStore
+	ImprovementStore ports.ImprovementStore
+	SelfImproveUC    *usecase.SelfImproveUseCase
 
 	ScheduleStore ports.ScheduleStore
 	SchedulerUC   *usecase.SchedulerUseCase
@@ -442,9 +443,10 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		Tasks:          taskRepo,
 		GraphStore:     graphStore,
 
-		EventStore:    eventStore,
-		FeedbackStore: feedbackStore,
-		SelfImproveUC: selfImproveUC,
+		EventStore:       eventStore,
+		FeedbackStore:    feedbackStore,
+		ImprovementStore: improvementStore,
+		SelfImproveUC:    selfImproveUC,
 
 		ScheduleStore: scheduleStore,
 		SchedulerUC:   schedulerUC,
