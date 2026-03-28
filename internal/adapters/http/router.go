@@ -154,6 +154,8 @@ func (rt *Router) Handler() http.Handler {
 	mux.HandleFunc("DELETE /v1/obsidian/vaults/{id}", rt.handleObsidianRemove)
 	mux.HandleFunc("POST /v1/obsidian/vaults/{id}/sync", rt.handleObsidianSync)
 	mux.HandleFunc("POST /v1/obsidian/vaults/{id}/notes", rt.handleObsidianCreateNote)
+	mux.HandleFunc("GET /v1/obsidian/vaults/{id}/files", rt.handleObsidianListFiles)
+	mux.HandleFunc("GET /v1/obsidian/vaults/{id}/files/content", rt.handleObsidianFileContent)
 
 	if rt.mcpHandler != nil {
 		mux.Handle("/mcp", rt.mcpHandler)

@@ -39,6 +39,7 @@ type AgentChatUseCase struct {
 	limits          domain.AgentLimits
 	toolResultCache *toolCache
 	agentMetrics    *metrics.AgentMetrics
+	obsidianVaults  []ports.AgentVaultInfo
 }
 
 func NewAgentChatUseCase(
@@ -98,6 +99,11 @@ func NewAgentChatUseCase(
 // SetObsidianWriter sets the ObsidianNoteWriter after construction (to break circular dependency with Router).
 func (uc *AgentChatUseCase) SetObsidianWriter(w ports.ObsidianNoteWriter) {
 	uc.obsidianWriter = w
+}
+
+// SetObsidianVaults sets the list of available Obsidian vaults for the system prompt.
+func (uc *AgentChatUseCase) SetObsidianVaults(vaults []ports.AgentVaultInfo) {
+	uc.obsidianVaults = vaults
 }
 
 func (uc *AgentChatUseCase) Complete(ctx context.Context, req domain.AgentChatRequest, onToolStatus domain.ToolStatusCallback) (*domain.AgentRunResult, error) {
@@ -180,7 +186,7 @@ func (uc *AgentChatUseCase) Complete(ctx context.Context, req domain.AgentChatRe
 	if uc.agentMetrics != nil {
 		uc.agentMetrics.IntentClassifications.WithLabelValues(string(intent)).Inc()
 	}
-	systemPrompt := buildSystemPrompt(ctx, intent, memoryHits, uc.toolRegistry)
+	systemPrompt := buildSystemPrompt(ctx, intent, memoryHits, uc.toolRegistry, uc.obsidianVaults)
 	toolSchemas := toolSchemasFromRegistry(uc.toolRegistry, webSearchAvailable)
 
 	// Build initial messages
@@ -824,7 +830,7 @@ func toolSchemasFromRegistry(registry ports.MCPToolRegistry, webSearchAvailable 
 
 // buildSystemPrompt builds the system prompt for the function-calling agent loop,
 // incorporating intent-specific guidance and long-term memory.
-func buildSystemPrompt(ctx context.Context, intent Intent, memoryHits []domain.MemoryHit, registry ports.MCPToolRegistry) string {
+func buildSystemPrompt(ctx context.Context, intent Intent, memoryHits []domain.MemoryHit, registry ports.MCPToolRegistry, vaults []ports.AgentVaultInfo) string {
 	var sb strings.Builder
 	sb.WriteString(`You are a personal AI assistant. You have access to tools for searching knowledge, executing code, managing files, and more.
 
@@ -836,11 +842,19 @@ RULES:
 - When answering from knowledge base results, cite the sources.
 - IMPORTANT: Always consider the full conversation history when formulating tool queries. If the user asks a follow-up question (e.g. "а в чем суть последнего обновления?"), use context from previous messages to build a specific query — not just the latest message in isolation.
 - When using web_search, always build specific, disambiguated queries. For example: if the conversation is about Rust programming language, search "Rust programming language news 2025", NOT just "Rust news". Add domain-specific keywords to avoid ambiguity (e.g. "Rust lang" vs "Rust game").
+- When user asks to save/write/create a note in Obsidian, use the obsidian_write tool. Pass vault id from the list of available vaults below.
 `)
 
 	sb.WriteString("\n")
 	sb.WriteString(systemPromptForIntent(intent))
 	sb.WriteString("\n")
+
+	if len(vaults) > 0 {
+		sb.WriteString("\nAvailable Obsidian vaults for obsidian_write tool:\n")
+		for _, v := range vaults {
+			fmt.Fprintf(&sb, "- %s (%s)\n", v.ID, v.Name)
+		}
+	}
 
 	if len(memoryHits) > 0 {
 		sb.WriteString("\nRelevant long-term memory:\n")

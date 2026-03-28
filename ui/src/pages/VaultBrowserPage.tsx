@@ -23,7 +23,12 @@ export function VaultBrowserPage({ onReferenceInChat }: Props) {
 
   useEffect(() => {
     async function init() {
-      if (!isTauri) return;
+      if (!isTauri) {
+        // In browser mode, loadVaults fetches from HTTP API directly
+        // No vaultsPath needed; trigger load immediately
+        loadVaults();
+        return;
+      }
       const { invoke } = await import("@tauri-apps/api/core");
       const config = await invoke<{ vaults_path: string }>(
         "get_default_config",
@@ -31,7 +36,7 @@ export function VaultBrowserPage({ onReferenceInChat }: Props) {
       setVaultsPath(config.vaults_path);
     }
     init();
-  }, [setVaultsPath]);
+  }, [setVaultsPath, loadVaults]);
 
   useEffect(() => {
     if (vaultsPath) {
@@ -40,10 +45,12 @@ export function VaultBrowserPage({ onReferenceInChat }: Props) {
   }, [vaultsPath, loadVaults]);
 
   const rootPath = selectedVault
-    ? `${vaultsPath}/${selectedVault}`
+    ? isTauri
+      ? `${vaultsPath}/${selectedVault}`
+      : ""
     : null;
 
-  const rootEntries = rootPath ? expandedDirs[rootPath] ?? [] : [];
+  const rootEntries = rootPath !== null ? expandedDirs[rootPath] ?? [] : [];
 
   const handleReferenceInChat = async (filePath: string) => {
     try {

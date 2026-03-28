@@ -30,8 +30,15 @@ type DocumentProcessor interface {
 	ProcessByID(ctx context.Context, documentID string) error
 }
 
+// AgentVaultInfo holds minimal vault metadata for the agent system prompt.
+type AgentVaultInfo struct {
+	ID   string
+	Name string
+}
+
 // AgentChatService orchestrates iterative tool-use and memory-aware chat completion.
 type AgentChatService interface {
 	Complete(ctx context.Context, req domain.AgentChatRequest, onToolStatus domain.ToolStatusCallback) (*domain.AgentRunResult, error)
 	SetObsidianWriter(w ObsidianNoteWriter)
+	SetObsidianVaults(vaults []AgentVaultInfo)
 }

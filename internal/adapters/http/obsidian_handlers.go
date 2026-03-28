@@ -752,6 +752,23 @@ func (rt *Router) CreateNote(ctx context.Context, vaultID, title, content, folde
 	return rt.createObsidianNote(ctx, vaultID, title, content, folder)
 }
 
+// ListVaultIDs returns the list of configured vault IDs and names for use by the agent system prompt.
+func (rt *Router) ListVaultIDs() []struct{ ID, Name string } {
+	cfg, err := rt.loadObsidianConfig()
+	if err != nil {
+		return nil
+	}
+	result := make([]struct{ ID, Name string }, 0, len(cfg.Vaults))
+	for _, v := range cfg.Vaults {
+		id := v.ID
+		if id == "" {
+			id = slugifyObsidian(v.Name)
+		}
+		result = append(result, struct{ ID, Name string }{ID: id, Name: v.Name})
+	}
+	return result
+}
+
 func sanitizeFilename(name string) string {
 	name = strings.TrimSpace(name)
 	name = strings.Map(func(r rune) rune {
@@ -808,4 +825,223 @@ func writeJSON(w http.ResponseWriter, status int, payload any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(payload)
+}
+
+// --- File browsing endpoints ---
+
+type obsidianFileEntry struct {
+	Name     string    `json:"name"`
+	Path     string    `json:"path"`
+	IsDir    bool      `json:"is_dir"`
+	Size     int64     `json:"size"`
+	Modified time.Time `json:"modified"`
+}
+
+const obsidianMaxFileSize = 1 << 20 // 1 MB
+
+// handleObsidianListFiles lists files and directories within a vault path.
+// GET /v1/obsidian/vaults/{id}/files?path=optional/subdir
+func (rt *Router) handleObsidianListFiles(w http.ResponseWriter, r *http.Request) {
+	id := strings.TrimSpace(r.PathValue("id"))
+	if id == "" {
+		writeError(w, http.StatusBadRequest, errors.New("vault id is required"))
+		return
+	}
+
+	cfg, err := rt.loadObsidianConfig()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	var vault *obsidianVault
+	for _, v := range cfg.Vaults {
+		vid := v.ID
+		if vid == "" {
+			vid = slugifyObsidian(v.Name)
+		}
+		if vid == id || v.Name == id {
+			vCopy := v
+			vault = &vCopy
+			break
+		}
+	}
+	if vault == nil {
+		writeError(w, http.StatusNotFound, errors.New("vault not found"))
+		return
+	}
+
+	vaultRoot, err := rt.resolveVaultPath(vault.Path)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, fmt.Errorf("resolve vault path: %w", err))
+		return
+	}
+
+	relPath := r.URL.Query().Get("path")
+	targetDir, err := safePath(vaultRoot, relPath)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	info, err := os.Stat(targetDir)
+	if err != nil || !info.IsDir() {
+		writeError(w, http.StatusNotFound, errors.New("directory not found"))
+		return
+	}
+
+	dirEntries, err := os.ReadDir(targetDir)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, fmt.Errorf("read directory: %w", err))
+		return
+	}
+
+	hiddenDirs := map[string]bool{".obsidian": true, ".git": true, ".trash": true}
+	entries := make([]obsidianFileEntry, 0, len(dirEntries))
+	for _, de := range dirEntries {
+		name := de.Name()
+		if de.IsDir() && hiddenDirs[name] {
+			continue
+		}
+		if strings.HasPrefix(name, ".") && de.IsDir() {
+			continue
+		}
+		fi, err := de.Info()
+		if err != nil {
+			continue
+		}
+		entryRel, _ := filepath.Rel(vaultRoot, filepath.Join(targetDir, name))
+		entries = append(entries, obsidianFileEntry{
+			Name:     name,
+			Path:     entryRel,
+			IsDir:    de.IsDir(),
+			Size:     fi.Size(),
+			Modified: fi.ModTime().UTC(),
+		})
+	}
+
+	// Sort: dirs first, then alphabetical by name.
+	sortFileEntries(entries)
+
+	writeJSON(w, http.StatusOK, entries)
+}
+
+// handleObsidianFileContent returns the content of a file within a vault.
+// GET /v1/obsidian/vaults/{id}/files/content?path=relative/path.md
+func (rt *Router) handleObsidianFileContent(w http.ResponseWriter, r *http.Request) {
+	id := strings.TrimSpace(r.PathValue("id"))
+	if id == "" {
+		writeError(w, http.StatusBadRequest, errors.New("vault id is required"))
+		return
+	}
+
+	relPath := r.URL.Query().Get("path")
+	if strings.TrimSpace(relPath) == "" {
+		writeError(w, http.StatusBadRequest, errors.New("path query parameter is required"))
+		return
+	}
+
+	cfg, err := rt.loadObsidianConfig()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	var vault *obsidianVault
+	for _, v := range cfg.Vaults {
+		vid := v.ID
+		if vid == "" {
+			vid = slugifyObsidian(v.Name)
+		}
+		if vid == id || v.Name == id {
+			vCopy := v
+			vault = &vCopy
+			break
+		}
+	}
+	if vault == nil {
+		writeError(w, http.StatusNotFound, errors.New("vault not found"))
+		return
+	}
+
+	vaultRoot, err := rt.resolveVaultPath(vault.Path)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, fmt.Errorf("resolve vault path: %w", err))
+		return
+	}
+
+	filePath, err := safePath(vaultRoot, relPath)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	fi, err := os.Stat(filePath)
+	if err != nil {
+		writeError(w, http.StatusNotFound, errors.New("file not found"))
+		return
+	}
+	if fi.IsDir() {
+		writeError(w, http.StatusBadRequest, errors.New("path is a directory, not a file"))
+		return
+	}
+	if fi.Size() > obsidianMaxFileSize {
+		writeError(w, http.StatusBadRequest, fmt.Errorf("file too large: %d bytes (max %d)", fi.Size(), obsidianMaxFileSize))
+		return
+	}
+
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, fmt.Errorf("read file: %w", err))
+		return
+	}
+
+	rel, _ := filepath.Rel(vaultRoot, filePath)
+	writeJSON(w, http.StatusOK, map[string]string{
+		"content": string(data),
+		"path":    rel,
+	})
+}
+
+// safePath joins vaultRoot with a relative path and validates that the result
+// stays within vaultRoot (prevents path traversal attacks).
+func safePath(vaultRoot, relPath string) (string, error) {
+	if relPath == "" {
+		return vaultRoot, nil
+	}
+	// Clean to remove .., //, etc.
+	cleaned := filepath.Clean(relPath)
+	// Reject absolute paths in the relative component.
+	if filepath.IsAbs(cleaned) {
+		return "", errors.New("path must be relative")
+	}
+	joined := filepath.Join(vaultRoot, cleaned)
+	joined = filepath.Clean(joined)
+
+	// Ensure the resolved path is within vaultRoot.
+	root := filepath.Clean(vaultRoot)
+	if joined != root && !strings.HasPrefix(joined, root+string(os.PathSeparator)) {
+		return "", errors.New("path escapes vault root")
+	}
+	return joined, nil
+}
+
+// sortFileEntries sorts entries: directories first, then alphabetical by name.
+func sortFileEntries(entries []obsidianFileEntry) {
+	for i := 1; i < len(entries); i++ {
+		for j := i; j > 0; j-- {
+			if lessFileEntry(entries[j], entries[j-1]) {
+				entries[j], entries[j-1] = entries[j-1], entries[j]
+			} else {
+				break
+			}
+		}
+	}
+}
+
+func lessFileEntry(a, b obsidianFileEntry) bool {
+	if a.IsDir != b.IsDir {
+		return a.IsDir // dirs first
+	}
+	return strings.ToLower(a.Name) < strings.ToLower(b.Name)
 }

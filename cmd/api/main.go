@@ -12,6 +12,7 @@ import (
 	httpadapter "github.com/kirillkom/personal-ai-assistant/internal/adapters/http"
 	"github.com/kirillkom/personal-ai-assistant/internal/bootstrap"
 	"github.com/kirillkom/personal-ai-assistant/internal/config"
+	"github.com/kirillkom/personal-ai-assistant/internal/core/ports"
 	paamcp "github.com/kirillkom/personal-ai-assistant/internal/infrastructure/mcp"
 	"github.com/kirillkom/personal-ai-assistant/internal/observability/logging"
 )
@@ -33,6 +34,16 @@ func main() {
 
 	rt := httpadapter.NewRouter(cfg, app.IngestUC, app.QueryUC, app.Repo, app.AgentUC, app.ModelProviderMap)
 	app.AgentUC.SetObsidianWriter(rt)
+
+	// Populate agent system prompt with available Obsidian vaults.
+	if vaultList := rt.ListVaultIDs(); len(vaultList) > 0 {
+		vaults := make([]ports.AgentVaultInfo, 0, len(vaultList))
+		for _, v := range vaultList {
+			vaults = append(vaults, ports.AgentVaultInfo{ID: v.ID, Name: v.Name})
+		}
+		app.AgentUC.SetObsidianVaults(vaults)
+		logger.Info("agent_obsidian_vaults_loaded", "count", len(vaults))
+	}
 
 	if cfg.MCPServerEnabled {
 		mcpHandler := paamcp.NewMCPHandler(paamcp.ServerDeps{
