@@ -133,5 +133,27 @@ func main() {
 		}
 	}()
 
+	// Self-improvement cron job.
+	if app.SelfImproveUC != nil {
+		go func() {
+			interval := time.Duration(cfg.SelfImproveIntervalHours) * time.Hour
+			logger.Info("self_improve_cron_started", "interval", interval)
+			ticker := time.NewTicker(interval)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					since := time.Now().UTC().Add(-interval)
+					logger.Info("self_improve_analysis_started")
+					if err := app.SelfImproveUC.Analyze(ctx, since); err != nil {
+						logger.Error("self_improve_analysis_failed", "error", err)
+					}
+				}
+			}
+		}()
+	}
+
 	<-ctx.Done()
 }

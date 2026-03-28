@@ -88,6 +88,10 @@ type Config struct {
 	OrchestratorEnabled  bool
 	OrchestratorMaxSteps int
 
+	SelfImproveEnabled       bool
+	SelfImproveIntervalHours int
+	SelfImproveAutoApply     bool
+
 	LLMFallbackProvider string // fallback provider: "ollama", "openai-compat", "huggingface", etc.
 	LLMFallbackURL      string
 	LLMFallbackKey      string
@@ -211,6 +215,10 @@ func Load() Config {
 		AgentSpecs:           os.Getenv("AGENT_SPECS"),
 		OrchestratorEnabled:  mustEnvBool("ORCHESTRATOR_ENABLED", false),
 		OrchestratorMaxSteps: mustEnvInt("ORCHESTRATOR_MAX_STEPS", 8),
+
+		SelfImproveEnabled:       mustEnvBool("SELF_IMPROVE_ENABLED", false),
+		SelfImproveIntervalHours: mustEnvInt("SELF_IMPROVE_INTERVAL_HOURS", 24),
+		SelfImproveAutoApply:     mustEnvBool("SELF_IMPROVE_AUTO_APPLY", true),
 
 		LLMFallbackProvider: mustEnv("LLM_FALLBACK_PROVIDER", ""),
 		LLMFallbackURL:      mustEnv("LLM_FALLBACK_URL", ""),

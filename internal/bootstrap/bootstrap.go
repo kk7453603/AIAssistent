@@ -55,6 +55,10 @@ type App struct {
 	GraphStore       ports.GraphStore
 	ModelProviderMap map[string]string // model ID → provider name (e.g., "paa-huggingface" → "huggingface")
 
+	EventStore    ports.EventStore
+	FeedbackStore ports.FeedbackStore
+	SelfImproveUC *usecase.SelfImproveUseCase
+
 	closeFn func()
 }
 
@@ -70,6 +74,9 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 	conversationRepo := postgres.NewConversationRepository(db)
 	taskRepo := postgres.NewTaskRepository(db)
 	memoryRepo := postgres.NewMemoryRepository(db)
+	eventStore := postgres.NewEventRepository(db)
+	feedbackStore := postgres.NewFeedbackRepository(db)
+	improvementStore := postgres.NewImprovementRepository(db)
 
 	storage, err := localfs.New(cfg.StoragePath)
 	if err != nil {
@@ -363,6 +370,15 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		}
 	}
 
+	// Self-improving agent (optional).
+	var selfImproveUC *usecase.SelfImproveUseCase
+	if cfg.SelfImproveEnabled {
+		selfImproveUC = usecase.NewSelfImproveUseCase(
+			eventStore, feedbackStore, improvementStore, generator, cfg.SelfImproveAutoApply,
+		)
+		slog.Info("self_improve_enabled", "interval_hours", cfg.SelfImproveIntervalHours, "auto_apply", cfg.SelfImproveAutoApply)
+	}
+
 	// Multi-agent orchestration.
 	if cfg.OrchestratorEnabled {
 		agentSpecs := config.ParseAgentSpecs(cfg.AgentSpecs)
@@ -397,6 +413,10 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		WebSearcher:    webSearcher,
 		Tasks:          taskRepo,
 		GraphStore:     graphStore,
+
+		EventStore:    eventStore,
+		FeedbackStore: feedbackStore,
+		SelfImproveUC: selfImproveUC,
 
 		closeFn: func() {
 			toolRegistry.Close()

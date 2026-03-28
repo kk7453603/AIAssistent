@@ -35,6 +35,7 @@ func main() {
 	rt := httpadapter.NewRouter(cfg, app.IngestUC, app.QueryUC, app.Repo, app.AgentUC, app.ModelProviderMap)
 	app.AgentUC.SetObsidianWriter(rt)
 	rt.SetGraphStore(app.GraphStore)
+	rt.SetFeedbackStore(app.FeedbackStore)
 
 	// Populate agent system prompt with available Obsidian vaults.
 	if vaultList := rt.ListVaultIDs(); len(vaultList) > 0 {
