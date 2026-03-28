@@ -82,6 +82,7 @@ type Config struct {
 	AgentMemoryTopK            int
 	AgentKnowledgeTopK         int
 	AgentIntentRouterEnabled   bool
+	ModelRouting string // JSON: {"simple":"llama3.1:8b","complex":"qwen3.5:9b","code":"qwen-coder:7b"}
 
 	LLMFallbackProvider string // fallback provider: "ollama", "openai-compat", "huggingface", etc.
 	LLMFallbackURL      string
@@ -193,6 +194,7 @@ func Load() Config {
 		AgentMemoryTopK:                 mustEnvInt("AGENT_MEMORY_TOP_K", 4),
 		AgentKnowledgeTopK:              mustEnvInt("AGENT_KNOWLEDGE_TOP_K", 5),
 		AgentIntentRouterEnabled:        mustEnvBool("AGENT_INTENT_ROUTER_ENABLED", true),
+		ModelRouting:                    os.Getenv("MODEL_ROUTING"),
 
 		LLMFallbackProvider: mustEnv("LLM_FALLBACK_PROVIDER", ""),
 		LLMFallbackURL:      mustEnv("LLM_FALLBACK_URL", ""),
@@ -261,6 +263,18 @@ func (c Config) ParseExtraProviders() []ExtraLLMProvider {
 		})
 	}
 	return result
+}
+
+// ParseModelRouting parses the MODEL_ROUTING JSON env variable into a ModelRouting struct.
+func ParseModelRouting(raw string) *domain.ModelRouting {
+	if raw == "" {
+		return nil
+	}
+	var result domain.ModelRouting
+	if err := json.Unmarshal([]byte(raw), &result); err != nil {
+		return nil
+	}
+	return &result
 }
 
 // ParseChunkConfig parses the CHUNK_CONFIG JSON env variable into a map of source type → ChunkConfig.
