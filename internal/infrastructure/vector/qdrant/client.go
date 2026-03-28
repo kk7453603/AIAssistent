@@ -80,7 +80,7 @@ func (c *Client) doRequest(
 		}
 		if isRetryableHTTPStatus(resp.StatusCode) {
 			body, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			return &HTTPStatusError{
 				Operation:  operation,
 				StatusCode: resp.StatusCode,
@@ -164,7 +164,7 @@ func (c *Client) IndexChunks(ctx context.Context, doc *domain.Document, chunks [
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
@@ -201,7 +201,7 @@ func (c *Client) UpdateChunksPayload(ctx context.Context, docID string, sourceTy
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode >= 300 {
 		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
@@ -267,7 +267,7 @@ func (c *Client) queryPoints(ctx context.Context, reqBody map[string]any) ([]dom
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
@@ -393,7 +393,7 @@ func (c *Client) ensureCollection(ctx context.Context, vectorSize int) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusConflict {
 		if err := c.verifyCollectionSchema(ctx, vectorSize); err != nil {
@@ -419,7 +419,7 @@ func (c *Client) verifyCollectionSchema(ctx context.Context, expectedVectorSize 
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))

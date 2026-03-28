@@ -41,7 +41,7 @@ func (a *Adapter) Ingest(ctx context.Context, req domain.SourceRequest) (*domain
 	if err != nil {
 		return nil, fmt.Errorf("web: fetch url: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode >= 400 {
 		return nil, fmt.Errorf("web: fetch returned status %d", resp.StatusCode)
