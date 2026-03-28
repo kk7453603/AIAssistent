@@ -259,7 +259,7 @@ func (rt *Router) QueryRag(ctx context.Context, request apigen.QueryRagRequestOb
 
 	filter := domain.SearchFilter{}
 	if request.Body.Category != nil {
-		filter.Category = *request.Body.Category
+		filter.Categories = []string{*request.Body.Category}
 	}
 
 	start := time.Now()

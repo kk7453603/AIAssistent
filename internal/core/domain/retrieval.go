@@ -15,7 +15,10 @@ const (
 )
 
 type SearchFilter struct {
-	Category string
+	SourceTypes []string // filter by source_type (empty = all)
+	Categories  []string // filter by category (empty = all)
+	Tags        []string // any-match on tags (empty = all)
+	PathPrefix  string   // prefix match on path
 }
 
 type RetrievedChunk struct {

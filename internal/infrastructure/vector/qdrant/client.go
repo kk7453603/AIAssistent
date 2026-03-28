@@ -225,8 +225,8 @@ func (c *Client) Search(
 		"limit":        limit,
 		"with_payload": true,
 	}
-	if filter.Category != "" {
-		reqBody["filter"] = buildCategoryFilter(filter.Category)
+	if f := buildFilter(filter); f != nil {
+		reqBody["filter"] = f
 	}
 
 	return c.queryPoints(ctx, reqBody)
@@ -249,8 +249,8 @@ func (c *Client) SearchLexical(
 		"limit":        limit,
 		"with_payload": true,
 	}
-	if filter.Category != "" {
-		reqBody["filter"] = buildCategoryFilter(filter.Category)
+	if f := buildFilter(filter); f != nil {
+		reqBody["filter"] = f
 	}
 
 	return c.queryPoints(ctx, reqBody)
@@ -324,17 +324,41 @@ func decodeQueryPoints(r io.Reader) ([]queryPoint, error) {
 	return nil, fmt.Errorf("decode query response: unexpected result shape")
 }
 
-func buildCategoryFilter(category string) map[string]any {
-	return map[string]any{
-		"must": []map[string]any{
-			{
-				"key": "category",
-				"match": map[string]any{
-					"value": category,
-				},
-			},
-		},
+func buildFilter(filter domain.SearchFilter) map[string]any {
+	var must []map[string]any
+
+	if len(filter.SourceTypes) > 0 {
+		must = append(must, map[string]any{
+			"key":   "source_type",
+			"match": map[string]any{"any": filter.SourceTypes},
+		})
 	}
+
+	if len(filter.Categories) > 0 {
+		must = append(must, map[string]any{
+			"key":   "category",
+			"match": map[string]any{"any": filter.Categories},
+		})
+	}
+
+	if len(filter.Tags) > 0 {
+		must = append(must, map[string]any{
+			"key":   "tags",
+			"match": map[string]any{"any": filter.Tags},
+		})
+	}
+
+	if filter.PathPrefix != "" {
+		must = append(must, map[string]any{
+			"key":   "path",
+			"match": map[string]any{"value": filter.PathPrefix},
+		})
+	}
+
+	if len(must) == 0 {
+		return nil
+	}
+	return map[string]any{"must": must}
 }
 
 func (c *Client) ensureCollection(ctx context.Context, vectorSize int) error {
