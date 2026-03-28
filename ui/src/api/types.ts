@@ -92,3 +92,34 @@ export interface ScheduledTask {
   created_at: string;
   updated_at: string;
 }
+
+// --- Self-Improving Agent ---
+
+export interface EventSummary {
+  [eventType: string]: number;
+}
+
+export interface FeedbackSummary {
+  counts: { [rating: string]: number };
+  recent: AgentFeedback[];
+}
+
+export interface AgentFeedback {
+  id: string;
+  user_id: string;
+  conversation_id: string;
+  message_id: string;
+  rating: string;
+  comment: string;
+  created_at: string;
+}
+
+export interface AgentImprovement {
+  id: string;
+  category: string;
+  description: string;
+  action: Record<string, unknown>;
+  status: string;
+  created_at: string;
+  applied_at: string | null;
+}
