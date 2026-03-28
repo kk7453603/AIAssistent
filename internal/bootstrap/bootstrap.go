@@ -334,6 +334,19 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		metrics.NewAgentMetrics("agent"),
 	)
 
+	// Adaptive model routing.
+	if routingCfg := config.ParseModelRouting(cfg.ModelRouting); routingCfg != nil {
+		agentUC.SetModelRouting(routingCfg)
+		slog.Info("explicit_model_routing", "simple", routingCfg.Simple, "complex", routingCfg.Complex, "code", routingCfg.Code)
+	} else {
+		discovery := ollama.NewDiscovery(cfg.OllamaURL, nil)
+		if models, err := discovery.ListModels(ctx); err == nil && len(models) > 1 {
+			autoRouting := usecase.AutoAssignTiers(models, cfg.OllamaGenModel)
+			agentUC.SetModelRouting(&autoRouting)
+			slog.Info("auto_model_routing", "simple", autoRouting.Simple, "complex", autoRouting.Complex, "code", autoRouting.Code)
+		}
+	}
+
 	return &App{
 		Config:           cfg,
 		Queue:            queue,

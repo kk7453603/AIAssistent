@@ -16,6 +16,7 @@ import (
 
 	"github.com/kirillkom/personal-ai-assistant/internal/core/domain"
 	"github.com/kirillkom/personal-ai-assistant/internal/core/ports"
+	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/llm/routing"
 	"github.com/kirillkom/personal-ai-assistant/internal/observability/metrics"
 )
 
@@ -40,6 +41,7 @@ type AgentChatUseCase struct {
 	toolResultCache *toolCache
 	agentMetrics    *metrics.AgentMetrics
 	obsidianVaults  []ports.AgentVaultInfo
+	modelRouting    *domain.ModelRouting
 }
 
 func NewAgentChatUseCase(
@@ -104,6 +106,10 @@ func (uc *AgentChatUseCase) SetObsidianWriter(w ports.ObsidianNoteWriter) {
 // SetObsidianVaults sets the list of available Obsidian vaults for the system prompt.
 func (uc *AgentChatUseCase) SetObsidianVaults(vaults []ports.AgentVaultInfo) {
 	uc.obsidianVaults = vaults
+}
+
+func (uc *AgentChatUseCase) SetModelRouting(r *domain.ModelRouting) {
+	uc.modelRouting = r
 }
 
 func (uc *AgentChatUseCase) Complete(ctx context.Context, req domain.AgentChatRequest, onToolStatus domain.ToolStatusCallback) (*domain.AgentRunResult, error) {
@@ -185,6 +191,16 @@ func (uc *AgentChatUseCase) Complete(ctx context.Context, req domain.AgentChatRe
 	}
 	if uc.agentMetrics != nil {
 		uc.agentMetrics.IntentClassifications.WithLabelValues(string(intent)).Inc()
+	}
+	// Adaptive model routing based on complexity.
+	if uc.modelRouting != nil {
+		tier := classifyComplexityRules(lastUserMessage, intent)
+		if tier == TierUncertain {
+			tier = domain.TierComplex // safer default
+		}
+		model := uc.modelRouting.ModelFor(tier)
+		ctx = routing.WithProvider(ctx, model)
+		slog.Info("adaptive_routing", "tier", tier, "model", model, "intent", intent)
 	}
 	systemPrompt := buildSystemPrompt(ctx, intent, memoryHits, uc.toolRegistry, uc.obsidianVaults)
 	toolSchemas := toolSchemasFromRegistry(uc.toolRegistry, webSearchAvailable)
