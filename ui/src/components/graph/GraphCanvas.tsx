@@ -6,7 +6,7 @@ import {
   SphereGeometry,
   OctahedronGeometry,
   DodecahedronGeometry,
-  MeshLambertMaterial,
+  MeshBasicMaterial,
   Mesh,
   Group,
 } from "three";
@@ -118,7 +118,7 @@ export function GraphCanvas() {
 
       const color = getCategoryColor(gn.category);
       const geometry = getGeometry(gn.source_type);
-      const material = new MeshLambertMaterial({ color, transparent: true });
+      const material = new MeshBasicMaterial({ color, transparent: true, opacity: 0.9 });
       const mesh = new Mesh(geometry, material);
 
       const showLabel = nodes.length <= 80;
