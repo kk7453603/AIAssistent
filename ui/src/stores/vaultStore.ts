@@ -228,6 +228,13 @@ export const useVaultStore = create<VaultState>()((set, get) => ({
           // Load root entries for the vault tree
           await get().loadDir("");
 
+          // Expand all parent directories along the path
+          const parts = found.path.split("/");
+          for (let i = 1; i < parts.length; i++) {
+            const dirPath = parts.slice(0, i).join("/");
+            await get().loadDir(dirPath);
+          }
+
           // Load content from vault (overrides the passed content with vault version)
           await get().selectFile(found.path);
         }
