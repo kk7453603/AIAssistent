@@ -516,6 +516,18 @@ func (rt *Router) handleGetGraph(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Enrich graph nodes with category from document repository
+	if graph != nil && rt.docRepo != nil {
+		for i := range graph.Nodes {
+			if graph.Nodes[i].Category == "" {
+				doc, err := rt.docRepo.GetByID(r.Context(), graph.Nodes[i].ID)
+				if err == nil && doc.Category != "" {
+					graph.Nodes[i].Category = doc.Category
+				}
+			}
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(graph)
 }
