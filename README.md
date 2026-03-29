@@ -484,7 +484,7 @@ make monitoring-validate
 
 ## Лицензия
 
-MIT License. См. файл [LICENSE](LICENSE).
+PolyForm Small Business License. См. файл [LICENSE](LICENSE).
 
 ---
 
