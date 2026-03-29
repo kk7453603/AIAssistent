@@ -16,21 +16,29 @@
 
 - Каскадный поиск: база знаний (Qdrant) -> память LLM -> веб-поиск (SearXNG)
 - Native function calling с автоматическим выбором инструментов
-- Chain-of-thought рассуждения (блоки `<think>`, видны в UI как сворачиваемые секции)
+- Chain-of-thought рассуждения (блоки `<think>`, видны в UI как сворачиваемые секции в стиле Claude.ai)
 - Intent router для классификации намерений пользователя
-- Оркестрация инструментов: `knowledge_search`, `web_search`, `obsidian_write`, `task_tool`, MCP-инструменты
+- Оркестрация инструментов: `knowledge_search`, `web_search`, `obsidian_write`, `task_tool`, MCP-инструменты, HTTP-инструменты
+- Multi-agent orchestration (researcher, coder, writer, critic) с визуализацией в чате
+- Adaptive model routing — автовыбор модели по сложности запроса
+- Self-improving agent — анализ ошибок и автоулучшения
 
 ### RAG Pipeline
 
 - Загрузка документов через API (multipart upload)
-- Автоматическая классификация документов через LLM
-- Чанкинг: фиксированный (`fixed`) и по структуре Markdown (`markdown`)
+- Multi-format extraction: PDF, DOCX, XLSX, CSV, Markdown
+- Multi-source ingest: upload, web scraping, Obsidian
+- Детерминированная классификация (frontmatter/path) + async LLM enrichment
+- Чанкинг: фиксированный (`fixed`) и по структуре Markdown (`markdown`), настраиваемый по источнику
 - Гибридный retrieval: семантический поиск + BM25 + reranking
 - Query expansion (multi-query retrieval)
-- Qdrant в качестве векторного хранилища
+- Multi-collection Qdrant с каскадным поиском по источникам
+- Knowledge Graph (Neo4j) — wikilinks, similarity, retrieval boost
 
 ### Управление знаниями
+
 - Синхронизация Obsidian vault: автоматическая по расписанию и ручная
+- Auto-discovery vault-ов при старте
 - Создание заметок в Obsidian vault через агента
 - Браузер vault с UI-управлением
 - Поддержка нескольких vault одновременно
@@ -38,12 +46,14 @@
 ### Десктопный UI (Tauri)
 
 - Чат с потоковой генерацией (SSE streaming)
-- Отображение блоков `<think>` (chain-of-thought)
+- Отображение chain-of-thought в стиле Claude.ai (Sparkles icon, таймер, amber theme)
+- Визуализация Multi-Agent Orchestration (vertical stepper в чате)
+- 3D Knowledge Graph (react-force-graph-3d) — интерактивная визуализация связей документов
 - Выбор модели и LLM-провайдера
 - История разговоров с поиском
-- Браузер Obsidian vault
-- Дашборд со статистикой использования инструментов
-- Настройки: тема, язык, модели, MCP-серверы, параметры агента
+- Браузер Obsidian vault с auto-discovery
+- Дашборд: документы, статистика инструментов, MCP, расписания, self-improving agent, activity feed
+- Настройки: тема, язык, модели, MCP-серверы, параметры агента, HTTP Tools
 - Адаптивная верстка для мобильных устройств
 
 ### Память
@@ -52,6 +62,13 @@
 - Долгосрочная: векторные саммари в Qdrant (`conversation_memory`)
 - Автоматическое суммирование каждые N ходов
 - Retrieval релевантных воспоминаний при новых запросах
+
+### Scheduled Tasks
+
+- Cron-планировщик для периодических задач агента
+- CRUD API (`/v1/schedules`) + UI на Dashboard
+- Условное выполнение (conditions)
+- Webhook-уведомления
 
 ### Веб-поиск
 
@@ -62,6 +79,7 @@
 
 - Встроенный MCP-сервер (`/mcp`) для внешних клиентов (OpenWebUI, Claude Code, Cursor)
 - Подключение к внешним MCP-серверам: filesystem, code-runner, GitHub
+- JSON HTTP Tools Plugin — определение HTTP API инструментов через конфиг
 - Настройка через переменные окружения (JSON-массив)
 
 ### Инфраструктура
@@ -70,7 +88,7 @@
 - Поддержка хостового GPU (Ollama proxy через nginx)
 - Несколько LLM-провайдеров: Ollama, OpenRouter, Groq, Together, Cerebras, HuggingFace
 - Fallback LLM провайдер при ошибке основного
-- Prometheus + Grafana + Alertmanager (дашборды, алерты)
+- Prometheus + Grafana + Alertmanager (дашборды, алерты, RAGAS evaluation dashboard)
 - Rate limiting, backpressure, circuit breaker
 - Retry с exponential backoff для внешних зависимостей
 - CORS, structured JSON logging, request ID tracing
@@ -79,7 +97,7 @@
 
 ## Документация по архитектуре
 
-- **[C4 Architecture (Context → Container → Component)](docs/c4/README.md)** — полная карта системы с Mermaid-диаграммами для каждой фичи
+- **[C4 Architecture (Context -> Container -> Component)](docs/c4/README.md)** — полная карта системы с Mermaid-диаграммами для каждой фичи
 - **[Architecture & Business Logic](docs/architecture.md)** — описание бизнес-логики, пайплайнов и sequence-диаграммы
 - **[ADR](docs/adr/)** — записи архитектурных решений
 
@@ -88,48 +106,51 @@
 ## Архитектура
 
 ```text
-┌─────────────────────────────────────────────────┐
-│               Desktop UI (Tauri)                │
-│      React + Tailwind + Zustand + Vite          │
-└──────────────────┬──────────────────────────────┘
-                   │ HTTP/SSE
-┌──────────────────▼──────────────────────────────┐
-│              PAA API  (Go, cmd/api)             │
-│   OpenAI-compatible /v1/chat/completions        │
-│                                                 │
-│   ┌──────────────┐    ┌───────────────────┐     │
-│   │  Agent Loop   │    │  RAG Pipeline     │     │
-│   │  (planner +   │    │  (query + rerank) │     │
-│   │   tools)      │    │                   │     │
-│   └──────┬───────┘    └────────┬──────────┘     │
-│          │                      │                │
-│   ┌──────▼───────┐    ┌────────▼──────────┐     │
-│   │ Tool Router   │    │ Embedding +       │     │
-│   │ knowledge     │    │ Generation        │     │
-│   │ web_search    │    │ (Ollama / cloud)  │     │
-│   │ obsidian      │    │                   │     │
-│   │ task_tool     │    │                   │     │
-│   │ MCP tools     │    │                   │     │
-│   └───────────────┘    └───────────────────┘     │
-└───────┬──────┬──────┬──────┬──────┬──────────────┘
-        │      │      │      │      │
-   ┌────▼──┐ ┌▼───┐ ┌▼───┐ ┌▼────┐ ┌▼───────┐
-   │Qdrant │ │ PG │ │NATS│ │Olla-│ │SearXNG │
-   │       │ │    │ │    │ │ ma  │ │        │
-   └───────┘ └────┘ └────┘ └─────┘ └────────┘
++---------------------------------------------------+
+|               Desktop UI (Tauri)                   |
+|      React + Tailwind + Zustand + Vite             |
+|  Chat | Vaults | Dashboard | Graph | Settings      |
++---------------------+-----------------------------+
+                      | HTTP/SSE
++---------------------v-----------------------------+
+|              PAA API  (Go, cmd/api)                |
+|   OpenAI-compatible /v1/chat/completions           |
+|                                                    |
+|   +---------------+    +--------------------+      |
+|   |  Agent Loop    |    |  RAG Pipeline      |      |
+|   |  (planner +    |    |  (query + rerank)  |      |
+|   |   tools)       |    |                    |      |
+|   +------+---------+    +--------+-----------+      |
+|          |                       |                  |
+|   +------v---------+    +--------v-----------+      |
+|   | Tool Router    |    | Embedding +        |      |
+|   | knowledge      |    | Generation         |      |
+|   | web_search     |    | (Ollama / cloud)   |      |
+|   | obsidian       |    |                    |      |
+|   | task_tool      |    |                    |      |
+|   | MCP tools      |    |                    |      |
+|   | HTTP tools     |    |                    |      |
+|   +----------------+    +--------------------+      |
++----+----+----+----+----+----+----+-----------------+
+     |    |    |    |    |    |    |
+  +--v-+ +v--+ +v--+ +v---+ +v------+ +v----+ +v----+
+  |Qdr-| | PG| |NATS| |Olla-| |SearXNG| |Neo4j| |MCP  |
+  |ant | |   | |    | |ma  | |       | |     | |srvs |
+  +----+ +---+ +----+ +----+ +-------+ +-----+ +-----+
 ```
 
-**Worker** (`cmd/worker`) -- NATS-подписчик для асинхронной обработки документов: извлечение текста -> классификация -> чанкинг -> эмбеддинг -> индексация в Qdrant.
+**Worker** (`cmd/worker`) — NATS-подписчик для асинхронной обработки документов: извлечение текста -> метаданные -> чанкинг -> эмбеддинг -> индексация в Qdrant -> граф (Neo4j).
 
 ### Гексагональная архитектура (Ports & Adapters)
 
 | Пакет | Назначение |
 | ----- | --------- |
-| `internal/core/domain` | Доменные модели (Document, Conversation, Task, Memory) |
+| `internal/core/domain` | Доменные модели (Document, Conversation, Task, Memory, Orchestration) |
 | `internal/core/ports` | Inbound/outbound интерфейсы |
-| `internal/core/usecase` | Бизнес-логика (ingest, process, query, rerank, agent_chat) |
-| `internal/adapters/http` | HTTP-обработчики, OpenAI-compat API, SSE |
-| `internal/infrastructure/` | Реализации: ollama, qdrant, postgres, nats, searxng, resilience |
+| `internal/core/usecase` | Бизнес-логика (ingest, process, query, rerank, agent_chat, orchestrator, scheduler, self_improve) |
+| `internal/adapters/http` | HTTP-обработчики, OpenAI-compat API, SSE, Obsidian vault management |
+| `internal/infrastructure/` | Реализации: ollama, qdrant, postgres, nats, searxng, neo4j, mcp, resilience, extractors |
+| `internal/pkg/tokenizer` | Shared Unicode-aware tokenizer (RU/EN) |
 | `ui/` | Tauri + React фронтенд |
 
 ---
@@ -138,8 +159,8 @@
 
 ```bash
 # Клонировать репозиторий
-git clone https://github.com/<your-username>/PersonalAIAssistent.git
-cd PersonalAIAssistent
+git clone https://github.com/kk7453603/AIAssistent.git
+cd AIAssistent
 
 # Создать файл конфигурации
 cp .env.example .env
@@ -182,6 +203,9 @@ make monitoring-validate
 
 # RAG evaluation suite
 make eval
+
+# RAGAS evaluation (faithfulness, relevancy, correctness)
+make eval-ragas
 ```
 
 ### UI (Tauri + React)
@@ -221,50 +245,231 @@ make test
 
 Все настройки задаются через переменные окружения. Полный список -- в файле [`.env.example`](.env.example).
 
-### Основные переменные
+### Core
 
 | Переменная | По умолчанию | Описание |
 | ---------- | ------------ | -------- |
+| `API_PORT` | `8080` | Порт API-сервера |
+| `LOG_LEVEL` | `info` | Уровень логирования |
+| `POSTGRES_DSN` | | DSN для PostgreSQL |
+| `NATS_URL` | `nats://nats:4222` | URL NATS-сервера |
+| `STORAGE_PATH` | `/data/storage` | Путь для хранения загруженных файлов |
+
+### LLM / Embedding
+
+| Переменная | По умолчанию | Описание |
+| ---------- | ------------ | -------- |
+| `OLLAMA_URL` | `http://ollama:11434` | URL Ollama API |
 | `OLLAMA_GEN_MODEL` | `llama3.1:8b` | Модель генерации |
 | `OLLAMA_PLANNER_MODEL` | `qwen3:14b` | Модель планировщика агента |
 | `OLLAMA_EMBED_MODEL` | `nomic-embed-text` | Модель эмбеддингов |
-| `LLM_PROVIDER` | `ollama` | Провайдер LLM: `ollama`, `openai-compat`, `groq`, `together`, `openrouter`, `cerebras` |
-| `CHUNK_STRATEGY` | `fixed` | Стратегия чанкинга: `fixed`, `markdown` |
-| `RAG_RETRIEVAL_MODE` | `semantic` | Режим retrieval: `semantic`, `hybrid`, `hybrid+rerank` |
-| `AGENT_MODE_ENABLED` | `true` | Включение серверного agent loop |
+| `LLM_PROVIDER` | `ollama` | Провайдер: `ollama`, `openai-compat`, `groq`, `together`, `openrouter`, `cerebras`, `huggingface` |
+| `LLM_PROVIDER_URL` | | URL внешнего провайдера |
+| `LLM_PROVIDER_KEY` | | API-ключ провайдера |
+| `LLM_MODEL` | | Модель для внешнего провайдера |
+| `EMBED_PROVIDER` | `ollama` | Провайдер эмбеддингов: `ollama`, `openai-compat` |
+| `RERANKER_PROVIDER` | `fallback` | Провайдер reranker: `fallback`, `ollama`, `openai-compat` |
+
+### Fallback LLM
+
+| Переменная | По умолчанию | Описание |
+| ---------- | ------------ | -------- |
+| `LLM_FALLBACK_PROVIDER` | | Провайдер fallback LLM |
+| `LLM_FALLBACK_URL` | | URL fallback провайдера |
+| `LLM_FALLBACK_KEY` | | API-ключ fallback |
+| `LLM_FALLBACK_MODEL` | | Модель fallback |
+| `LLM_EXTRA_PROVIDERS` | | Доп. провайдеры через запятую (`huggingface,openrouter`) |
+
+### RAG / Retrieval
+
+| Переменная | По умолчанию | Описание |
+| ---------- | ------------ | -------- |
+| `QDRANT_URL` | `http://qdrant:6333` | URL Qdrant |
+| `QDRANT_EMBED_DIM` | `0` | Размерность вектора (0 = авто) |
+| `QDRANT_SEARCH_ORDER` | `upload,web,obsidian` | Порядок каскадного поиска по коллекциям |
+| `CHUNK_SIZE` | `900` | Размер чанка (символы) |
+| `CHUNK_OVERLAP` | `150` | Перекрытие чанков |
+| `CHUNK_STRATEGY` | `fixed` | Стратегия: `fixed`, `markdown` |
+| `CHUNK_CONFIG` | | Per-source JSON конфиг чанкинга |
+| `RAG_TOP_K` | `5` | Топ-K результатов retrieval |
+| `RAG_RETRIEVAL_MODE` | `semantic` | Режим: `semantic`, `hybrid` |
+| `RAG_HYBRID_CANDIDATES` | `30` | Кандидатов для hybrid search |
+| `RAG_FUSION_STRATEGY` | `rrf` | Стратегия fusion: `rrf` |
+| `RAG_RERANK_TOP_N` | `20` | Топ-N для reranking |
+| `QUERY_EXPANSION_ENABLED` | `false` | Включить multi-query expansion |
+
+### Agent
+
+| Переменная | По умолчанию | Описание |
+| ---------- | ------------ | -------- |
+| `AGENT_MODE_ENABLED` | `true` | Включить серверный agent loop |
 | `AGENT_MAX_ITERATIONS` | `10` | Макс. итераций агента |
-| `WEB_SEARCH_ENABLED` | `true` | Включение веб-поиска через SearXNG |
-| `MCP_SERVER_ENABLED` | `true` | Включение MCP-сервера на `/mcp` |
+| `AGENT_TIMEOUT_SECONDS` | `90` | Общий таймаут агента |
+| `AGENT_PLANNER_TIMEOUT_SECONDS` | `20` | Таймаут планировщика |
+| `AGENT_TOOL_TIMEOUT_SECONDS` | `30` | Таймаут инструмента |
+| `AGENT_SHORT_MEMORY_MESSAGES` | `12` | Кол-во последних сообщений в контексте |
+| `AGENT_SUMMARY_EVERY_TURNS` | `6` | Суммаризация каждые N ходов |
+| `AGENT_MEMORY_TOP_K` | `4` | Топ-K воспоминаний из долговременной памяти |
+| `AGENT_KNOWLEDGE_TOP_K` | `5` | Топ-K результатов knowledge_search |
+| `AGENT_INTENT_ROUTER_ENABLED` | `true` | Включить intent router |
+| `OPENAI_COMPAT_API_KEY` | | Bearer-токен для API (пусто = без авторизации) |
+
+### Knowledge Graph (Neo4j)
+
+| Переменная | По умолчанию | Описание |
+| ---------- | ------------ | -------- |
+| `GRAPH_ENABLED` | `false` | Включить Neo4j knowledge graph |
+| `NEO4J_URL` | `bolt://neo4j:7687` | URL Neo4j |
+| `NEO4J_USER` | `neo4j` | Пользователь Neo4j |
+| `NEO4J_PASSWORD` | `password` | Пароль Neo4j |
+| `GRAPH_SIMILARITY_THRESHOLD` | `0.75` | Порог similarity для создания связей |
+| `GRAPH_BOOST_FACTOR` | `0.7` | Коэффициент boost от графа при retrieval |
+
+### Multi-Agent Orchestration
+
+| Переменная | По умолчанию | Описание |
+| ---------- | ------------ | -------- |
+| `ORCHESTRATOR_ENABLED` | `false` | Включить multi-agent orchestration |
+| `ORCHESTRATOR_MAX_STEPS` | `8` | Макс. шагов оркестратора |
+| `AGENT_SPECS` | | JSON-массив кастомных агентов |
+| `MODEL_ROUTING` | | JSON для adaptive model routing |
+
+### Self-Improving Agent
+
+| Переменная | По умолчанию | Описание |
+| ---------- | ------------ | -------- |
+| `SELF_IMPROVE_ENABLED` | `false` | Включить self-improving agent |
+| `SELF_IMPROVE_INTERVAL_HOURS` | `24` | Интервал анализа (часы) |
+| `SELF_IMPROVE_AUTO_APPLY` | `true` | Автоприменение safe improvements |
+
+### Scheduled Tasks
+
+| Переменная | По умолчанию | Описание |
+| ---------- | ------------ | -------- |
+| `SCHEDULER_ENABLED` | `false` | Включить cron-планировщик |
+| `SCHEDULER_CHECK_INTERVAL_SECONDS` | `60` | Интервал проверки задач |
+
+### HTTP Tools Plugin
+
+| Переменная | По умолчанию | Описание |
+| ---------- | ------------ | -------- |
+| `HTTP_TOOLS` | | JSON-массив HTTP tool definitions |
+| `HTTP_TOOLS_FILE` | | Путь к JSON-файлу с HTTP tools |
+
+### Web Search
+
+| Переменная | По умолчанию | Описание |
+| ---------- | ------------ | -------- |
+| `WEB_SEARCH_ENABLED` | `true` | Включить SearXNG веб-поиск |
+| `WEB_SEARCH_URL` | `http://searxng:8080` | URL SearXNG |
+| `WEB_SEARCH_LIMIT` | `5` | Макс. результатов поиска |
+
+### MCP
+
+| Переменная | По умолчанию | Описание |
+| ---------- | ------------ | -------- |
+| `MCP_SERVER_ENABLED` | `true` | Включить MCP-сервер (`/mcp`) |
 | `MCP_SERVERS` | `[...]` | JSON-массив внешних MCP-серверов |
-| `OPENAI_COMPAT_API_KEY` | _(пусто)_ | Bearer-токен для API (пусто = без авторизации) |
+
+### Obsidian
+
+| Переменная | По умолчанию | Описание |
+| ---------- | ------------ | -------- |
+| `OBSIDIAN_VAULTS_HOST_PATH` | `./obsidian_vaults` | Путь к vault-ам на хосте |
+| `ASSISTANT_OBSIDIAN_DEFAULT_INTERVAL_MINUTES` | `15` | Интервал авто-синхронизации |
+
+### Rate Limiting / Resilience
+
+| Переменная | По умолчанию | Описание |
+| ---------- | ------------ | -------- |
 | `API_RATE_LIMIT_RPS` | `40` | Rate limit (запросов/сек), `<=0` отключает |
-| `API_BACKPRESSURE_MAX_IN_FLIGHT` | `64` | Макс. одновременных запросов, `<=0` отключает |
-| `OBSIDIAN_VAULTS_HOST_PATH` | `./obsidian_vaults` | Путь к Obsidian vault на хосте |
+| `API_BACKPRESSURE_MAX_IN_FLIGHT` | `64` | Макс. одновременных запросов |
+| `RESILIENCE_BREAKER_ENABLED` | `true` | Включить circuit breaker |
+| `RESILIENCE_RETRY_MAX_ATTEMPTS` | `3` | Макс. попыток retry |
+
+---
+
+## API Endpoints
+
+### OpenAI-compatible
+
+| Метод | Путь | Описание |
+|-------|------|----------|
+| `POST` | `/v1/chat/completions` | Chat completion (streaming SSE) |
+| `POST` | `/v1/documents` | Загрузка документа |
+| `GET` | `/v1/documents` | Список документов |
+| `GET` | `/v1/documents/{id}/content` | Контент документа |
+
+### Obsidian Vaults
+
+| Метод | Путь | Описание |
+|-------|------|----------|
+| `GET` | `/v1/obsidian/vaults` | Список vault-ов |
+| `POST` | `/v1/obsidian/vaults` | Добавить vault |
+| `POST` | `/v1/obsidian/vaults/{id}/sync` | Синхронизация vault |
+| `POST` | `/v1/obsidian/vaults/{id}/notes` | Создать заметку |
+| `GET` | `/v1/obsidian/vaults/{id}/files` | Список файлов |
+| `GET` | `/v1/obsidian/vaults/{id}/files/content` | Контент файла |
+| `GET` | `/v1/obsidian/find?filename=X` | Поиск файла по всем vault-ам |
+
+### Knowledge Graph
+
+| Метод | Путь | Описание |
+|-------|------|----------|
+| `GET` | `/v1/graph` | Граф узлов и связей |
+
+### Scheduled Tasks
+
+| Метод | Путь | Описание |
+|-------|------|----------|
+| `GET` | `/v1/schedules` | Список расписаний |
+| `POST` | `/v1/schedules` | Создать расписание |
+| `PATCH` | `/v1/schedules/{id}` | Обновить расписание |
+| `DELETE` | `/v1/schedules/{id}` | Удалить расписание |
+
+### Self-Improving Agent
+
+| Метод | Путь | Описание |
+|-------|------|----------|
+| `GET` | `/v1/events/summary` | Агрегация событий агента |
+| `POST` | `/v1/feedback` | Отправить feedback |
+| `GET` | `/v1/feedback/summary` | Статистика feedback |
+| `GET` | `/v1/improvements` | Pending improvements |
+| `PATCH` | `/v1/improvements/{id}` | Approve/dismiss improvement |
+
+### Tools & Monitoring
+
+| Метод | Путь | Описание |
+|-------|------|----------|
+| `GET` | `/v1/tools` | Список HTTP tools |
+| `GET` | `/healthz` | Health check |
+| `GET` | `/metrics` | Prometheus metrics |
+| `GET` | `/mcp` | MCP server endpoint |
 
 ---
 
 ## Мониторинг
 
-> **В разработке.** Стек мониторинга (Prometheus, Alertmanager, Grafana) включён в Docker Compose, но находится в процессе доработки. API метрики доступны через `GET /metrics`.
-
 ```bash
 docker compose up -d prometheus alertmanager grafana
 ```
 
-| Сервис | URL | Статус |
+| Сервис | URL | Описание |
 | ------ | --- | ------ |
-| API metrics | `http://localhost:8080/metrics` | Работает |
-| Prometheus | `http://localhost:9091` | Работает |
-| Alertmanager | `http://localhost:9093` | Работает |
-| Grafana | `http://localhost:3001` | В разработке |
+| API metrics | `http://localhost:8080/metrics` | Prometheus metrics |
+| Prometheus | `http://localhost:9091` | Metric storage |
+| Alertmanager | `http://localhost:9093` | Alert routing |
+| Grafana | `http://localhost:3001` | Dashboards |
+
+Grafana dashboards:
+- **PAA Overview** — общие метрики API и worker
+- **PAA RAGAS Evaluation** — faithfulness, relevancy, correctness, context precision
 
 Конфигурация:
-
 - Prometheus: `deploy/monitoring/prometheus/`
 - Alertmanager: `deploy/monitoring/alertmanager/`
 - Grafana dashboards: `deploy/monitoring/grafana/dashboards/`
 
-Валидация:
 ```bash
 make monitoring-validate
 ```
