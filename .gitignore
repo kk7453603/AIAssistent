@@ -12,6 +12,7 @@ tmp/
 
 # Claude Code
 CLAUDE.md
+.claude
 
 # Python
 __pycache__/

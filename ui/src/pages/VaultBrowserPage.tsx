@@ -11,49 +11,57 @@ interface Props {
   onReferenceInChat: (content: string) => void;
   pendingFilePath?: string | null;
   onPendingFileClear?: () => void;
+  pendingDocId?: string | null;
+  onPendingDocClear?: () => void;
 }
 
-export function VaultBrowserPage({ onReferenceInChat, pendingFilePath, onPendingFileClear }: Props) {
+export function VaultBrowserPage({ onReferenceInChat, pendingFilePath, onPendingFileClear, pendingDocId, onPendingDocClear }: Props) {
   const {
     vaultsPath,
     selectedVault,
     selectedFilePath,
     expandedDirs,
-    setVaultsPath,
-    loadVaults,
     selectFile,
     getFileContent,
   } = useVaultStore();
 
   useEffect(() => {
     async function init() {
+      const store = useVaultStore.getState();
+
       if (!isTauri) {
-        // In browser mode, loadVaults fetches from HTTP API directly
-        // No vaultsPath needed; trigger load immediately
-        loadVaults();
-        return;
+        await store.loadVaults();
+      } else {
+        const { invoke } = await import("@tauri-apps/api/core");
+        const config = await invoke<{ vaults_path: string }>("get_default_config");
+        store.setVaultsPath(config.vaults_path);
+        await store.loadVaults();
       }
-      const { invoke } = await import("@tauri-apps/api/core");
-      const config = await invoke<{ vaults_path: string }>(
-        "get_default_config",
-      );
-      setVaultsPath(config.vaults_path);
+
+      // Handle pending document AFTER vaults are loaded (no race)
+      if (pendingDocId) {
+        onPendingDocClear?.();
+        try {
+          const { getApiUrl: apiUrl } = await import("../api/client");
+          const resp = await fetch(`${apiUrl()}/v1/documents/${pendingDocId}/content`);
+          if (resp.ok) {
+            const data = await resp.json() as { filename: string; content: string };
+            await useVaultStore.getState().showDocument(data.filename, data.content);
+          }
+        } catch {
+          // failed
+        }
+      }
+
+      // Handle pending file path
+      if (pendingFilePath) {
+        onPendingFileClear?.();
+        useVaultStore.getState().selectFile(pendingFilePath);
+      }
     }
     init();
-  }, [setVaultsPath, loadVaults]);
-
-  useEffect(() => {
-    if (vaultsPath) {
-      loadVaults();
-    }
-  }, [vaultsPath, loadVaults]);
-
-  // Handle pending file navigation from Graph page
-  useEffect(() => {
-    if (!pendingFilePath) return;
-    selectFile(pendingFilePath);
-    onPendingFileClear?.();
-  }, [pendingFilePath, selectFile, onPendingFileClear]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const rootPath = selectedVault
     ? isTauri

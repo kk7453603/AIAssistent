@@ -23,9 +23,10 @@ function FileTreeNode({
   onContextMenu,
 }: FileTreeNodeProps) {
   const { expandedDirs, loadDir } = useVaultStore();
-  const [expanded, setExpanded] = useState(false);
-
   const children = expandedDirs[entry.path];
+
+  // Auto-expand if directory was pre-loaded (e.g. by showDocument navigation)
+  const [expanded, setExpanded] = useState(!!children);
 
   const toggleExpand = useCallback(async () => {
     if (!expanded && !children) {

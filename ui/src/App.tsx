@@ -6,8 +6,6 @@ import { VaultBrowserPage } from "./pages/VaultBrowserPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { useSettingsStore } from "./stores/settingsStore";
-import { useVaultStore } from "./stores/vaultStore";
-import { getApiUrl } from "./api/client";
 import { isTauri } from "./utils/isTauri";
 
 const GraphPage = lazy(() =>
@@ -20,6 +18,7 @@ export default function App() {
   const [page, setPage] = useState<Page>("chat");
   const [pendingRef, setPendingRef] = useState<string | null>(null);
   const [pendingVaultPath, setPendingVaultPath] = useState<string | null>(null);
+  const [pendingDocId, setPendingDocId] = useState<string | null>(null);
   const loadSettings = useSettingsStore((s) => s.load);
   const theme = useSettingsStore((s) => s.theme);
 
@@ -140,6 +139,8 @@ export default function App() {
             onReferenceInChat={handleReferenceInChat}
             pendingFilePath={pendingVaultPath}
             onPendingFileClear={() => setPendingVaultPath(null)}
+            pendingDocId={pendingDocId}
+            onPendingDocClear={() => setPendingDocId(null)}
           />
         )}
         {page === "dashboard" && <DashboardPage />}
@@ -156,17 +157,9 @@ export default function App() {
                 setPendingVaultPath(path);
                 setPage("vault");
               }}
-              onViewDocument={async (docId) => {
-                try {
-                  const resp = await fetch(`${getApiUrl()}/v1/documents/${docId}/content`);
-                  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-                  const data = await resp.json() as { filename: string; content: string };
-                  await useVaultStore.getState().showDocument(data.filename, data.content);
-                  setPage("vault");
-                } catch {
-                  // fallback: just navigate
-                  setPage("vault");
-                }
+              onViewDocument={(docId) => {
+                setPendingDocId(docId);
+                setPage("vault");
               }}
             />
           </Suspense>

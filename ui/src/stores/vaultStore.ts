@@ -215,18 +215,11 @@ export const useVaultStore = create<VaultState>()((set, get) => ({
         if (findResp.ok) {
           const found = await findResp.json() as { vault_id: string; vault_name: string; path: string };
 
-          // Select the vault and load its root entries
-          set({
-            selectedVault: found.vault_name,
-            selectedVaultId: found.vault_id,
-            selectedFilePath: found.path,
-            fileContent: content,
-            expandedDirs: {},
-            searchResults: [],
-          });
+          // Use selectVault to properly select and load root tree
+          get().selectVault(found.vault_name);
 
-          // Load root entries for the vault tree
-          await get().loadDir("");
+          // Wait for root dir to load
+          await new Promise(r => setTimeout(r, 300));
 
           // Expand all parent directories along the path
           const parts = found.path.split("/");
@@ -235,7 +228,7 @@ export const useVaultStore = create<VaultState>()((set, get) => ({
             await get().loadDir(dirPath);
           }
 
-          // Load content from vault (overrides the passed content with vault version)
+          // Select the file
           await get().selectFile(found.path);
         }
       } catch {
