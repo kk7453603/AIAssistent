@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from "react";
 import { Network, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useState } from "react";
-import { useGraphStore, useFilteredGraph } from "../stores/graphStore";
+import { useGraphStore, useFilteredGraph, useUniqueCategories } from "../stores/graphStore";
 import { GraphCanvas } from "../components/graph/GraphCanvas";
 import { GraphFilters } from "../components/graph/GraphFilters";
 import { GraphLegend } from "../components/graph/GraphLegend";
@@ -19,6 +19,7 @@ export function GraphPage({ onNavigateToVault, onViewDocument }: Props) {
   const graph = useGraphStore((s) => s.graph);
   const selectedNodeId = useGraphStore((s) => s.selectedNodeId);
   const { nodes, edges } = useFilteredGraph();
+  const allCategories = useUniqueCategories();
 
   const [showFilters, setShowFilters] = useState(true);
 
@@ -93,7 +94,7 @@ export function GraphPage({ onNavigateToVault, onViewDocument }: Props) {
             <GraphFilters />
           </div>
           <div className="border-t border-gray-200 dark:border-gray-800 p-4">
-            <GraphLegend />
+            <GraphLegend categories={allCategories} />
           </div>
         </div>
       )}

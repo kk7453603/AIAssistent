@@ -1,14 +1,27 @@
-export const CATEGORY_COLORS: Record<string, string> = {
-  article: "#3b82f6",
-  note: "#8b5cf6",
-  reference: "#06b6d4",
-  tutorial: "#10b981",
-  code: "#f59e0b",
-  other: "#6b7280",
-};
+// Palette for known categories + dynamically generated colors for others
+const PALETTE = [
+  "#3b82f6", "#8b5cf6", "#06b6d4", "#10b981", "#f59e0b",
+  "#ef4444", "#ec4899", "#14b8a6", "#f97316", "#6366f1",
+  "#84cc16", "#0ea5e9", "#d946ef", "#a855f7", "#22d3ee",
+];
+
+const dynamicColorCache = new Map<string, string>();
+
+function hashString(s: string): number {
+  let hash = 0;
+  for (let i = 0; i < s.length; i++) {
+    hash = ((hash << 5) - hash + s.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash);
+}
 
 export function getCategoryColor(category: string): string {
-  return CATEGORY_COLORS[category] ?? CATEGORY_COLORS.other;
+  if (!category) return "#6b7280";
+  const cached = dynamicColorCache.get(category);
+  if (cached) return cached;
+  const color = PALETTE[hashString(category) % PALETTE.length];
+  dynamicColorCache.set(category, color);
+  return color;
 }
 
 const SOURCE_SHAPES: { type: string; label: string }[] = [
@@ -23,25 +36,29 @@ const EDGE_TYPES: { type: string; color: string; label: string }[] = [
   { type: "similarity", color: "#f97316", label: "Similarity" },
 ];
 
-export function GraphLegend() {
+export function GraphLegend({ categories }: { categories?: string[] }) {
+  const cats = (categories ?? []).filter(Boolean).slice(0, 10);
+
   return (
     <div className="space-y-4 text-xs text-gray-600 dark:text-gray-400">
-      <div>
-        <h4 className="mb-1.5 font-semibold text-gray-700 dark:text-gray-300">
-          Category (color)
-        </h4>
-        <ul className="space-y-1">
-          {Object.entries(CATEGORY_COLORS).map(([cat, color]) => (
-            <li key={cat} className="flex items-center gap-2">
-              <span
-                className="inline-block h-3 w-3 rounded-full"
-                style={{ backgroundColor: color }}
-              />
-              {cat}
-            </li>
-          ))}
-        </ul>
-      </div>
+      {cats.length > 0 && (
+        <div>
+          <h4 className="mb-1.5 font-semibold text-gray-700 dark:text-gray-300">
+            Category (color)
+          </h4>
+          <ul className="space-y-1">
+            {cats.map((cat) => (
+              <li key={cat} className="flex items-center gap-2">
+                <span
+                  className="inline-block h-3 w-3 rounded-full"
+                  style={{ backgroundColor: getCategoryColor(cat) }}
+                />
+                {cat}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div>
         <h4 className="mb-1.5 font-semibold text-gray-700 dark:text-gray-300">
