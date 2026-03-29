@@ -46,7 +46,7 @@ func (c *Client) chatWithTools(ctx context.Context, messages []domain.ChatMessag
 		"model":    model,
 		"messages": ollamaMessages,
 		"stream":   false,
-		"think":    false,
+		"think":    c.thinkEnabled,
 	}
 	if len(ollamaTools) > 0 {
 		reqBody["tools"] = ollamaTools
@@ -56,6 +56,7 @@ func (c *Client) chatWithTools(ctx context.Context, messages []domain.ChatMessag
 		Message struct {
 			Role      string `json:"role"`
 			Content   string `json:"content"`
+			Thinking  string `json:"thinking"`
 			ToolCalls []struct {
 				Function struct {
 					Name      string         `json:"name"`
@@ -69,8 +70,14 @@ func (c *Client) chatWithTools(ctx context.Context, messages []domain.ChatMessag
 		return nil, fmt.Errorf("ollama chat: %w", err)
 	}
 
+	content := strings.TrimSpace(response.Message.Content)
+	thinking := strings.TrimSpace(response.Message.Thinking)
+	if thinking != "" {
+		content = "<think>" + thinking + "</think>\n" + content
+	}
+
 	result := &domain.ChatToolsResult{
-		Content: strings.TrimSpace(response.Message.Content),
+		Content: content,
 	}
 	for _, tc := range response.Message.ToolCalls {
 		result.ToolCalls = append(result.ToolCalls, domain.ToolCall{

@@ -17,6 +17,7 @@ type Client struct {
 	genModel     string
 	embedModel   string
 	plannerModel string
+	thinkEnabled bool
 	httpClient   *http.Client
 	executor     *resilience.Executor
 }
@@ -27,6 +28,7 @@ func New(baseURL, genModel, embedModel string) *Client {
 
 type Options struct {
 	PlannerModel       string
+	ThinkEnabled       bool
 	HTTPClient         *http.Client
 	ResilienceExecutor *resilience.Executor
 }
@@ -41,6 +43,7 @@ func NewWithOptions(baseURL, genModel, embedModel string, options Options) *Clie
 		genModel:     genModel,
 		embedModel:   embedModel,
 		plannerModel: strings.TrimSpace(options.PlannerModel),
+		thinkEnabled: options.ThinkEnabled,
 		httpClient:   httpClient,
 		executor:     options.ResilienceExecutor,
 	}

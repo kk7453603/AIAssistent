@@ -115,6 +115,7 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 
 	ollamaClient := ollama.NewWithOptions(cfg.OllamaURL, cfg.OllamaGenModel, cfg.OllamaEmbedModel, ollama.Options{
 		PlannerModel:       cfg.OllamaPlannerModel,
+		ThinkEnabled:       cfg.OllamaThinkEnabled,
 		ResilienceExecutor: resilienceExecutor,
 	})
 

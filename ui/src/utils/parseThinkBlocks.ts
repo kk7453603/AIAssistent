@@ -4,7 +4,17 @@ export interface ThinkBlockResult {
 }
 
 export function parseThinkBlocks(content: string): ThinkBlockResult {
-  const match = content.match(/<think>([\s\S]*?)<\/think>\s*([\s\S]*)/);
-  if (!match) return { thinking: "", answer: content };
-  return { thinking: match[1].trim(), answer: match[2].trim() };
+  // Completed think block: <think>...</think>
+  const closedMatch = content.match(/<think>([\s\S]*?)<\/think>\s*([\s\S]*)/);
+  if (closedMatch) {
+    return { thinking: closedMatch[1].trim(), answer: closedMatch[2].trim() };
+  }
+
+  // Streaming: <think> opened but not yet closed
+  const openMatch = content.match(/<think>([\s\S]*)/);
+  if (openMatch) {
+    return { thinking: openMatch[1].trim(), answer: "" };
+  }
+
+  return { thinking: "", answer: content };
 }

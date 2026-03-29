@@ -22,6 +22,7 @@ type Config struct {
 	OllamaGenModel     string
 	OllamaEmbedModel   string
 	OllamaPlannerModel string
+	OllamaThinkEnabled bool
 
 	LLMProvider    string // "ollama" (default), "openai-compat"
 	LLMProviderURL string
@@ -157,6 +158,7 @@ func Load() Config {
 		OllamaGenModel:     mustEnv("OLLAMA_GEN_MODEL", "llama3.1:8b"),
 		OllamaEmbedModel:   mustEnv("OLLAMA_EMBED_MODEL", "nomic-embed-text"),
 		OllamaPlannerModel: mustEnv("OLLAMA_PLANNER_MODEL", ""),
+		OllamaThinkEnabled: mustEnv("OLLAMA_THINK_ENABLED", "true") == "true",
 
 		LLMProvider:    mustEnv("LLM_PROVIDER", "ollama"),
 		LLMProviderURL: mustEnv("LLM_PROVIDER_URL", ""),
