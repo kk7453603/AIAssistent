@@ -207,6 +207,7 @@ func (rt *Router) Handler() http.Handler {
 	mux.Handle("GET /metrics", rt.httpMetrics.Handler())
 	mux.HandleFunc("GET /ui/obsidian", rt.handleObsidianUI)
 	mux.HandleFunc("GET /ui/obsidian/", rt.handleObsidianUI)
+	mux.HandleFunc("GET /v1/obsidian/find", rt.handleObsidianFindFile)
 	mux.HandleFunc("GET /v1/obsidian/vaults", rt.handleObsidianList)
 	mux.HandleFunc("POST /v1/obsidian/vaults", rt.handleObsidianUpsert)
 	mux.HandleFunc("DELETE /v1/obsidian/vaults/{id}", rt.handleObsidianRemove)

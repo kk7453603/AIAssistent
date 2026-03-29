@@ -697,6 +697,58 @@ type obsidianCreateNoteRequest struct {
 	Folder  string `json:"folder,omitempty"`
 }
 
+func (rt *Router) handleObsidianFindFile(w http.ResponseWriter, r *http.Request) {
+	filename := r.URL.Query().Get("filename")
+	if filename == "" {
+		writeError(w, http.StatusBadRequest, fmt.Errorf("filename is required"))
+		return
+	}
+	cfg, err := rt.loadObsidianConfig()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	rt.autoDiscoverVaults(&cfg)
+
+	for _, v := range cfg.Vaults {
+		vaultPath, err := rt.resolveVaultPath(v.Path)
+		if err != nil {
+			continue
+		}
+		found := findFileInDir(vaultPath, filename)
+		if found != "" {
+			// Return relative path within vault
+			rel, _ := filepath.Rel(vaultPath, found)
+			vaultID := v.ID
+			if vaultID == "" {
+				vaultID = slugifyObsidian(v.Name)
+			}
+			writeJSON(w, http.StatusOK, map[string]string{
+				"vault_id":   vaultID,
+				"vault_name": v.Name,
+				"path":       rel,
+			})
+			return
+		}
+	}
+	writeError(w, http.StatusNotFound, fmt.Errorf("file not found in any vault"))
+}
+
+func findFileInDir(dir, filename string) string {
+	var result string
+	_ = filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if !d.IsDir() && d.Name() == filename {
+			result = path
+			return filepath.SkipAll
+		}
+		return nil
+	})
+	return result
+}
+
 func (rt *Router) handleObsidianCreateNote(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimSpace(r.PathValue("id"))
 	if id == "" {
