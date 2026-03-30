@@ -109,6 +109,7 @@ export const useChatStore = create<ChatState>()(
           const reader = response.body!.getReader();
           const decoder = new TextDecoder();
           let assistantContent = "";
+          let thinkingContent = "";
 
           // eslint-disable-next-line no-constant-condition
           while (true) {
@@ -159,7 +160,37 @@ export const useChatStore = create<ChatState>()(
                   continue;
                 }
 
+                if (delta?.thinking_delta) {
+                  thinkingContent += delta.thinking_delta;
+                  // Build content with open <think> tag (streaming)
+                  const snapshot = "<think>" + thinkingContent;
+                  set((s) => {
+                    const msgs = [...s.messages];
+                    const last = msgs[msgs.length - 1];
+                    if (last?.role === "assistant") {
+                      return {
+                        messages: [
+                          ...msgs.slice(0, -1),
+                          { ...last, content: snapshot },
+                        ],
+                      };
+                    }
+                    return {
+                      messages: [
+                        ...msgs,
+                        { role: "assistant", content: snapshot },
+                      ],
+                    };
+                  });
+                  continue;
+                }
+
                 if (delta?.content) {
+                  // If we had thinking, close the tag and prepend
+                  if (thinkingContent && !assistantContent) {
+                    assistantContent = "<think>" + thinkingContent + "</think>\n";
+                    thinkingContent = ""; // consumed
+                  }
                   assistantContent += delta.content;
                   const snapshot = assistantContent;
                   set((s) => {

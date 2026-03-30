@@ -1,6 +1,9 @@
 package domain
 
-import "time"
+import (
+	"context"
+	"time"
+)
 
 type Conversation struct {
 	UserID             string    `json:"user_id"`
@@ -74,11 +77,12 @@ type AgentInputMessage struct {
 }
 
 type AgentChatRequest struct {
-	UserID         string              `json:"user_id"`
-	ConversationID string              `json:"conversation_id,omitempty"`
-	SessionEnd     bool                `json:"session_end"`
-	Messages       []AgentInputMessage `json:"messages"`
-	OnOrchStep     OrchStepCallback    `json:"-"`
+	UserID           string                `json:"user_id"`
+	ConversationID   string                `json:"conversation_id,omitempty"`
+	SessionEnd       bool                  `json:"session_end"`
+	Messages         []AgentInputMessage   `json:"messages"`
+	OnOrchStep       OrchStepCallback      `json:"-"`
+	OnThinkingDelta  ThinkingDeltaCallback `json:"-"`
 }
 
 type AgentToolEvent struct {
@@ -110,6 +114,22 @@ type AgentPlanStep struct {
 
 // ToolStatusCallback is called during the agent loop to report tool execution progress.
 type ToolStatusCallback func(toolName string, status string)
+
+// ThinkingDeltaCallback is called with incremental thinking text during LLM streaming.
+type ThinkingDeltaCallback func(text string)
+
+type thinkingCtxKey struct{}
+
+// ContextWithThinkingCallback attaches a thinking callback to a context.
+func ContextWithThinkingCallback(ctx context.Context, cb ThinkingDeltaCallback) context.Context {
+	return context.WithValue(ctx, thinkingCtxKey{}, cb)
+}
+
+// ThinkingCallbackFromContext extracts a thinking callback from context.
+func ThinkingCallbackFromContext(ctx context.Context) ThinkingDeltaCallback {
+	cb, _ := ctx.Value(thinkingCtxKey{}).(ThinkingDeltaCallback)
+	return cb
+}
 
 // WebSearchResult represents a single result from a web search engine.
 type WebSearchResult struct {

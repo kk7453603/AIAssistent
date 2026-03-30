@@ -31,11 +31,13 @@ type chatCompletionsSSEResponse struct {
 	Chunks []apigen.ChatCompletionChunk
 }
 
-// agentSSEResponse writes tool-status SSE events first, then orchestration step events, then content chunks.
+// agentSSEResponse writes tool-status SSE events first, then thinking tokens,
+// then orchestration step events, then content chunks.
 type agentSSEResponse struct {
-	ToolEvents []toolStatusEntry
-	OrchSteps  []orchStepEntry
-	Chunks     []apigen.ChatCompletionChunk
+	ToolEvents     []toolStatusEntry
+	OrchSteps      []orchStepEntry
+	ThinkingTokens []string
+	Chunks         []apigen.ChatCompletionChunk
 }
 
 func (response agentSSEResponse) VisitChatCompletionsResponse(w http.ResponseWriter) error {
@@ -58,6 +60,23 @@ func (response agentSSEResponse) VisitChatCompletionsResponse(w http.ResponseWri
 			"choices": []map[string]any{{
 				"index": 0,
 				"delta": map[string]any{"tool_status": toolStatusJSON},
+			}},
+		}
+		data, _ := json.Marshal(chunk)
+		if _, err := fmt.Fprintf(w, "data: %s\n\n", data); err != nil {
+			return err
+		}
+		flusher.Flush()
+	}
+
+	// Emit thinking tokens (chain-of-thought streaming).
+	for _, t := range response.ThinkingTokens {
+		chunk := map[string]any{
+			"id":     "thinking",
+			"object": "chat.completion.chunk",
+			"choices": []map[string]any{{
+				"index": 0,
+				"delta": map[string]any{"thinking_delta": t},
 			}},
 		}
 		data, _ := json.Marshal(chunk)

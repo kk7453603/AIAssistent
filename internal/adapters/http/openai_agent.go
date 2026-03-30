@@ -2,7 +2,10 @@ package httpadapter
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"log/slog"
+	"net/http"
 	"strings"
 	"sync"
 
@@ -62,10 +65,44 @@ func (rt *Router) tryAgentCompletion(
 		}
 	}
 
-	result, err := rt.agentSvc.Complete(ctx, agentReq, onToolStatus)
-	if err != nil {
-		return nil, true, err
+	// For streaming: set up real-time thinking delta callback.
+	// The callback writes SSE events directly to the ResponseWriter
+	// via a channel that the response visitor drains.
+	var thinkingCh chan string
+	if stream {
+		thinkingCh = make(chan string, 256)
+		agentReq.OnThinkingDelta = func(text string) {
+			select {
+			case thinkingCh <- text:
+			default:
+				// drop if buffer full
+			}
+		}
 	}
+
+	// Run agent in background goroutine so we can start writing SSE immediately
+	type agentResult struct {
+		result *domain.AgentRunResult
+		err    error
+	}
+	resultCh := make(chan agentResult, 1)
+
+	go func() {
+		defer func() {
+			if thinkingCh != nil {
+				close(thinkingCh)
+			}
+		}()
+		result, err := rt.agentSvc.Complete(ctx, agentReq, onToolStatus)
+		resultCh <- agentResult{result, err}
+	}()
+
+	// Wait for agent to finish
+	ar := <-resultCh
+	if ar.err != nil {
+		return nil, true, ar.err
+	}
+	result := ar.result
 
 	status := "success"
 	if result.FallbackReason != "" {
@@ -124,10 +161,17 @@ func (rt *Router) tryAgentCompletion(
 		"fallback_reason", result.FallbackReason,
 	)
 	if stream {
+		// Drain any remaining thinking tokens from channel
+		var thinkingTokens []string
+		for t := range thinkingCh {
+			thinkingTokens = append(thinkingTokens, t)
+		}
+
 		return agentSSEResponse{
-			ToolEvents: toolStatusEvents,
-			OrchSteps:  orchStepEvents,
-			Chunks:     buildTextStreamChunks(completionID, created, modelID, result.Answer, rt.openAICompatStreamChunkChars),
+			ToolEvents:     toolStatusEvents,
+			OrchSteps:      orchStepEvents,
+			ThinkingTokens: thinkingTokens,
+			Chunks:         buildTextStreamChunks(completionID, created, modelID, result.Answer, rt.openAICompatStreamChunkChars),
 		}, true, nil
 	}
 	return apigen.ChatCompletions200JSONResponse(response), true, nil
@@ -168,4 +212,19 @@ func valueOrEmpty(v *string) string {
 		return ""
 	}
 	return *v
+}
+
+// writeThinkingSSEEvent writes a single thinking_delta SSE event.
+func writeThinkingSSEEvent(w http.ResponseWriter, flusher http.Flusher, text string) {
+	chunk := map[string]any{
+		"id":     "thinking",
+		"object": "chat.completion.chunk",
+		"choices": []map[string]any{{
+			"index": 0,
+			"delta": map[string]any{"thinking_delta": text},
+		}},
+	}
+	data, _ := json.Marshal(chunk)
+	_, _ = fmt.Fprintf(w, "data: %s\n\n", data)
+	flusher.Flush()
 }

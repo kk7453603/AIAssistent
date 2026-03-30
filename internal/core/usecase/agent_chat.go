@@ -177,6 +177,11 @@ func (uc *AgentChatUseCase) Complete(ctx context.Context, req domain.AgentChatRe
 	loopCtx, cancel := context.WithTimeout(ctx, uc.limits.Timeout)
 	defer cancel()
 
+	// Attach thinking callback to context for streaming thinking tokens
+	if req.OnThinkingDelta != nil {
+		loopCtx = domain.ContextWithThinkingCallback(loopCtx, req.OnThinkingDelta)
+	}
+
 	thinkingLines := make([]string, 0, uc.limits.MaxIterations)
 	toolEvents := make([]domain.AgentToolEvent, 0, uc.limits.MaxIterations)
 	toolsInvoked := make([]string, 0, uc.limits.MaxIterations)
