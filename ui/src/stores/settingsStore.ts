@@ -34,7 +34,7 @@ export interface Settings {
 
 const DEFAULT_SETTINGS: Settings = {
   apiUrl: "http://localhost:8080",
-  ollamaUrl: "http://localhost:11434",
+  ollamaUrl: "http://localhost:11435",
   vaultsPath: "",
   theme: "dark",
   language: "ru",

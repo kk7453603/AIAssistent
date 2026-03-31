@@ -1,7 +1,7 @@
 import { useSettingsStore } from "../../stores/settingsStore";
 
 export function GeneralTab() {
-  const { apiUrl, vaultsPath, theme, language, update } = useSettingsStore();
+  const { apiUrl, ollamaUrl, vaultsPath, theme, language, update } = useSettingsStore();
 
   return (
     <div className="space-y-6">
@@ -13,6 +13,18 @@ export function GeneralTab() {
           type="text"
           value={apiUrl}
           onChange={(e) => update("apiUrl", e.target.value)}
+          className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-200 outline-none focus:border-blue-500"
+        />
+      </div>
+
+      <div>
+        <label className="mb-1 block text-sm font-medium text-gray-600 dark:text-gray-300">
+          Local Ollama URL
+        </label>
+        <input
+          type="text"
+          value={ollamaUrl}
+          onChange={(e) => update("ollamaUrl", e.target.value)}
           className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-200 outline-none focus:border-blue-500"
         />
       </div>

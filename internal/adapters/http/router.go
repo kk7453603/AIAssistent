@@ -56,13 +56,14 @@ type Router struct {
 	mcpHandler   http.Handler
 	httpToolDefs []paamcp.HTTPToolDef
 
-	graphStore       ports.GraphStore
-	feedbackStore    ports.FeedbackStore
-	eventStore       ports.EventStore
-	improvementStore ports.ImprovementStore
-	scheduleStore    ports.ScheduleStore
-	docRepo          ports.DocumentRepository
-	objectStorage    ports.ObjectStorage
+	runtimeModelConfig ports.RuntimeModelConfigurator
+	graphStore         ports.GraphStore
+	feedbackStore      ports.FeedbackStore
+	eventStore         ports.EventStore
+	improvementStore   ports.ImprovementStore
+	scheduleStore      ports.ScheduleStore
+	docRepo            ports.DocumentRepository
+	objectStorage      ports.ObjectStorage
 }
 
 func NewRouter(
@@ -192,6 +193,11 @@ func (rt *Router) SetHTTPToolDefs(defs []paamcp.HTTPToolDef) {
 	rt.httpToolDefs = defs
 }
 
+// SetRuntimeModelConfig sets the runtime model configurator used by /v1/settings/models.
+func (rt *Router) SetRuntimeModelConfig(config ports.RuntimeModelConfigurator) {
+	rt.runtimeModelConfig = config
+}
+
 func (rt *Router) handleListTools(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if rt.httpToolDefs == nil {
@@ -232,6 +238,8 @@ func (rt *Router) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/documents/{id}/content", rt.handleGetDocumentContent)
 
 	mux.HandleFunc("GET /v1/tools", rt.handleListTools)
+	mux.HandleFunc("GET /v1/settings/models", rt.handleGetRuntimeModels)
+	mux.HandleFunc("PUT /v1/settings/models", rt.handlePutRuntimeModels)
 
 	if rt.mcpHandler != nil {
 		mux.Handle("/mcp", rt.mcpHandler)

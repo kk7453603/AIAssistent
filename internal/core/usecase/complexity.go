@@ -75,13 +75,22 @@ func AutoAssignTiers(models []domain.ModelInfo, defaultModel string) domain.Mode
 		return routing
 	}
 
-	sorted := make([]domain.ModelInfo, len(models))
-	copy(sorted, models)
-	sort.Slice(sorted, func(i, j int) bool {
-		return sorted[i].SizeBytes > sorted[j].SizeBytes
+	candidates := make([]domain.ModelInfo, 0, len(models))
+	for _, m := range models {
+		if isLikelyEmbeddingModel(m.Name) {
+			continue
+		}
+		candidates = append(candidates, m)
+	}
+	if len(candidates) == 0 {
+		return routing
+	}
+
+	sort.Slice(candidates, func(i, j int) bool {
+		return candidates[i].SizeBytes > candidates[j].SizeBytes
 	})
 
-	for _, m := range sorted {
+	for _, m := range candidates {
 		nameLower := strings.ToLower(m.Name)
 		if strings.Contains(nameLower, "code") {
 			routing.Code = m.Name
@@ -89,12 +98,34 @@ func AutoAssignTiers(models []domain.ModelInfo, defaultModel string) domain.Mode
 		}
 	}
 
-	routing.Complex = sorted[0].Name
-	routing.Simple = sorted[len(sorted)-1].Name
+	routing.Complex = candidates[0].Name
+	routing.Simple = candidates[len(candidates)-1].Name
 
 	if routing.Code == defaultModel {
 		routing.Code = routing.Complex
 	}
 
 	return routing
+}
+
+func isLikelyEmbeddingModel(name string) bool {
+	nameLower := strings.ToLower(strings.TrimSpace(name))
+	if nameLower == "" {
+		return false
+	}
+	markers := []string{
+		"embed",
+		"embedding",
+		"nomic-bert",
+		"nomic-embed",
+		"bge",
+		"gte",
+		"e5",
+	}
+	for _, marker := range markers {
+		if strings.Contains(nameLower, marker) {
+			return true
+		}
+	}
+	return false
 }

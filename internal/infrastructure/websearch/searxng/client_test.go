@@ -19,6 +19,9 @@ func TestSearch_Success(t *testing.T) {
 		if q == "" {
 			t.Error("expected query parameter")
 		}
+		if got := r.URL.Query().Get("categories"); got != "general" {
+			t.Fatalf("expected categories=general, got %q", got)
+		}
 		resp := searchResponse{
 			Results: []rawResult{
 				{Title: "Result 1", URL: "http://example.com/1", Content: "snippet 1"},
@@ -138,5 +141,34 @@ func TestSearch_DefaultLimit(t *testing.T) {
 	client3 := New("http://localhost:9999", -1)
 	if client3.limit != 5 {
 		t.Fatalf("expected default limit 5 for -1, got %d", client3.limit)
+	}
+}
+
+func TestSearch_FiltersIrrelevantAndDuplicateResults(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(searchResponse{
+			Results: []rawResult{
+				{Title: "Quizlet", URL: "https://example.com/quizlet", Content: "study cards"},
+				{Title: "XHTTP guide", URL: "https://example.com/xhttp", Content: "XHTTP protocol overview"},
+				{Title: "XHTTP duplicate", URL: "https://example.com/xhttp/", Content: "same page"},
+				{Title: "Project X XHTTP", URL: "https://docs.example.com/xhttp", Content: "transport docs"},
+			},
+		})
+	}))
+	defer server.Close()
+
+	client := New(server.URL, 5)
+	results, err := client.Search(context.Background(), "Найди в сети информацию о XHTTP", 5)
+	if err != nil {
+		t.Fatalf("Search() error = %v", err)
+	}
+	if len(results) != 2 {
+		t.Fatalf("expected 2 relevant unique results, got %d: %#v", len(results), results)
+	}
+	if !strings.Contains(strings.ToLower(results[0].Title), "xhttp") {
+		t.Fatalf("expected top result to stay relevant, got %q", results[0].Title)
+	}
+	if strings.Contains(strings.ToLower(results[0].Title), "quizlet") || strings.Contains(strings.ToLower(results[1].Title), "quizlet") {
+		t.Fatalf("expected irrelevant result filtered out, got %#v", results)
 	}
 }

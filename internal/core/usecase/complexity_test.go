@@ -53,6 +53,27 @@ func TestAutoAssignTiers(t *testing.T) {
 	}
 }
 
+func TestAutoAssignTiers_IgnoresEmbeddingModels(t *testing.T) {
+	models := []domain.ModelInfo{
+		{Name: "bge-m3:latest", SizeBytes: 1_100_000_000},
+		{Name: "nomic-embed-text:latest", SizeBytes: 270_000_000},
+		{Name: "qwen3:14b", SizeBytes: 9_200_000_000},
+		{Name: "qwen3-coder:30b", SizeBytes: 18_500_000_000},
+	}
+
+	routing := AutoAssignTiers(models, "zfujicute/OmniCoder:latest")
+
+	if routing.Complex != "qwen3-coder:30b" {
+		t.Errorf("Complex = %q, want %q", routing.Complex, "qwen3-coder:30b")
+	}
+	if routing.Simple != "qwen3:14b" {
+		t.Errorf("Simple = %q, want %q", routing.Simple, "qwen3:14b")
+	}
+	if routing.Code != "qwen3-coder:30b" {
+		t.Errorf("Code = %q, want %q", routing.Code, "qwen3-coder:30b")
+	}
+}
+
 func TestAutoAssignTiers_SingleModel(t *testing.T) {
 	models := []domain.ModelInfo{
 		{Name: "llama3.1:8b", SizeBytes: 4_000_000_000},

@@ -52,6 +52,19 @@ type Embedder interface {
 	EmbedQuery(ctx context.Context, text string) ([]float32, error)
 }
 
+// RuntimeModelConfig stores the currently applied runtime model selection.
+type RuntimeModelConfig struct {
+	GenerationModel string
+	PlannerModel    string
+	EmbeddingModel  string
+}
+
+// RuntimeModelConfigurator updates runtime model selection without restart.
+type RuntimeModelConfigurator interface {
+	GetRuntimeModelConfig() RuntimeModelConfig
+	SetRuntimeModelConfig(config RuntimeModelConfig) error
+}
+
 // Chunker splits text into semantically usable chunks.
 type Chunker interface {
 	Split(text string) []string

@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/kirillkom/personal-ai-assistant/internal/core/domain"
+	"github.com/kirillkom/personal-ai-assistant/internal/core/ports"
 )
 
 func TestGeneratorBuildsContextPrompt(t *testing.T) {
@@ -403,5 +404,68 @@ func TestGenerateJSONFromPromptUsesPlannerModelAndJSONFormat(t *testing.T) {
 	}
 	if capturedFormat != "json" {
 		t.Fatalf("expected format=json, got %q", capturedFormat)
+	}
+}
+
+func TestSetRuntimeModelConfigAppliesUpdatedModels(t *testing.T) {
+	var generateModels []string
+	var embedModels []string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/generate":
+			var payload map[string]any
+			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+				t.Fatalf("decode generate request: %v", err)
+			}
+			model, _ := payload["model"].(string)
+			generateModels = append(generateModels, model)
+			_, _ = w.Write([]byte(`{"response":"ok"}`))
+		case "/api/embed":
+			var payload map[string]any
+			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+				t.Fatalf("decode embed request: %v", err)
+			}
+			model, _ := payload["model"].(string)
+			embedModels = append(embedModels, model)
+			_, _ = w.Write([]byte(`{"embeddings":[[0.1,0.2]]}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	client := NewWithOptions(server.URL, "old-gen", "old-embed", Options{PlannerModel: "old-plan"})
+	if err := client.SetRuntimeModelConfig(ports.RuntimeModelConfig{
+		GenerationModel: "new-gen",
+		PlannerModel:    "new-plan",
+		EmbeddingModel:  "new-embed",
+	}); err != nil {
+		t.Fatalf("SetRuntimeModelConfig() error = %v", err)
+	}
+
+	gen := NewGenerator(client)
+	if _, err := gen.GenerateFromPrompt(context.Background(), "hello"); err != nil {
+		t.Fatalf("GenerateFromPrompt() error = %v", err)
+	}
+	if _, err := gen.GenerateJSONFromPrompt(context.Background(), "return json"); err != nil {
+		t.Fatalf("GenerateJSONFromPrompt() error = %v", err)
+	}
+	embedder := NewEmbedder(client)
+	if _, err := embedder.Embed(context.Background(), []string{"embed me"}); err != nil {
+		t.Fatalf("Embed() error = %v", err)
+	}
+
+	if len(generateModels) != 2 {
+		t.Fatalf("expected 2 generate calls, got %d", len(generateModels))
+	}
+	if generateModels[0] != "new-gen" {
+		t.Fatalf("expected updated generation model, got %q", generateModels[0])
+	}
+	if generateModels[1] != "new-plan" {
+		t.Fatalf("expected updated planner model, got %q", generateModels[1])
+	}
+	if len(embedModels) != 1 || embedModels[0] != "new-embed" {
+		t.Fatalf("expected updated embedding model, got %v", embedModels)
 	}
 }

@@ -15,9 +15,10 @@ func (g *Generator) ChatWithTools(ctx context.Context, messages []domain.ChatMes
 }
 
 func (c *Client) chatWithTools(ctx context.Context, messages []domain.ChatMessage, tools []domain.ToolSchema) (*domain.ChatToolsResult, error) {
-	model := c.plannerModel
+	genModel, plannerModel, _, thinkEnabled := c.runtimeSnapshot()
+	model := plannerModel
 	if model == "" {
-		model = c.genModel
+		model = genModel
 	}
 
 	ollamaMessages := make([]map[string]any, 0, len(messages))
@@ -46,7 +47,7 @@ func (c *Client) chatWithTools(ctx context.Context, messages []domain.ChatMessag
 
 	// Check if we should stream thinking tokens
 	onThinking := domain.ThinkingCallbackFromContext(ctx)
-	useStreaming := c.thinkEnabled && onThinking != nil
+	useStreaming := thinkEnabled && onThinking != nil
 
 	if useStreaming {
 		result, err := c.chatWithToolsStreaming(ctx, model, ollamaMessages, ollamaTools, onThinking)
@@ -67,12 +68,13 @@ func (c *Client) chatWithTools(ctx context.Context, messages []domain.ChatMessag
 
 // chatWithToolsSync is the original non-streaming path.
 func (c *Client) chatWithToolsSync(ctx context.Context, model string, messages, tools []map[string]any) (*domain.ChatToolsResult, error) {
+	_, _, _, thinkEnabled := c.runtimeSnapshot()
 	reqBody := map[string]any{
 		"model":    model,
 		"messages": messages,
 		"stream":   false,
 	}
-	if c.thinkEnabled {
+	if thinkEnabled {
 		reqBody["think"] = true
 	}
 	if len(tools) > 0 {
@@ -95,7 +97,7 @@ func (c *Client) chatWithToolsSync(ctx context.Context, model string, messages, 
 
 	if err := c.postJSON(ctx, "/api/chat", reqBody, &response, "chat"); err != nil {
 		// Retry without think if model doesn't support it
-		if c.thinkEnabled {
+		if thinkEnabled {
 			delete(reqBody, "think")
 			if err2 := c.postJSON(ctx, "/api/chat", reqBody, &response, "chat"); err2 != nil {
 				return nil, fmt.Errorf("ollama chat: %w", err)

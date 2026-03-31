@@ -7,6 +7,7 @@ import { DashboardPage } from "./pages/DashboardPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { useSettingsStore } from "./stores/settingsStore";
 import { isTauri } from "./utils/isTauri";
+import { setApiUrl } from "./api/client";
 
 const GraphPage = lazy(() =>
   import("./pages/GraphPage").then((m) => ({ default: m.GraphPage })),
@@ -20,11 +21,16 @@ export default function App() {
   const [pendingVaultPath, setPendingVaultPath] = useState<string | null>(null);
   const [pendingDocId, setPendingDocId] = useState<string | null>(null);
   const loadSettings = useSettingsStore((s) => s.load);
+  const apiUrl = useSettingsStore((s) => s.apiUrl);
   const theme = useSettingsStore((s) => s.theme);
 
   useEffect(() => {
     loadSettings();
   }, [loadSettings]);
+
+  useEffect(() => {
+    setApiUrl(apiUrl);
+  }, [apiUrl]);
 
   // Apply theme class to document root
   useEffect(() => {

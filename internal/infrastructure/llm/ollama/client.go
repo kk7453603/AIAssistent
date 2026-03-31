@@ -3,17 +3,21 @@ package ollama
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/kirillkom/personal-ai-assistant/internal/core/domain"
+	"github.com/kirillkom/personal-ai-assistant/internal/core/ports"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/resilience"
 )
 
 type Client struct {
 	baseURL      string
+	mu           sync.RWMutex
 	genModel     string
 	embedModel   string
 	plannerModel string
@@ -47,6 +51,49 @@ func NewWithOptions(baseURL, genModel, embedModel string, options Options) *Clie
 		httpClient:   httpClient,
 		executor:     options.ResilienceExecutor,
 	}
+}
+
+func (c *Client) SetPlannerModel(model string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.plannerModel = strings.TrimSpace(model)
+}
+
+func (c *Client) GetRuntimeModelConfig() ports.RuntimeModelConfig {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	return ports.RuntimeModelConfig{
+		GenerationModel: c.genModel,
+		PlannerModel:    c.plannerModel,
+		EmbeddingModel:  c.embedModel,
+	}
+}
+
+func (c *Client) SetRuntimeModelConfig(config ports.RuntimeModelConfig) error {
+	genModel := strings.TrimSpace(config.GenerationModel)
+	embedModel := strings.TrimSpace(config.EmbeddingModel)
+	plannerModel := strings.TrimSpace(config.PlannerModel)
+	if genModel == "" {
+		return errors.New("generation model is required")
+	}
+	if embedModel == "" {
+		return errors.New("embedding model is required")
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.genModel = genModel
+	c.plannerModel = plannerModel
+	c.embedModel = embedModel
+	return nil
+}
+
+func (c *Client) runtimeSnapshot() (genModel, plannerModel, embedModel string, thinkEnabled bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	return c.genModel, c.plannerModel, c.embedModel, c.thinkEnabled
 }
 
 type Classifier struct {
@@ -85,9 +132,10 @@ func (e *Embedder) Embed(ctx context.Context, texts []string) ([][]float32, erro
 	if len(texts) == 0 {
 		return nil, nil
 	}
+	_, _, embedModel, _ := e.client.runtimeSnapshot()
 
 	request := map[string]any{
-		"model": e.client.embedModel,
+		"model": embedModel,
 		"input": texts,
 	}
 
@@ -132,9 +180,10 @@ func (g *Generator) GenerateJSONFromPrompt(ctx context.Context, prompt string) (
 }
 
 func (c *Client) generateJSON(ctx context.Context, prompt string) (string, error) {
-	model := c.genModel
-	if c.plannerModel != "" {
-		model = c.plannerModel
+	genModel, plannerModel, _, _ := c.runtimeSnapshot()
+	model := genModel
+	if plannerModel != "" {
+		model = plannerModel
 	}
 
 	reqBody := map[string]any{
@@ -148,8 +197,9 @@ func (c *Client) generateJSON(ctx context.Context, prompt string) (string, error
 }
 
 func (c *Client) generateText(ctx context.Context, prompt string) (string, error) {
+	genModel, _, _, _ := c.runtimeSnapshot()
 	reqBody := map[string]any{
-		"model":  c.genModel,
+		"model":  genModel,
 		"prompt": prompt,
 		"stream": false,
 		"think":  false,

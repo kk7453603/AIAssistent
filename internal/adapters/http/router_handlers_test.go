@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/kirillkom/personal-ai-assistant/internal/core/domain"
+	"github.com/kirillkom/personal-ai-assistant/internal/core/ports"
 )
 
 // ---------------------------------------------------------------------------
@@ -118,6 +119,23 @@ func (f *fakeScheduleStore) Delete(_ context.Context, id string) error {
 }
 func (f *fakeScheduleStore) RecordRun(context.Context, string, string, string) error { return nil }
 
+type fakeRuntimeModelConfig struct {
+	config ports.RuntimeModelConfig
+	err    error
+}
+
+func (f *fakeRuntimeModelConfig) GetRuntimeModelConfig() ports.RuntimeModelConfig {
+	return f.config
+}
+
+func (f *fakeRuntimeModelConfig) SetRuntimeModelConfig(config ports.RuntimeModelConfig) error {
+	if f.err != nil {
+		return f.err
+	}
+	f.config = config
+	return nil
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -135,6 +153,67 @@ func newRouterWithStores(gs *fakeGraphStore, fs *fakeFeedbackStore, ss *fakeSche
 		rt.scheduleStore = ss
 	}
 	return rt
+}
+
+func TestHandleGetRuntimeModels_Success(t *testing.T) {
+	rt := &Router{
+		runtimeModelConfig: &fakeRuntimeModelConfig{
+			config: ports.RuntimeModelConfig{
+				GenerationModel: "qwen3.5:9b",
+				PlannerModel:    "qwen3.5:9b",
+				EmbeddingModel:  "bge-m3:latest",
+			},
+		},
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/settings/models", nil)
+	rec := httptest.NewRecorder()
+	rt.handleGetRuntimeModels(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d; body: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp runtimeModelsResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.GenModel != "qwen3.5:9b" {
+		t.Fatalf("expected gen model to match, got %q", resp.GenModel)
+	}
+	if !resp.RuntimeApplySupported {
+		t.Fatalf("expected runtime apply to be supported")
+	}
+}
+
+func TestHandlePutRuntimeModels_Success(t *testing.T) {
+	runtimeCfg := &fakeRuntimeModelConfig{
+		config: ports.RuntimeModelConfig{
+			GenerationModel: "old-gen",
+			PlannerModel:    "old-plan",
+			EmbeddingModel:  "old-embed",
+		},
+	}
+	rt := &Router{runtimeModelConfig: runtimeCfg}
+
+	body := bytes.NewReader([]byte(`{"gen_model":"new-gen","planner_model":"new-plan","embedding_model":"new-embed"}`))
+	req := httptest.NewRequest(http.MethodPut, "/v1/settings/models", body)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	rt.handlePutRuntimeModels(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d; body: %s", rec.Code, rec.Body.String())
+	}
+	if runtimeCfg.config.GenerationModel != "new-gen" {
+		t.Fatalf("expected applied generation model, got %q", runtimeCfg.config.GenerationModel)
+	}
+	if runtimeCfg.config.PlannerModel != "new-plan" {
+		t.Fatalf("expected applied planner model, got %q", runtimeCfg.config.PlannerModel)
+	}
+	if runtimeCfg.config.EmbeddingModel != "new-embed" {
+		t.Fatalf("expected applied embedding model, got %q", runtimeCfg.config.EmbeddingModel)
+	}
 }
 
 // ---------------------------------------------------------------------------

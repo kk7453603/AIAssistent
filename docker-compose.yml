@@ -36,6 +36,11 @@ services:
       - "${OLLAMA_PORT:-11435}:11434"
     volumes:
       - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
   neo4j:
     image: neo4j:5-community
@@ -46,6 +51,12 @@ services:
       NEO4J_AUTH: neo4j/password
     volumes:
       - neo4j_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "cypher-shell -a bolt://localhost:7687 -u neo4j -p password 'RETURN 1;' >/dev/null 2>&1 || exit 1"]
+      interval: 5s
+      timeout: 10s
+      retries: 20
+      start_period: 10s
 
   minio:
     image: minio/minio:RELEASE.2025-01-20T14-49-07Z
@@ -75,11 +86,14 @@ services:
       qdrant:
         condition: service_started
       ollama:
-        condition: service_started
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
     volumes:
       - storage_data:/data/storage
       - openwebui_data:/app/backend/data
       - ${OBSIDIAN_VAULTS_HOST_PATH:-./obsidian_vaults}:/vaults
+    restart: unless-stopped
 
   worker:
     build:
@@ -97,9 +111,12 @@ services:
       qdrant:
         condition: service_started
       ollama:
-        condition: service_started
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
     volumes:
       - storage_data:/data/storage
+    restart: unless-stopped
 
   prometheus:
     image: prom/prometheus:v2.54.1
@@ -124,7 +141,7 @@ services:
       - "--config.file=/etc/alertmanager/alertmanager.yml"
 
   grafana:
-    image: grafana/grafana:11.2.0
+    image: grafana/grafana:12.4.1
     ports:
       - "3001:3000"
     environment:
@@ -166,7 +183,7 @@ services:
       api:
         condition: service_started
       ollama:
-        condition: service_started
+        condition: service_healthy
     volumes:
       - openwebui_data:/app/backend/data
       - ${OBSIDIAN_VAULTS_HOST_PATH:-./obsidian_vaults}:/vaults
@@ -262,7 +279,7 @@ services:
     expose:
       - "3000"
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/healthz || exit 1"]
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/healthz').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -278,7 +295,7 @@ services:
     expose:
       - "3001"
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3001/healthz || exit 1"]
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/healthz').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -301,7 +318,7 @@ services:
     expose:
       - "3002"
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3002/healthz || exit 1"]
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3002/healthz').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
       interval: 10s
       timeout: 5s
       retries: 3

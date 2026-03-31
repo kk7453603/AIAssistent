@@ -225,6 +225,18 @@ func (uc *AgentChatUseCase) Complete(ctx context.Context, req domain.AgentChatRe
 		return uc.orchestrator.Execute(ctx, req, onToolStatus, req.OnOrchStep)
 	}
 
+	if intent == IntentWeb && webSearchAvailable {
+		appendThinkingLine(loopCtx, &thinkingLines, "Searching the web directly")
+		answer, event, handled, directErr := uc.answerFromDirectWebSearch(loopCtx, lastUserMessage)
+		if directErr == nil && handled {
+			finalAnswer = answer
+			appendThinkingLine(loopCtx, &thinkingLines, "✓ Tool web_search: ok")
+			toolEvents = append(toolEvents, event)
+			toolSet[event.Tool] = struct{}{}
+			toolsInvoked = append(toolsInvoked, event.Tool)
+		}
+	}
+
 	systemPrompt := buildSystemPrompt(ctx, intent, memoryHits, uc.toolRegistry, uc.obsidianVaults)
 	toolSchemas := toolSchemasFromRegistry(uc.toolRegistry, webSearchAvailable)
 
@@ -241,180 +253,201 @@ func (uc *AgentChatUseCase) Complete(ctx context.Context, req domain.AgentChatRe
 	// Add current user message
 	chatMessages = append(chatMessages, domain.ChatMessage{Role: "user", Content: lastUserMessage})
 
-	// Main loop — uses native function calling via ChatWithTools
-	for i := 1; i <= uc.limits.MaxIterations; i++ {
-		if loopCtx.Err() != nil {
-			fallbackReason = "timeout"
-			break
-		}
-		iterations = i
-
-		plannerCtx, plannerCancel := context.WithTimeout(loopCtx, uc.limits.PlannerTimeout)
-		chatResult, err := uc.querySvc.ChatWithTools(plannerCtx, chatMessages, toolSchemas)
-		plannerCancel()
-		if err != nil {
-			if isAgentTimeoutError(err) {
+	if finalAnswer == "" {
+		// Main loop — uses native function calling via ChatWithTools
+		for i := 1; i <= uc.limits.MaxIterations; i++ {
+			if loopCtx.Err() != nil {
 				fallbackReason = "timeout"
-			} else {
-				fallbackReason = "planner_error"
-				slog.Error("agent_planner_error",
-					"error", err.Error(),
-					"iteration", i,
-				)
-			}
-			break
-		}
-
-		// If LLM returned a text response — final answer
-		if len(chatResult.ToolCalls) == 0 && chatResult.Content != "" {
-			finalAnswer = chatResult.Content
-			break
-		}
-
-		// If LLM returned tool calls — execute all of them
-		if len(chatResult.ToolCalls) > 0 {
-			// Add assistant message with tool calls to conversation
-			chatMessages = append(chatMessages, domain.ChatMessage{
-				Role:      "assistant",
-				ToolCalls: chatResult.ToolCalls,
-			})
-
-			var iterEvents []domain.AgentToolEvent
-
-			if len(chatResult.ToolCalls) > 1 {
-				// Parallel execution for multiple tool calls
-				iterEvents = make([]domain.AgentToolEvent, len(chatResult.ToolCalls))
-				var wg sync.WaitGroup
-				for i, tc := range chatResult.ToolCalls {
-					wg.Add(1)
-					go func(idx int, call domain.ToolCall) {
-						defer wg.Done()
-						var ev domain.AgentToolEvent
-						ttl := cacheTTLForTool(call.Function.Name)
-						if ttl > 0 {
-							argsKey := argsToKey(call.Function.Arguments)
-							if cached, ok := uc.toolResultCache.get(call.Function.Name, argsKey); ok {
-								iterEvents[idx] = domain.AgentToolEvent{Tool: call.Function.Name, Status: "ok", Output: cached}
-								if onToolStatus != nil {
-									onToolStatus(call.Function.Name, "ok")
-								}
-								return
-							}
-						}
-						if onToolStatus != nil {
-							onToolStatus(call.Function.Name, "running")
-						}
-						toolCtx, toolCancel := context.WithTimeout(loopCtx, uc.limits.ToolTimeout)
-						ev, execErr := uc.executeToolCall(toolCtx, userID, call, lastUserMessage)
-						toolCancel()
-						if execErr != nil {
-							errorPayload, _ := json.Marshal(map[string]string{"error": execErr.Error()})
-							ev = domain.AgentToolEvent{Tool: call.Function.Name, Status: "error", Output: string(errorPayload)}
-						} else if ttl > 0 {
-							uc.toolResultCache.set(call.Function.Name, argsToKey(call.Function.Arguments), ev.Output, ttl)
-						}
-						iterEvents[idx] = ev
-						if onToolStatus != nil {
-							onToolStatus(ev.Tool, ev.Status)
-						}
-					}(i, tc)
-				}
-				wg.Wait()
-			} else {
-				// Single tool call — sequential path
-				tc := chatResult.ToolCalls[0]
-				var event domain.AgentToolEvent
-				cached := false
-				ttl := cacheTTLForTool(tc.Function.Name)
-				if ttl > 0 {
-					argsKey := argsToKey(tc.Function.Arguments)
-					if cachedOutput, ok := uc.toolResultCache.get(tc.Function.Name, argsKey); ok {
-						event = domain.AgentToolEvent{Tool: tc.Function.Name, Status: "ok", Output: cachedOutput}
-						cached = true
-						if onToolStatus != nil {
-							onToolStatus(tc.Function.Name, "ok")
-						}
-					}
-				}
-				if !cached {
-					if onToolStatus != nil {
-						onToolStatus(tc.Function.Name, "running")
-					}
-					toolCtx, toolCancel := context.WithTimeout(loopCtx, uc.limits.ToolTimeout)
-					var execErr error
-					event, execErr = uc.executeToolCall(toolCtx, userID, tc, lastUserMessage)
-					toolCancel()
-					if execErr != nil {
-						if isAgentTimeoutError(execErr) {
-							fallbackReason = "timeout"
-						}
-						errorPayload, _ := json.Marshal(map[string]string{"error": execErr.Error()})
-						event = domain.AgentToolEvent{Tool: tc.Function.Name, Status: "error", Output: string(errorPayload)}
-					} else if ttl > 0 {
-						uc.toolResultCache.set(tc.Function.Name, argsToKey(tc.Function.Arguments), event.Output, ttl)
-					}
-					if onToolStatus != nil {
-						onToolStatus(event.Tool, event.Status)
-					}
-				}
-				iterEvents = []domain.AgentToolEvent{event}
-			}
-
-			// Process collected events (thinking lines, FS hints, summarize, track tools, append messages)
-			for idx, event := range iterEvents {
-				tc := chatResult.ToolCalls[idx]
-				if event.Status == "error" {
-					thinkingLines = append(thinkingLines, fmt.Sprintf("✗ Tool %s error: %s", tc.Function.Name, event.Output))
-				} else {
-					thinkingLines = append(thinkingLines, fmt.Sprintf("✓ Tool %s: ok", event.Tool))
-				}
-
-				if uc.agentMetrics != nil {
-					uc.agentMetrics.ToolCallTotal.WithLabelValues(event.Tool, event.Status).Inc()
-				}
-
-				if event.Status == "ok" && len(event.Output) >= 200 {
-					uc.maybePersistToolMemory(loopCtx, userID, conversationID, event)
-				}
-
-				if isRecoverableToolError(event.Output) {
-					fsCtx := probeFilesystemContext(loopCtx, uc.toolRegistry)
-					event.Output = addFSHintToError(event.Output, fsCtx)
-				}
-
-				event.Output = maybeSummarize(event.Output, 4096)
-
-				toolEvents = append(toolEvents, event)
-				if event.Tool != "" {
-					if _, seen := toolSet[event.Tool]; !seen {
-						toolSet[event.Tool] = struct{}{}
-						toolsInvoked = append(toolsInvoked, event.Tool)
-					}
-				}
-
-				chatMessages = append(chatMessages, domain.ChatMessage{
-					Role:       "tool",
-					Content:    event.Output,
-					ToolCallID: tc.ID,
-				})
-			}
-
-			if fallbackReason == "timeout" {
 				break
 			}
-			continue
-		}
+			iterations = i
 
-		// Neither content nor tool calls — unexpected
-		fallbackReason = "empty_response"
-		break
+			plannerCtx, plannerCancel := context.WithTimeout(loopCtx, uc.limits.PlannerTimeout)
+			chatResult, err := uc.querySvc.ChatWithTools(plannerCtx, chatMessages, toolSchemas)
+			plannerCancel()
+			if err != nil {
+				if isAgentTimeoutError(err) {
+					fallbackReason = "timeout"
+				} else {
+					fallbackReason = "planner_error"
+					slog.Error("agent_planner_error",
+						"error", err.Error(),
+						"iteration", i,
+					)
+				}
+				break
+			}
+
+			// If LLM returned a text response — final answer
+			if len(chatResult.ToolCalls) == 0 && chatResult.Content != "" {
+				finalAnswer = chatResult.Content
+				break
+			}
+
+			// If LLM returned tool calls — execute all of them
+			if len(chatResult.ToolCalls) > 0 {
+				// Add assistant message with tool calls to conversation
+				chatMessages = append(chatMessages, domain.ChatMessage{
+					Role:      "assistant",
+					ToolCalls: chatResult.ToolCalls,
+				})
+
+				var iterEvents []domain.AgentToolEvent
+
+				if len(chatResult.ToolCalls) > 1 {
+					// Parallel execution for multiple tool calls
+					iterEvents = make([]domain.AgentToolEvent, len(chatResult.ToolCalls))
+					var wg sync.WaitGroup
+					for i, tc := range chatResult.ToolCalls {
+						wg.Add(1)
+						go func(idx int, call domain.ToolCall) {
+							defer wg.Done()
+							var ev domain.AgentToolEvent
+							ttl := cacheTTLForTool(call.Function.Name)
+							if ttl > 0 {
+								argsKey := argsToKey(call.Function.Arguments)
+								if cached, ok := uc.toolResultCache.get(call.Function.Name, argsKey); ok {
+									iterEvents[idx] = domain.AgentToolEvent{Tool: call.Function.Name, Status: "ok", Output: cached}
+									if onToolStatus != nil {
+										onToolStatus(call.Function.Name, "ok")
+									}
+									return
+								}
+							}
+							if onToolStatus != nil {
+								onToolStatus(call.Function.Name, "running")
+							}
+							toolCtx, toolCancel := context.WithTimeout(loopCtx, uc.limits.ToolTimeout)
+							ev, execErr := uc.executeToolCall(toolCtx, userID, call, lastUserMessage)
+							toolCancel()
+							if execErr != nil {
+								errorPayload, _ := json.Marshal(map[string]string{"error": execErr.Error()})
+								ev = domain.AgentToolEvent{Tool: call.Function.Name, Status: "error", Output: string(errorPayload)}
+							} else if ttl > 0 {
+								uc.toolResultCache.set(call.Function.Name, argsToKey(call.Function.Arguments), ev.Output, ttl)
+							}
+							iterEvents[idx] = ev
+							if onToolStatus != nil {
+								onToolStatus(ev.Tool, ev.Status)
+							}
+						}(i, tc)
+					}
+					wg.Wait()
+				} else {
+					// Single tool call — sequential path
+					tc := chatResult.ToolCalls[0]
+					var event domain.AgentToolEvent
+					cached := false
+					ttl := cacheTTLForTool(tc.Function.Name)
+					if ttl > 0 {
+						argsKey := argsToKey(tc.Function.Arguments)
+						if cachedOutput, ok := uc.toolResultCache.get(tc.Function.Name, argsKey); ok {
+							event = domain.AgentToolEvent{Tool: tc.Function.Name, Status: "ok", Output: cachedOutput}
+							cached = true
+							if onToolStatus != nil {
+								onToolStatus(tc.Function.Name, "ok")
+							}
+						}
+					}
+					if !cached {
+						if onToolStatus != nil {
+							onToolStatus(tc.Function.Name, "running")
+						}
+						toolCtx, toolCancel := context.WithTimeout(loopCtx, uc.limits.ToolTimeout)
+						var execErr error
+						event, execErr = uc.executeToolCall(toolCtx, userID, tc, lastUserMessage)
+						toolCancel()
+						if execErr != nil {
+							if isAgentTimeoutError(execErr) {
+								fallbackReason = "timeout"
+							}
+							errorPayload, _ := json.Marshal(map[string]string{"error": execErr.Error()})
+							event = domain.AgentToolEvent{Tool: tc.Function.Name, Status: "error", Output: string(errorPayload)}
+						} else if ttl > 0 {
+							uc.toolResultCache.set(tc.Function.Name, argsToKey(tc.Function.Arguments), event.Output, ttl)
+						}
+						if onToolStatus != nil {
+							onToolStatus(event.Tool, event.Status)
+						}
+					}
+					iterEvents = []domain.AgentToolEvent{event}
+				}
+
+				// Process collected events (thinking lines, FS hints, summarize, track tools, append messages)
+				for idx, event := range iterEvents {
+					tc := chatResult.ToolCalls[idx]
+					if event.Status == "error" {
+						appendThinkingLine(loopCtx, &thinkingLines, fmt.Sprintf("✗ Tool %s error: %s", tc.Function.Name, event.Output))
+					} else {
+						appendThinkingLine(loopCtx, &thinkingLines, fmt.Sprintf("✓ Tool %s: ok", event.Tool))
+					}
+
+					if uc.agentMetrics != nil {
+						uc.agentMetrics.ToolCallTotal.WithLabelValues(event.Tool, event.Status).Inc()
+					}
+
+					if event.Status == "ok" && len(event.Output) >= 200 {
+						uc.maybePersistToolMemory(loopCtx, userID, conversationID, event)
+					}
+
+					if isRecoverableToolError(event.Output) {
+						fsCtx := probeFilesystemContext(loopCtx, uc.toolRegistry)
+						event.Output = addFSHintToError(event.Output, fsCtx)
+					}
+
+					event.Output = maybeSummarize(event.Output, 4096)
+
+					toolEvents = append(toolEvents, event)
+					if event.Tool != "" {
+						if _, seen := toolSet[event.Tool]; !seen {
+							toolSet[event.Tool] = struct{}{}
+							toolsInvoked = append(toolsInvoked, event.Tool)
+						}
+					}
+
+					chatMessages = append(chatMessages, domain.ChatMessage{
+						Role:       "tool",
+						Content:    event.Output,
+						ToolCallID: tc.ID,
+					})
+				}
+
+				if intent == IntentWeb && finalAnswer == "" {
+					if answer, ok := uc.answerFromWebToolEvents(loopCtx, lastUserMessage, iterEvents); ok {
+						finalAnswer = answer
+						break
+					}
+				}
+
+				if fallbackReason == "timeout" {
+					break
+				}
+				continue
+			}
+
+			// Neither content nor tool calls — unexpected
+			fallbackReason = "empty_response"
+			break
+		}
 	}
 
 	if fallbackReason == "" && finalAnswer == "" {
 		fallbackReason = "max_iterations"
 	}
+	if finalAnswer == "" && intent == IntentWeb {
+		appendThinkingLine(loopCtx, &thinkingLines, "Fallback: searching the web directly")
+		fallbackAnswer, fallbackEvent, fallbackErr := uc.answerFromWebFallback(ctx, lastUserMessage)
+		if fallbackErr == nil && strings.TrimSpace(fallbackAnswer) != "" {
+			finalAnswer = fallbackAnswer
+			toolEvents = append(toolEvents, fallbackEvent)
+			if _, seen := toolSet[fallbackEvent.Tool]; !seen {
+				toolSet[fallbackEvent.Tool] = struct{}{}
+				toolsInvoked = append(toolsInvoked, fallbackEvent.Tool)
+			}
+		}
+	}
 	if finalAnswer == "" && shouldFallbackToRAG(fallbackReason) {
-		thinkingLines = append(thinkingLines, "Fallback: searching knowledge base directly")
+		appendThinkingLine(loopCtx, &thinkingLines, "Fallback: searching knowledge base directly")
 		fallbackAnswer, fallbackErr := uc.answerFromKnowledgeFallback(ctx, lastUserMessage)
 		if fallbackErr == nil && strings.TrimSpace(fallbackAnswer) != "" {
 			finalAnswer = fallbackAnswer
@@ -505,6 +538,208 @@ func (uc *AgentChatUseCase) answerFromKnowledgeFallback(ctx context.Context, que
 		return "", fmt.Errorf("rag fallback answer is empty")
 	}
 	return text, nil
+}
+
+func (uc *AgentChatUseCase) answerFromDirectWebSearch(ctx context.Context, question string) (string, domain.AgentToolEvent, bool, error) {
+	query := deriveWebSearchQuery(question)
+	if query == "" {
+		return "", domain.AgentToolEvent{}, false, nil
+	}
+	answer, event, err := uc.answerFromWebSearchQuery(ctx, question, query)
+	if err != nil {
+		return "", domain.AgentToolEvent{}, false, err
+	}
+	return answer, event, true, nil
+}
+
+func (uc *AgentChatUseCase) answerFromWebFallback(ctx context.Context, question string) (string, domain.AgentToolEvent, error) {
+	if uc.webSearcher == nil {
+		return "", domain.AgentToolEvent{}, fmt.Errorf("web search is not configured")
+	}
+
+	query := deriveWebSearchQuery(question)
+	if query == "" {
+		query = question
+	}
+
+	return uc.answerFromWebSearchQuery(ctx, question, query)
+}
+
+func (uc *AgentChatUseCase) answerFromWebSearchQuery(ctx context.Context, question string, searchQuery string) (string, domain.AgentToolEvent, error) {
+	if uc.webSearcher == nil {
+		return "", domain.AgentToolEvent{}, fmt.Errorf("web search is not configured")
+	}
+
+	results, err := uc.webSearcher.Search(ctx, searchQuery, 5)
+	if err != nil {
+		return "", domain.AgentToolEvent{}, fmt.Errorf("web fallback search: %w", err)
+	}
+
+	payload, _ := json.Marshal(map[string]any{
+		"query":   searchQuery,
+		"results": results,
+		"count":   len(results),
+	})
+	event := domain.AgentToolEvent{
+		Tool:   agentToolWebSearch,
+		Status: "ok",
+		Output: string(payload),
+	}
+
+	answer, err := uc.answerFromWebResults(ctx, question, searchQuery, results)
+	if err != nil {
+		return "", event, err
+	}
+	return answer, event, nil
+}
+
+func (uc *AgentChatUseCase) answerFromWebToolEvents(ctx context.Context, question string, events []domain.AgentToolEvent) (string, bool) {
+	for _, event := range events {
+		if event.Tool != agentToolWebSearch || event.Status != "ok" {
+			continue
+		}
+		var payload struct {
+			Query   string                   `json:"query"`
+			Results []domain.WebSearchResult `json:"results"`
+		}
+		if err := json.Unmarshal([]byte(event.Output), &payload); err != nil {
+			continue
+		}
+		answer, err := uc.answerFromWebResults(ctx, question, payload.Query, payload.Results)
+		if err == nil && strings.TrimSpace(answer) != "" {
+			return answer, true
+		}
+	}
+	return "", false
+}
+
+func (uc *AgentChatUseCase) answerFromWebResults(ctx context.Context, question string, searchQuery string, results []domain.WebSearchResult) (string, error) {
+	if len(results) == 0 {
+		if strings.TrimSpace(searchQuery) == "" {
+			searchQuery = question
+		}
+		return fmt.Sprintf("По запросу %q в веб-поиске не нашлось релевантных результатов.", searchQuery), nil
+	}
+
+	var prompt strings.Builder
+	prompt.WriteString("Ответь на вопрос пользователя на русском языке, опираясь только на результаты веб-поиска ниже.\n")
+	prompt.WriteString("Если термин неоднозначен или похож на опечатку, скажи это явно.\n")
+	prompt.WriteString("Не выдумывай факты. Кратко суммируй найденное.\n\n")
+	fmt.Fprintf(&prompt, "Вопрос пользователя: %s\n", question)
+	if q := strings.TrimSpace(searchQuery); q != "" {
+		fmt.Fprintf(&prompt, "Поисковый запрос: %s\n", q)
+	}
+	prompt.WriteString("\nРезультаты веб-поиска:\n")
+	for i, r := range results {
+		fmt.Fprintf(&prompt, "%d. %s\nURL: %s\nSnippet: %s\n\n", i+1, strings.TrimSpace(r.Title), strings.TrimSpace(r.URL), strings.TrimSpace(r.Snippet))
+	}
+
+	answer, err := uc.querySvc.GenerateFromPrompt(ctx, prompt.String())
+	if err != nil {
+		return "", fmt.Errorf("web fallback answer: %w", err)
+	}
+	answer = stripThinkBlocks(strings.TrimSpace(answer))
+	if answer == "" {
+		return "", fmt.Errorf("web fallback answer is empty")
+	}
+
+	sourceLines := make([]string, 0, min(len(results), 3))
+	for i, r := range results {
+		if i >= 3 {
+			break
+		}
+		title := strings.TrimSpace(r.Title)
+		if title == "" {
+			title = r.URL
+		}
+		sourceLines = append(sourceLines, fmt.Sprintf("- %s — %s", title, strings.TrimSpace(r.URL)))
+	}
+	if len(sourceLines) > 0 {
+		answer += "\n\nИсточники:\n" + strings.Join(sourceLines, "\n")
+	}
+
+	return answer, nil
+}
+
+func deriveWebSearchQuery(question string) string {
+	candidate := strings.TrimSpace(question)
+	if candidate == "" {
+		return ""
+	}
+	for _, pair := range [][2]string{{"\"", "\""}, {"«", "»"}, {"“", "”"}} {
+		start := strings.Index(candidate, pair[0])
+		end := strings.LastIndex(candidate, pair[1])
+		if start >= 0 && end > start {
+			quoted := strings.TrimSpace(candidate[start+len(pair[0]) : end])
+			if quoted != "" {
+				return strings.Trim(quoted, " \t\r\n?!.:,;")
+			}
+		}
+	}
+	prefixes := []string{
+		"найди в сети информацию о ",
+		"найди информацию о ",
+		"найди в сети ",
+		"найди ",
+		"поищи в сети информацию о ",
+		"поищи информацию о ",
+		"поищи в сети ",
+		"поищи ",
+		"что такое ",
+		"расскажи про ",
+		"расскажи о ",
+		"search for ",
+		"find information about ",
+		"find ",
+		"look up ",
+		"tell me about ",
+		"what is ",
+	}
+	for _, prefix := range prefixes {
+		if trimmed, ok := trimPrefixFold(candidate, prefix); ok {
+			candidate = trimmed
+			break
+		}
+	}
+	return strings.Trim(strings.TrimSpace(candidate), " \t\r\n?!.:,;")
+}
+
+func trimPrefixFold(s string, prefix string) (string, bool) {
+	if len(s) < len(prefix) {
+		return s, false
+	}
+	if strings.EqualFold(s[:len(prefix)], prefix) {
+		return s[len(prefix):], true
+	}
+	return s, false
+}
+
+func stripThinkBlocks(text string) string {
+	cleaned := strings.TrimSpace(text)
+	for {
+		start := strings.Index(cleaned, "<think>")
+		if start < 0 {
+			return strings.TrimSpace(cleaned)
+		}
+		end := strings.Index(cleaned[start:], "</think>")
+		if end < 0 {
+			return strings.TrimSpace(cleaned[:start])
+		}
+		end += start + len("</think>")
+		cleaned = cleaned[:start] + cleaned[end:]
+		cleaned = strings.TrimSpace(cleaned)
+	}
+}
+
+func appendThinkingLine(ctx context.Context, lines *[]string, line string) {
+	line = strings.TrimSpace(line)
+	if line == "" {
+		return
+	}
+	*lines = append(*lines, line)
+	if cb := domain.ThinkingCallbackFromContext(ctx); cb != nil {
+		cb(line + "\n")
+	}
 }
 
 func latestUserInput(messages []domain.AgentInputMessage) (string, bool) {

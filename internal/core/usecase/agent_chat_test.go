@@ -512,11 +512,15 @@ func TestAgentChatUseCasePlannerTimeoutFallsBackToRAG(t *testing.T) {
 // ---------- Additional fakes ----------
 
 type fakeWebSearcher struct {
-	results []domain.WebSearchResult
-	err     error
+	results   []domain.WebSearchResult
+	err       error
+	lastQuery string
+	calls     int
 }
 
-func (f *fakeWebSearcher) Search(_ context.Context, _ string, _ int) ([]domain.WebSearchResult, error) {
+func (f *fakeWebSearcher) Search(_ context.Context, query string, _ int) ([]domain.WebSearchResult, error) {
+	f.lastQuery = query
+	f.calls++
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -566,8 +570,8 @@ type fakeGraphStore struct {
 	relatedResult     []domain.GraphRelation
 }
 
-func (f *fakeGraphStore) UpsertDocument(context.Context, domain.GraphNode) error   { return nil }
-func (f *fakeGraphStore) AddLink(context.Context, string, string, string) error    { return nil }
+func (f *fakeGraphStore) UpsertDocument(context.Context, domain.GraphNode) error { return nil }
+func (f *fakeGraphStore) AddLink(context.Context, string, string, string) error  { return nil }
 func (f *fakeGraphStore) AddSimilarity(context.Context, string, string, float64) error {
 	return nil
 }
@@ -1058,25 +1062,88 @@ func TestAgentChat_ToolResultCaching(t *testing.T) {
 	}
 }
 
-func TestAgentChat_WebSearchFullFlow(t *testing.T) {
+func TestAgentChat_WebIntentUsesDirectWebSearch(t *testing.T) {
 	ws := &fakeWebSearcher{results: []domain.WebSearchResult{
-		{Title: "Result", URL: "http://example.com", Snippet: "snippet"},
+		{Title: "HTTP", URL: "https://example.com/http", Snippet: "HTTP is a protocol"},
 	}}
 	query := &fakeAgentQueryService{
-		chatToolsResponses: []domain.ChatToolsResult{
-			{ToolCalls: []domain.ToolCall{{ID: "c1", Function: domain.ToolCallFunc{Name: "web_search", Arguments: map[string]any{"query": "test"}}}}},
-			{Content: "answer from web"},
-		},
+		generateTextResponses: []string{"<think>internal</think>answer from web"},
 	}
 	uc := newTestAgentUC(query, func(u *AgentChatUseCase) {
 		u.webSearcher = ws
+		u.limits.IntentRouterEnabled = true
 	})
-	result := completeWithMessage(t, uc, "search web")
+	result := completeWithMessage(t, uc, "Найди в сети информацию о XHTTP")
+	if ws.calls != 1 {
+		t.Fatalf("expected direct web search once, got %d", ws.calls)
+	}
+	if ws.lastQuery != "XHTTP" {
+		t.Fatalf("expected stripped search query, got %q", ws.lastQuery)
+	}
 	if !strings.Contains(result.Answer, "answer from web") {
 		t.Fatalf("expected web answer, got %q", result.Answer)
 	}
+	if strings.Count(result.Answer, "<think>") != 1 {
+		t.Fatalf("expected only agent-level thinking wrapper, got %q", result.Answer)
+	}
 	if len(result.ToolsInvoked) != 1 || result.ToolsInvoked[0] != "web_search" {
 		t.Fatalf("expected web_search invoked, got %v", result.ToolsInvoked)
+	}
+	if result.Iterations != 0 {
+		t.Fatalf("expected direct path without planner iterations, got %d", result.Iterations)
+	}
+}
+
+func TestAgentChat_AnswerFromWebToolEventsStripsNestedThinkBlocks(t *testing.T) {
+	query := &fakeAgentQueryService{
+		generateTextResponses: []string{"<think>internal</think>XHTTP, вероятно, опечатка; найден HTTP."},
+	}
+	uc := newTestAgentUC(query)
+	payload, _ := json.Marshal(map[string]any{
+		"query": "XHTTP",
+		"results": []domain.WebSearchResult{
+			{Title: "HTTP", URL: "https://example.com/http", Snippet: "HTTP is a protocol"},
+		},
+	})
+	answer, ok := uc.answerFromWebToolEvents(context.Background(), "Найди в сети информацию о XHTTP", []domain.AgentToolEvent{
+		{Tool: "web_search", Status: "ok", Output: string(payload)},
+	})
+	if !ok {
+		t.Fatal("expected web tool events to produce an answer")
+	}
+	if strings.Contains(answer, "<think>") {
+		t.Fatalf("expected nested think tags stripped, got %q", answer)
+	}
+}
+
+func TestAgentChat_WebIntentStreamsManualThinkingDeltas(t *testing.T) {
+	ws := &fakeWebSearcher{results: []domain.WebSearchResult{
+		{Title: "HTTP", URL: "https://example.com/http", Snippet: "HTTP is a protocol"},
+	}}
+	query := &fakeAgentQueryService{
+		generateTextResponses: []string{"answer from web"},
+	}
+	uc := newTestAgentUC(query, func(u *AgentChatUseCase) {
+		u.webSearcher = ws
+		u.limits.IntentRouterEnabled = true
+	})
+
+	var thinking strings.Builder
+	_, err := uc.Complete(context.Background(), domain.AgentChatRequest{
+		UserID:          "u-1",
+		Messages:        []domain.AgentInputMessage{{Role: "user", Content: "Найди в сети информацию о XHTTP"}},
+		OnThinkingDelta: func(text string) { thinking.WriteString(text) },
+	}, nil)
+	if err != nil {
+		t.Fatalf("Complete() error = %v", err)
+	}
+
+	streamed := thinking.String()
+	if !strings.Contains(streamed, "Searching the web directly") {
+		t.Fatalf("expected direct web thinking delta, got %q", streamed)
+	}
+	if !strings.Contains(streamed, "✓ Tool web_search: ok") {
+		t.Fatalf("expected tool status in thinking delta, got %q", streamed)
 	}
 }
 

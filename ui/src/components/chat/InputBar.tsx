@@ -7,10 +7,7 @@ import {
 } from "react";
 import { ChevronDown, Send, Square } from "lucide-react";
 import { useSettingsStore } from "../../stores/settingsStore";
-
-interface OllamaModel {
-  name: string;
-}
+import { isLikelyEmbeddingModel, type OllamaModel } from "../../utils/ollamaModels";
 
 interface Props {
   onSend: (content: string, model: string) => void;
@@ -37,9 +34,9 @@ export function InputBar({ onSend, onStop, isStreaming }: Props) {
         const resp = await fetch(`${ollamaUrl}/api/tags`);
         if (!resp.ok) throw new Error("Failed to fetch models");
         const data = await resp.json();
-        const names: string[] = (data.models ?? []).map(
-          (m: OllamaModel) => m.name,
-        );
+        const names: string[] = (data.models ?? [])
+          .filter((m: OllamaModel) => !isLikelyEmbeddingModel(m))
+          .map((m: OllamaModel) => m.name);
         if (!cancelled) {
           // Always include paa-agent at the top
           const all = [PAA_MODEL, ...names.filter((n) => n !== PAA_MODEL)];

@@ -12,7 +12,6 @@ import (
 	"github.com/kirillkom/personal-ai-assistant/internal/core/domain"
 	"github.com/kirillkom/personal-ai-assistant/internal/core/ports"
 	"github.com/kirillkom/personal-ai-assistant/internal/core/usecase"
-	"github.com/kirillkom/personal-ai-assistant/internal/observability/metrics"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/chunking"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/extractor"
 	extdocx "github.com/kirillkom/personal-ai-assistant/internal/infrastructure/extractor/docx"
@@ -20,6 +19,8 @@ import (
 	extpdf "github.com/kirillkom/personal-ai-assistant/internal/infrastructure/extractor/pdf"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/extractor/plaintext"
 	extspreadsheet "github.com/kirillkom/personal-ai-assistant/internal/infrastructure/extractor/spreadsheet"
+	graphpkg "github.com/kirillkom/personal-ai-assistant/internal/infrastructure/graph"
+	graphneo4j "github.com/kirillkom/personal-ai-assistant/internal/infrastructure/graph/neo4j"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/llm/fallback"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/llm/ollama"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/llm/openaicompat"
@@ -28,14 +29,13 @@ import (
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/queue/nats"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/repository/postgres"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/resilience"
-	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/storage/localfs"
 	sourceobsidian "github.com/kirillkom/personal-ai-assistant/internal/infrastructure/source/obsidian"
 	sourceupload "github.com/kirillkom/personal-ai-assistant/internal/infrastructure/source/upload"
 	sourceweb "github.com/kirillkom/personal-ai-assistant/internal/infrastructure/source/web"
-	graphpkg "github.com/kirillkom/personal-ai-assistant/internal/infrastructure/graph"
-	graphneo4j "github.com/kirillkom/personal-ai-assistant/internal/infrastructure/graph/neo4j"
+	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/storage/localfs"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/vector/qdrant"
 	"github.com/kirillkom/personal-ai-assistant/internal/infrastructure/websearch/searxng"
+	"github.com/kirillkom/personal-ai-assistant/internal/observability/metrics"
 )
 
 type App struct {
@@ -51,6 +51,7 @@ type App struct {
 	ToolRegistry     *paamcp.ToolRegistry
 	MCPClientMgr     *paamcp.ClientManager
 	WebSearcher      ports.WebSearcher
+	RuntimeModelCfg  ports.RuntimeModelConfigurator
 	Tasks            ports.TaskStore
 	GraphStore       ports.GraphStore
 	ModelProviderMap map[string]string // model ID → provider name (e.g., "paa-huggingface" → "huggingface")
@@ -223,6 +224,13 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		embedder = ollama.NewEmbedder(ollamaClient)
 	}
 
+	var runtimeModelCfg ports.RuntimeModelConfigurator
+	if llmProvider == "" || llmProvider == "ollama" {
+		if embedProvider == "" || embedProvider == "ollama" {
+			runtimeModelCfg = ollamaClient
+		}
+	}
+
 	// Parse search order for multi-collection store.
 	var searchOrder []string
 	for _, s := range strings.Split(strings.TrimSpace(cfg.QdrantSearchOrder), ",") {
@@ -385,12 +393,20 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 	if routingCfg := config.ParseModelRouting(cfg.ModelRouting); routingCfg != nil {
 		agentUC.SetModelRouting(routingCfg)
 		slog.Info("explicit_model_routing", "simple", routingCfg.Simple, "complex", routingCfg.Complex, "code", routingCfg.Code)
+		if llmProvider == "ollama" && cfg.OllamaPlannerModel == "" && routingCfg.Complex != "" {
+			ollamaClient.SetPlannerModel(routingCfg.Complex)
+			slog.Info("auto_planner_model", "source", "explicit_routing", "model", routingCfg.Complex)
+		}
 	} else {
 		discovery := ollama.NewDiscovery(cfg.OllamaURL, nil)
 		if models, err := discovery.ListModels(ctx); err == nil && len(models) > 1 {
 			autoRouting := usecase.AutoAssignTiers(models, cfg.OllamaGenModel)
 			agentUC.SetModelRouting(&autoRouting)
 			slog.Info("auto_model_routing", "simple", autoRouting.Simple, "complex", autoRouting.Complex, "code", autoRouting.Code)
+			if llmProvider == "ollama" && cfg.OllamaPlannerModel == "" && autoRouting.Complex != "" {
+				ollamaClient.SetPlannerModel(autoRouting.Complex)
+				slog.Info("auto_planner_model", "source", "discovery", "model", autoRouting.Complex)
+			}
 		}
 	}
 
@@ -434,16 +450,17 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		Repo:             repo,
 		ModelProviderMap: modelProviderMap,
 
-		IngestUC:       ingestUC,
-		ProcessUC:      processUC,
-		EnrichUC:       enrichUC,
-		QueryUC:        queryUC,
-		AgentUC:        agentUC,
-		ToolRegistry:   toolRegistry,
-		MCPClientMgr:   mcpClientMgr,
-		WebSearcher:    webSearcher,
-		Tasks:          taskRepo,
-		GraphStore:     graphStore,
+		IngestUC:        ingestUC,
+		ProcessUC:       processUC,
+		EnrichUC:        enrichUC,
+		QueryUC:         queryUC,
+		AgentUC:         agentUC,
+		ToolRegistry:    toolRegistry,
+		MCPClientMgr:    mcpClientMgr,
+		WebSearcher:     webSearcher,
+		RuntimeModelCfg: runtimeModelCfg,
+		Tasks:           taskRepo,
+		GraphStore:      graphStore,
 
 		EventStore:       eventStore,
 		FeedbackStore:    feedbackStore,

@@ -57,13 +57,13 @@ status:
 	@$(COMPOSE_CPU) ps 2>/dev/null || $(COMPOSE_GPU) ps 2>/dev/null || echo "No services running"
 	@echo ""
 	@echo "=== Ollama Models ==="
-	@$(COMPOSE_CPU) exec ollama ollama list 2>/dev/null || curl -s http://localhost:11434/api/tags 2>/dev/null | python3 -m json.tool 2>/dev/null || echo "Ollama not available"
+	@$(COMPOSE_CPU) exec -T ollama sh -lc 'command -v ollama >/dev/null 2>&1 && ollama list' 2>/dev/null || curl -s http://localhost:11435/api/tags 2>/dev/null | python3 -m json.tool 2>/dev/null || echo "Ollama not available"
 
 # Pull common models into Ollama
 models:
 	@echo "Pulling models..."
-	$(COMPOSE_CPU) exec ollama ollama pull llama3.1:8b 2>/dev/null || ollama pull llama3.1:8b
-	$(COMPOSE_CPU) exec ollama ollama pull nomic-embed-text 2>/dev/null || ollama pull nomic-embed-text
+	$(COMPOSE_CPU) exec -T ollama sh -lc 'command -v ollama >/dev/null 2>&1 && ollama pull llama3.1:8b' 2>/dev/null || ollama pull llama3.1:8b
+	$(COMPOSE_CPU) exec -T ollama sh -lc 'command -v ollama >/dev/null 2>&1 && ollama pull nomic-embed-text' 2>/dev/null || ollama pull nomic-embed-text
 
 # golangci-lint
 lint:
