@@ -2,10 +2,7 @@ package httpadapter
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"log/slog"
-	"net/http"
 	"strings"
 	"sync"
 
@@ -65,26 +62,21 @@ func (rt *Router) tryAgentCompletion(
 		}
 	}
 
-	// For streaming: set up real-time thinking delta callback.
-	// The callback writes SSE events directly to the ResponseWriter
-	// via a channel that the response visitor drains.
+	// For streaming: set up real-time thinking delta via channel.
+	// The response visitor drains this channel and writes SSE events
+	// WHILE the agent is still running.
 	var thinkingCh chan string
 	if stream {
-		thinkingCh = make(chan string, 256)
+		thinkingCh = make(chan string, 512)
 		agentReq.OnThinkingDelta = func(text string) {
 			select {
 			case thinkingCh <- text:
 			default:
-				// drop if buffer full
 			}
 		}
 	}
 
-	// Run agent in background goroutine so we can start writing SSE immediately
-	type agentResult struct {
-		result *domain.AgentRunResult
-		err    error
-	}
+	// Launch agent in background goroutine
 	resultCh := make(chan agentResult, 1)
 
 	go func() {
@@ -97,13 +89,42 @@ func (rt *Router) tryAgentCompletion(
 		resultCh <- agentResult{result, err}
 	}()
 
-	// Wait for agent to finish
+	if stream {
+		// Return a streaming response that writes thinking tokens in real-time
+		return &realtimeAgentSSEResponse{
+			rt:             rt,
+			thinkingCh:     thinkingCh,
+			resultCh:       resultCh,
+			toolStatusMu:   &toolStatusMu,
+			toolStatusPtr:  &toolStatusEvents,
+			orchStepMu:     &orchStepMu,
+			orchStepPtr:    &orchStepEvents,
+			completionID:   completionID,
+			created:        created,
+			modelID:        modelID,
+			lastUser:       lastUser,
+			userID:         userID,
+		}, true, nil
+	}
+
+	// Non-streaming: wait for result
 	ar := <-resultCh
 	if ar.err != nil {
 		return nil, true, ar.err
 	}
 	result := ar.result
 
+	rt.recordAgentMetrics(result, userID, modelID)
+
+	debug := rt.buildAgentDebug(result)
+	response := buildTextChatCompletionResponse(completionID, created, modelID, lastUser, result.Answer, debug)
+	if response.Usage != nil {
+		rt.httpMetrics.RecordTokenUsage("api", "chat_completions_agent", modelID, response.Usage.PromptTokens, response.Usage.CompletionTokens)
+	}
+	return apigen.ChatCompletions200JSONResponse(response), true, nil
+}
+
+func (rt *Router) recordAgentMetrics(result *domain.AgentRunResult, userID, modelID string) {
 	status := "success"
 	if result.FallbackReason != "" {
 		status = "fallback"
@@ -118,6 +139,18 @@ func (rt *Router) tryAgentCompletion(
 		rt.httpMetrics.RecordAgentToolCall("api", event.Tool, event.Status)
 	}
 
+	slog.Info("agent_chat",
+		"endpoint", "chat_completions",
+		"user_id", userID,
+		"conversation_id", result.ConversationID,
+		"iterations", result.Iterations,
+		"memory_hits", result.MemoryHits,
+		"tools", result.ToolsInvoked,
+		"fallback_reason", result.FallbackReason,
+	)
+}
+
+func (rt *Router) buildAgentDebug(result *domain.AgentRunResult) *apigen.DebugInfo {
 	mode := "agent"
 	agentEnabled := true
 	conversationIDValue := result.ConversationID
@@ -138,43 +171,7 @@ func (rt *Router) tryAgentCompletion(
 		reason := result.FallbackReason
 		debug.FallbackReason = &reason
 	}
-
-	response := buildTextChatCompletionResponse(completionID, created, modelID, lastUser, result.Answer, debug)
-	if response.Usage != nil {
-		rt.httpMetrics.RecordTokenUsage(
-			"api",
-			"chat_completions_agent",
-			modelID,
-			response.Usage.PromptTokens,
-			response.Usage.CompletionTokens,
-		)
-	}
-	slog.Info("agent_chat",
-		"request_id", requestIDFromContext(ctx),
-		"endpoint", "chat_completions",
-		"user_id", userID,
-		"conversation_id", result.ConversationID,
-		"agent_enabled", true,
-		"iterations", result.Iterations,
-		"memory_hits", result.MemoryHits,
-		"tools", result.ToolsInvoked,
-		"fallback_reason", result.FallbackReason,
-	)
-	if stream {
-		// Drain any remaining thinking tokens from channel
-		var thinkingTokens []string
-		for t := range thinkingCh {
-			thinkingTokens = append(thinkingTokens, t)
-		}
-
-		return agentSSEResponse{
-			ToolEvents:     toolStatusEvents,
-			OrchSteps:      orchStepEvents,
-			ThinkingTokens: thinkingTokens,
-			Chunks:         buildTextStreamChunks(completionID, created, modelID, result.Answer, rt.openAICompatStreamChunkChars),
-		}, true, nil
-	}
-	return apigen.ChatCompletions200JSONResponse(response), true, nil
+	return debug
 }
 
 func (rt *Router) agentMetadata(body *apigen.ChatCompletionsJSONRequestBody) (userID, conversationID string, sessionEnd bool, ok bool) {
@@ -212,19 +209,4 @@ func valueOrEmpty(v *string) string {
 		return ""
 	}
 	return *v
-}
-
-// writeThinkingSSEEvent writes a single thinking_delta SSE event.
-func writeThinkingSSEEvent(w http.ResponseWriter, flusher http.Flusher, text string) {
-	chunk := map[string]any{
-		"id":     "thinking",
-		"object": "chat.completion.chunk",
-		"choices": []map[string]any{{
-			"index": 0,
-			"delta": map[string]any{"thinking_delta": text},
-		}},
-	}
-	data, _ := json.Marshal(chunk)
-	_, _ = fmt.Fprintf(w, "data: %s\n\n", data)
-	flusher.Flush()
 }
