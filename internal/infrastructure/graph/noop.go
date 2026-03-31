@@ -18,6 +18,7 @@ func (n *NoopStore) RemoveSimilarities(context.Context, string) error           
 func (n *NoopStore) GetRelated(context.Context, string, int, int) ([]domain.GraphRelation, error) {
 	return nil, nil
 }
+func (n *NoopStore) FindByID(context.Context, string) (*domain.GraphNode, error)     { return nil, nil }
 func (n *NoopStore) FindByTitle(context.Context, string) ([]domain.GraphNode, error) { return nil, nil }
 func (n *NoopStore) GetGraph(context.Context, domain.GraphFilter) (*domain.Graph, error) {
 	return &domain.Graph{}, nil

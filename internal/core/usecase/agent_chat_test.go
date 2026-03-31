@@ -575,6 +575,9 @@ func (f *fakeGraphStore) RemoveSimilarities(context.Context, string) error { ret
 func (f *fakeGraphStore) GetRelated(_ context.Context, _ string, _ int, _ int) ([]domain.GraphRelation, error) {
 	return f.relatedResult, nil
 }
+func (f *fakeGraphStore) FindByID(context.Context, string) (*domain.GraphNode, error) {
+	return nil, nil
+}
 func (f *fakeGraphStore) FindByTitle(_ context.Context, _ string) ([]domain.GraphNode, error) {
 	return f.findByTitleResult, nil
 }

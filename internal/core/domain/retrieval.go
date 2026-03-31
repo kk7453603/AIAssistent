@@ -19,6 +19,7 @@ type SearchFilter struct {
 	Categories  []string // filter by category (empty = all)
 	Tags        []string // any-match on tags (empty = all)
 	PathPrefix  string   // prefix match on path
+	DocumentIDs []string // filter by doc_id (empty = all)
 }
 
 type RetrievedChunk struct {

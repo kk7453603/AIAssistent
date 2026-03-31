@@ -187,6 +187,44 @@ LIMIT $limit`, maxDepth)
 	return result.([]domain.GraphRelation), nil
 }
 
+// FindByID finds a single document node by its ID.
+func (c *Client) FindByID(ctx context.Context, id string) (*domain.GraphNode, error) {
+	session := c.driver.NewSession(ctx, neo4jdriver.SessionConfig{})
+	defer func() { _ = session.Close(ctx) }()
+
+	query := `
+MATCH (d:Document {id: $id})
+RETURN d.id          AS id,
+       d.filename    AS filename,
+       d.source_type AS source_type,
+       d.category    AS category,
+       d.title       AS title,
+       d.path        AS path`
+
+	result, err := session.ExecuteRead(ctx, func(tx neo4jdriver.ManagedTransaction) (any, error) {
+		res, runErr := tx.Run(ctx, query, map[string]any{"id": id})
+		records, err := neo4jdriver.CollectWithContext(ctx, res, runErr)
+		if err != nil {
+			return nil, err
+		}
+		if len(records) == 0 {
+			return nil, nil
+		}
+		node, err := recordToNode(records[0])
+		if err != nil {
+			return nil, err
+		}
+		return &node, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("neo4j: find by id %q: %w", id, err)
+	}
+	if result == nil {
+		return nil, nil
+	}
+	return result.(*domain.GraphNode), nil
+}
+
 // FindByTitle finds documents whose title or filename contains the query (case-insensitive).
 func (c *Client) FindByTitle(ctx context.Context, title string) ([]domain.GraphNode, error) {
 	session := c.driver.NewSession(ctx, neo4jdriver.SessionConfig{})

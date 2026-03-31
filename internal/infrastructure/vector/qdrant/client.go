@@ -355,6 +355,13 @@ func buildFilter(filter domain.SearchFilter) map[string]any {
 		})
 	}
 
+	if len(filter.DocumentIDs) > 0 {
+		must = append(must, map[string]any{
+			"key":   "doc_id",
+			"match": map[string]any{"any": filter.DocumentIDs},
+		})
+	}
+
 	if len(must) == 0 {
 		return nil
 	}

@@ -382,7 +382,7 @@ func (uc *AgentChatUseCase) Complete(ctx context.Context, req domain.AgentChatRe
 					event.Output = addFSHintToError(event.Output, fsCtx)
 				}
 
-				event.Output = maybeSummarize(event.Output, 2048)
+				event.Output = maybeSummarize(event.Output, 4096)
 
 				toolEvents = append(toolEvents, event)
 				if event.Tool != "" {
@@ -880,6 +880,7 @@ RULES:
 - If you don't need tools, answer directly from your knowledge.
 - When answering from knowledge base results, cite the sources.
 - IMPORTANT: Always consider the full conversation history when formulating tool queries. If the user asks a follow-up question (e.g. "а в чем суть последнего обновления?"), use context from previous messages to build a specific query — not just the latest message in isolation.
+- MULTI-TOPIC: If the user asks about multiple unrelated topics in one message (e.g. "расскажи про Docker и Neovim"), call knowledge_search SEPARATELY for each topic with a focused query. Do NOT combine unrelated topics into one search query — this produces poor results for both topics.
 - When using web_search, always build specific, disambiguated queries. For example: if the conversation is about Rust programming language, search "Rust programming language news 2025", NOT just "Rust news". Add domain-specific keywords to avoid ambiguity (e.g. "Rust lang" vs "Rust game").
 - When user asks to save/write/create a note in Obsidian, use the obsidian_write tool. Pass vault id from the list of available vaults below.
 `)
@@ -931,6 +932,41 @@ func (uc *AgentChatUseCase) executeToolCall(ctx context.Context, userID string, 
 	case agentToolKnowledgeSearch:
 		question := stringFromArgs(args, "question", fallbackQuestion)
 		limit := intFromArgs(args, "limit", uc.limits.KnowledgeTopK)
+
+		// Auto-decompose multi-topic queries so each topic gets a focused search.
+		subQueries := splitByConjunctions(question)
+		if len(subQueries) > 1 {
+			var answerParts []string
+			var allSources []domain.RetrievedChunk
+			seen := make(map[string]bool)
+			perTopicLimit := max(limit/len(subQueries), 3)
+
+			for _, sq := range subQueries {
+				if expanded := uc.expandQueryWithGraph(ctx, sq); expanded != "" {
+					sq = sq + " " + expanded
+				}
+				answer, err := uc.querySvc.Answer(ctx, sq, perTopicLimit, domain.SearchFilter{})
+				if err != nil {
+					continue
+				}
+				answerParts = append(answerParts, answer.Text)
+				for _, src := range answer.Sources {
+					key := retrievalChunkKey(src)
+					if !seen[key] {
+						seen[key] = true
+						allSources = append(allSources, src)
+					}
+				}
+			}
+			// If all sub-queries failed, fall through to single-topic path.
+			if len(answerParts) > 0 {
+				combinedAnswer := strings.Join(answerParts, "\n\n---\n\n")
+				payload, _ := json.Marshal(map[string]any{"question": question, "answer": combinedAnswer, "sources": allSources})
+				return domain.AgentToolEvent{Tool: toolName, Status: "ok", Output: string(payload)}, nil
+			}
+		}
+
+		// Single-topic path.
 		if expanded := uc.expandQueryWithGraph(ctx, question); expanded != "" {
 			question = question + " " + expanded
 		}
@@ -1011,49 +1047,61 @@ func (uc *AgentChatUseCase) expandQueryWithGraph(ctx context.Context, query stri
 		return ""
 	}
 
-	tokens := strings.Fields(query)
+	// Split by topics first, then search each phrase as a whole — avoids
+	// cross-topic noise when query mentions multiple unrelated subjects.
+	phrases := splitByConjunctions(query)
+
 	var expansions []string
 	seen := make(map[string]bool)
 
-	for _, token := range tokens {
-		if len(token) < 3 {
-			continue
-		}
-		nodes, err := uc.graphStore.FindByTitle(ctx, token)
-		if err != nil || len(nodes) == 0 {
+	for _, phrase := range phrases {
+		phrase = strings.TrimSpace(phrase)
+		if len(phrase) < 3 {
 			continue
 		}
 
-		limit := 2
-		if len(nodes) < limit {
-			limit = len(nodes)
+		// Try the full phrase first for a targeted match.
+		nodes, err := uc.graphStore.FindByTitle(ctx, phrase)
+		if err != nil || len(nodes) == 0 {
+			// Fallback: try the longest word (≥4 chars) in the phrase.
+			for _, word := range strings.Fields(phrase) {
+				if len([]rune(word)) >= 4 {
+					nodes, err = uc.graphStore.FindByTitle(ctx, word)
+					if err == nil && len(nodes) > 0 {
+						break
+					}
+				}
+			}
 		}
-		for _, node := range nodes[:limit] {
-			related, err := uc.graphStore.GetRelated(ctx, node.ID, 1, 3)
-			if err != nil {
+		if len(nodes) == 0 {
+			continue
+		}
+
+		// Take only the best match per phrase.
+		node := nodes[0]
+		related, err := uc.graphStore.GetRelated(ctx, node.ID, 1, 2)
+		if err != nil {
+			continue
+		}
+		for _, rel := range related {
+			targetID := rel.TargetID
+			if targetID == node.ID {
+				targetID = rel.SourceID
+			}
+			targetNode, err := uc.graphStore.FindByID(ctx, targetID)
+			if err != nil || targetNode == nil {
 				continue
 			}
-			for _, rel := range related {
-				targetID := rel.TargetID
-				if targetID == node.ID {
-					targetID = rel.SourceID
-				}
-				// Look up the target node's title.
-				targetNodes, err := uc.graphStore.FindByTitle(ctx, targetID)
-				if err != nil || len(targetNodes) == 0 {
-					continue
-				}
-				title := targetNodes[0].Title
-				if title != "" && !seen[title] {
-					seen[title] = true
-					expansions = append(expansions, title)
-				}
+			title := targetNode.Title
+			if title != "" && !seen[title] {
+				seen[title] = true
+				expansions = append(expansions, title)
 			}
 		}
 	}
 
-	if len(expansions) > 5 {
-		expansions = expansions[:5]
+	if len(expansions) > 4 {
+		expansions = expansions[:4]
 	}
 	if len(expansions) > 0 {
 		slog.Info("graph_query_expansion", "expansions", expansions)

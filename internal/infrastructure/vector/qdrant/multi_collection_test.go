@@ -84,20 +84,24 @@ func TestMultiCollectionStore_SearchCascadesInOrder(t *testing.T) {
 
 	mu.Lock()
 	defer mu.Unlock()
-	// With early stop and limit=1, first collection should satisfy
-	if len(callOrder) == 0 {
-		t.Fatal("expected at least one query call")
-	}
-	// First query should be to obsidian (highest priority)
-	firstQuery := callOrder[0]
+
+	// All collections should be queried (no early stop), best results kept via score sort.
+	var queryPaths []string
 	for _, u := range callOrder {
 		if strings.Contains(u, "/points/query") {
-			firstQuery = u
-			break
+			queryPaths = append(queryPaths, u)
 		}
 	}
-	if !strings.Contains(firstQuery, "docs_obsidian") {
-		t.Errorf("expected first query to docs_obsidian, got %q", firstQuery)
+	if len(queryPaths) < 3 {
+		t.Errorf("expected queries to all 3 collections, got %d: %v", len(queryPaths), queryPaths)
+	}
+	// First query should be to obsidian (highest priority)
+	if len(queryPaths) > 0 && !strings.Contains(queryPaths[0], "docs_obsidian") {
+		t.Errorf("expected first query to docs_obsidian, got %q", queryPaths[0])
+	}
+	// With limit=1, result should be trimmed to 1 despite multiple collections
+	if len(results) != 1 {
+		t.Errorf("expected 1 result after limit, got %d", len(results))
 	}
 }
 

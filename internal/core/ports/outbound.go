@@ -142,6 +142,7 @@ type GraphStore interface {
 	AddSimilarity(ctx context.Context, sourceID, targetID string, score float64) error
 	RemoveSimilarities(ctx context.Context, docID string) error
 	GetRelated(ctx context.Context, docID string, maxDepth int, limit int) ([]domain.GraphRelation, error)
+	FindByID(ctx context.Context, id string) (*domain.GraphNode, error)
 	FindByTitle(ctx context.Context, title string) ([]domain.GraphNode, error)
 	GetGraph(ctx context.Context, filter domain.GraphFilter) (*domain.Graph, error)
 }

@@ -327,20 +327,57 @@ make test
 
 ### Multi-Agent Orchestration
 
+Когда `ORCHESTRATOR_ENABLED=true`, сложные запросы автоматически декомпозируются на подзадачи и распределяются между специализированными агентами. Оркестратор создаёт план → выполняет шаги последовательно → собирает финальный ответ. Если **critic** находит проблемы, добавляются корректирующие шаги (writer → critic) в рамках лимита `ORCHESTRATOR_MAX_STEPS`.
+
+**Встроенные агенты:**
+
+| Агент | Роль | Инструменты | Макс. итераций |
+| ----- | ---- | ----------- | -------------- |
+| `researcher` | Поиск фактов, источников и контекста | `knowledge_search`, `web_search` | 5 |
+| `coder` | Генерация, анализ и отладка кода | `knowledge_search` | 5 |
+| `writer` | Синтез информации в структурированный ответ | `knowledge_search` | 3 |
+| `critic` | Проверка на ошибки, галлюцинации, пробелы | `knowledge_search` | 3 |
+
+Кастомные агенты добавляются через `AGENT_SPECS` и расширяют (или переопределяют) встроенных.
+
 | Переменная | По умолчанию | Описание |
 | ---------- | ------------ | -------- |
 | `ORCHESTRATOR_ENABLED` | `false` | Включить multi-agent orchestration |
-| `ORCHESTRATOR_MAX_STEPS` | `8` | Макс. шагов оркестратора |
-| `AGENT_SPECS` | | JSON-массив кастомных агентов |
-| `MODEL_ROUTING` | | JSON для adaptive model routing |
+| `ORCHESTRATOR_MAX_STEPS` | `8` | Макс. шагов оркестратора (включая корректирующие) |
+| `AGENT_SPECS` | | JSON-массив кастомных агентов (см. пример ниже) |
+| `MODEL_ROUTING` | | JSON для adaptive model routing (см. пример ниже) |
+
+**Пример `AGENT_SPECS`** — добавить агента-переводчика:
+
+```bash
+AGENT_SPECS='[{"name":"translator","system_prompt":"You are a translation specialist. Translate text accurately preserving meaning and style.","tools":["knowledge_search"],"max_iterations":3}]'
+```
+
+**Пример `MODEL_ROUTING`** — направить простые запросы на лёгкую модель, сложные на мощную:
+
+```bash
+MODEL_ROUTING='{"simple":"llama3.1:8b","complex":"qwen3.5:9b","code":"qwen-coder:7b"}'
+```
+
+Тиры сложности (`simple`, `complex`, `code`) определяются автоматически intent router-ом. Если `MODEL_ROUTING` не задан, все запросы идут на `OLLAMA_GEN_MODEL`. Также поддерживается auto-discovery: если Ollama доступна и в ней есть модели с именами, содержащими `coder`, они автоматически назначаются на тир `code`.
 
 ### Self-Improving Agent
+
+Периодически (каждые `SELF_IMPROVE_INTERVAL_HOURS` часов) анализирует собранные события агента и пользовательский feedback. LLM генерирует предложения по улучшению (категории: `system_prompt`, `tool_config`, `retrieval_config`). При `SELF_IMPROVE_AUTO_APPLY=true` безопасные улучшения применяются автоматически; остальные ожидают ручного одобрения через API (`PATCH /v1/improvements/{id}`).
+
+**Цикл работы:**
+
+1. `EventCollector` записывает события: вызовы инструментов, ошибки, отказы critic-а
+2. Пользователь оставляет feedback через `POST /v1/feedback` (рейтинг `up`/`down` + комментарий)
+3. По расписанию `SelfImproveUseCase.Analyze()` агрегирует данные и отправляет LLM
+4. LLM возвращает JSON-массив улучшений → сохраняются в `improvements` таблице
+5. Safe improvements применяются автоматически (или вручную через API)
 
 | Переменная | По умолчанию | Описание |
 | ---------- | ------------ | -------- |
 | `SELF_IMPROVE_ENABLED` | `false` | Включить self-improving agent |
-| `SELF_IMPROVE_INTERVAL_HOURS` | `24` | Интервал анализа (часы) |
-| `SELF_IMPROVE_AUTO_APPLY` | `true` | Автоприменение safe improvements |
+| `SELF_IMPROVE_INTERVAL_HOURS` | `24` | Интервал между циклами анализа (часы) |
+| `SELF_IMPROVE_AUTO_APPLY` | `true` | Автоприменение safe improvements (категории без side-effects) |
 
 ### Scheduled Tasks
 

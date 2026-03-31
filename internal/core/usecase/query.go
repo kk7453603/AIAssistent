@@ -102,9 +102,12 @@ func (uc *QueryUseCase) Answer(
 		return nil, err
 	}
 
-	// Graph retrieval boost.
+	// Graph retrieval boost — re-embed question to search graph-related docs.
 	if uc.graphStore != nil && len(chunks) > 0 {
-		chunks = uc.boostWithGraph(ctx, chunks, limit, filter)
+		queryVector, embedErr := uc.embedder.EmbedQuery(ctx, question)
+		if embedErr == nil && len(queryVector) > 0 {
+			chunks = uc.boostWithGraph(ctx, chunks, limit, filter, queryVector)
+		}
 	}
 
 	if len(chunks) == 0 {
@@ -316,7 +319,7 @@ func (uc *QueryUseCase) searchSemantic(
 	return chunks, nil
 }
 
-func (uc *QueryUseCase) boostWithGraph(ctx context.Context, chunks []domain.RetrievedChunk, limit int, filter domain.SearchFilter) []domain.RetrievedChunk {
+func (uc *QueryUseCase) boostWithGraph(ctx context.Context, chunks []domain.RetrievedChunk, limit int, filter domain.SearchFilter, queryVector []float32) []domain.RetrievedChunk {
 	if len(chunks) == 0 {
 		return chunks
 	}
@@ -346,13 +349,31 @@ func (uc *QueryUseCase) boostWithGraph(ctx context.Context, chunks []domain.Retr
 		}
 	}
 
-	// No related docs found — return as is.
 	if len(relatedIDs) == 0 {
 		return chunks
 	}
 
 	slog.Info("graph_boost", "related_docs", len(relatedIDs))
-	return chunks
+
+	// Fetch chunks from graph-related documents and merge with reduced score.
+	// Preserve all original filter fields so graph results respect the same constraints.
+	graphFilter := filter
+	graphFilter.DocumentIDs = relatedIDs
+	graphChunks, err := uc.vectorDB.Search(ctx, queryVector, min(limit, len(relatedIDs)*2), graphFilter)
+	if err != nil {
+		slog.Warn("graph_boost_search_failed", "error", err)
+		return chunks
+	}
+
+	// Apply score penalty so original results stay dominant.
+	const graphBoostPenalty = 0.8
+	for i := range graphChunks {
+		graphChunks[i].Score *= graphBoostPenalty
+	}
+
+	// Merge and deduplicate using RRF fusion.
+	merged := fuseCandidatesRRF(chunks, graphChunks, 60)
+	return trimCandidates(merged, limit)
 }
 
 func normalizeRetrievalMode(mode domain.RetrievalMode) domain.RetrievalMode {

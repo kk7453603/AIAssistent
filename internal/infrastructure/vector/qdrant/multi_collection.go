@@ -3,6 +3,7 @@ package qdrant
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	"github.com/kirillkom/personal-ai-assistant/internal/core/domain"
 )
@@ -94,11 +95,14 @@ func (m *MultiCollectionStore) cascadeSearch(
 			continue // skip failed collection, try next
 		}
 		results = append(results, chunks...)
+	}
 
-		if len(results) >= limit {
-			results = results[:limit]
-			break // early stop
-		}
+	// Sort by score descending so best results from all collections are kept.
+	sort.SliceStable(results, func(i, j int) bool {
+		return results[i].Score > results[j].Score
+	})
+	if len(results) > limit {
+		results = results[:limit]
 	}
 	return results, nil
 }

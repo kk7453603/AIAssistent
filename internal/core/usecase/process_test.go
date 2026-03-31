@@ -123,6 +123,9 @@ func (f *graphStoreFake) RemoveSimilarities(context.Context, string) error { ret
 func (f *graphStoreFake) GetRelated(context.Context, string, int, int) ([]domain.GraphRelation, error) {
 	return nil, nil
 }
+func (f *graphStoreFake) FindByID(context.Context, string) (*domain.GraphNode, error) {
+	return nil, nil
+}
 func (f *graphStoreFake) FindByTitle(context.Context, string) ([]domain.GraphNode, error) {
 	return nil, nil
 }

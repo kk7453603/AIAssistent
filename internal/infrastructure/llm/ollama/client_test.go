@@ -198,6 +198,178 @@ func TestOllamaReranker_Empty(t *testing.T) {
 	}
 }
 
+// --- Content streaming with <think> tag detection tests ---
+
+func TestContentStreaming_DetectsThinkTags(t *testing.T) {
+	// Simulate NDJSON stream: <think>reasoning</think>answer
+	chunks := []string{
+		`{"message":{"content":"<think>"},"done":false}`,
+		`{"message":{"content":"step 1, "},"done":false}`,
+		`{"message":{"content":"step 2"},"done":false}`,
+		`{"message":{"content":"</think>"},"done":false}`,
+		`{"message":{"content":"final answer"},"done":false}`,
+		`{"message":{"content":""},"done":true}`,
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/x-ndjson")
+		for _, c := range chunks {
+			_, _ = w.Write([]byte(c + "\n"))
+		}
+	}))
+	defer server.Close()
+
+	client := NewWithOptions(server.URL, "gen", "embed", Options{ThinkEnabled: true})
+
+	var thinkingTokens []string
+	onThinking := func(text string) {
+		thinkingTokens = append(thinkingTokens, text)
+	}
+
+	result, err := client.chatWithToolsContentStreaming(
+		context.Background(), "gen", nil, nil, onThinking,
+	)
+	if err != nil {
+		t.Fatalf("chatWithToolsContentStreaming() error = %v", err)
+	}
+
+	// Thinking tokens should have been streamed
+	if len(thinkingTokens) == 0 {
+		t.Fatal("expected thinking tokens to be streamed")
+	}
+	joined := strings.Join(thinkingTokens, "")
+	if !strings.Contains(joined, "step 1") || !strings.Contains(joined, "step 2") {
+		t.Fatalf("expected thinking to contain steps, got %q", joined)
+	}
+
+	// Content should include both think wrapper and answer
+	if !strings.Contains(result.Content, "final answer") {
+		t.Fatalf("expected content to contain answer, got %q", result.Content)
+	}
+	if !strings.Contains(result.Content, "<think>") {
+		t.Fatalf("expected content to contain <think> wrapper, got %q", result.Content)
+	}
+}
+
+func TestContentStreaming_NoThinkTags(t *testing.T) {
+	// Regular content without <think> tags
+	chunks := []string{
+		`{"message":{"content":"Hello "},"done":false}`,
+		`{"message":{"content":"world!"},"done":false}`,
+		`{"message":{"content":""},"done":true}`,
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/x-ndjson")
+		for _, c := range chunks {
+			_, _ = w.Write([]byte(c + "\n"))
+		}
+	}))
+	defer server.Close()
+
+	client := NewWithOptions(server.URL, "gen", "embed", Options{ThinkEnabled: true})
+
+	var thinkingTokens []string
+	onThinking := func(text string) {
+		thinkingTokens = append(thinkingTokens, text)
+	}
+
+	result, err := client.chatWithToolsContentStreaming(
+		context.Background(), "gen", nil, nil, onThinking,
+	)
+	if err != nil {
+		t.Fatalf("error = %v", err)
+	}
+
+	if len(thinkingTokens) != 0 {
+		t.Fatalf("expected no thinking tokens for non-think content, got %v", thinkingTokens)
+	}
+	if !strings.Contains(result.Content, "Hello world!") {
+		t.Fatalf("expected content, got %q", result.Content)
+	}
+}
+
+func TestContentStreaming_ToolCalls(t *testing.T) {
+	chunks := []string{
+		`{"message":{"content":"","tool_calls":[{"function":{"name":"web_search","arguments":{"query":"test"}}}]},"done":false}`,
+		`{"message":{"content":""},"done":true}`,
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/x-ndjson")
+		for _, c := range chunks {
+			_, _ = w.Write([]byte(c + "\n"))
+		}
+	}))
+	defer server.Close()
+
+	client := NewWithOptions(server.URL, "gen", "embed", Options{ThinkEnabled: true})
+	result, err := client.chatWithToolsContentStreaming(
+		context.Background(), "gen", nil, nil, func(string) {},
+	)
+	if err != nil {
+		t.Fatalf("error = %v", err)
+	}
+	if len(result.ToolCalls) != 1 {
+		t.Fatalf("expected 1 tool call, got %d", len(result.ToolCalls))
+	}
+	if result.ToolCalls[0].Function.Name != "web_search" {
+		t.Fatalf("expected web_search, got %q", result.ToolCalls[0].Function.Name)
+	}
+}
+
+func TestContentStreaming_ServerError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	client := NewWithOptions(server.URL, "gen", "embed", Options{ThinkEnabled: true})
+	_, err := client.chatWithToolsContentStreaming(
+		context.Background(), "gen", nil, nil, func(string) {},
+	)
+	if err == nil {
+		t.Fatal("expected error on server 500")
+	}
+}
+
+func TestContentStreaming_ThinkTagSplitAcrossChunks(t *testing.T) {
+	// <think> tag arrives in parts: "<thi" then "nk>thinking</think>answer"
+	// The state machine buffers initial chars to detect <think>
+	chunks := []string{
+		`{"message":{"content":"<thi"},"done":false}`,
+		`{"message":{"content":"nk>"},"done":false}`,
+		`{"message":{"content":"deep thought"},"done":false}`,
+		`{"message":{"content":"</think>"},"done":false}`,
+		`{"message":{"content":"result"},"done":false}`,
+		`{"message":{"content":""},"done":true}`,
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/x-ndjson")
+		for _, c := range chunks {
+			_, _ = w.Write([]byte(c + "\n"))
+		}
+	}))
+	defer server.Close()
+
+	client := NewWithOptions(server.URL, "gen", "embed", Options{ThinkEnabled: true})
+
+	var thinkingTokens []string
+	result, err := client.chatWithToolsContentStreaming(
+		context.Background(), "gen", nil, nil, func(text string) {
+			thinkingTokens = append(thinkingTokens, text)
+		},
+	)
+	if err != nil {
+		t.Fatalf("error = %v", err)
+	}
+
+	joined := strings.Join(thinkingTokens, "")
+	if !strings.Contains(joined, "deep thought") {
+		t.Fatalf("expected thinking to contain 'deep thought', got %q", joined)
+	}
+	if !strings.Contains(result.Content, "result") {
+		t.Fatalf("expected content to contain 'result', got %q", result.Content)
+	}
+}
+
 func TestGenerateJSONFromPromptUsesPlannerModelAndJSONFormat(t *testing.T) {
 	var capturedModel string
 	var capturedFormat string
