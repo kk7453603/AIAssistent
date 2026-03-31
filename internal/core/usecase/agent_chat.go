@@ -1051,49 +1051,49 @@ func (uc *AgentChatUseCase) expandQueryWithGraph(ctx context.Context, query stri
 	// cross-topic noise when query mentions multiple unrelated subjects.
 	phrases := splitByConjunctions(query)
 
-	var expansions []string
+	// Process phrases concurrently — each phrase triggers independent graph lookups.
+	// Cap at 3 phrases to limit graph round-trips for long queries.
+	const maxPhrases = 3
+
+	type phraseResult struct {
+		titles []string
+	}
+
+	var validPhrases []struct {
+		idx    int
+		phrase string
+	}
+	for i, raw := range phrases {
+		phrase := strings.TrimSpace(raw)
+		if len(phrase) >= 3 {
+			validPhrases = append(validPhrases, struct {
+				idx    int
+				phrase string
+			}{i, phrase})
+		}
+		if len(validPhrases) >= maxPhrases {
+			break
+		}
+	}
+
+	results := make([]phraseResult, len(phrases))
+	var wg sync.WaitGroup
+	for _, vp := range validPhrases {
+		wg.Add(1)
+		go func(idx int, phrase string) {
+			defer wg.Done()
+			titles := uc.graphExpandPhrase(ctx, phrase)
+			results[idx] = phraseResult{titles: titles}
+		}(vp.idx, vp.phrase)
+	}
+	wg.Wait()
+
+	// Merge results preserving phrase order, dedup by title.
 	seen := make(map[string]bool)
-
-	for _, phrase := range phrases {
-		phrase = strings.TrimSpace(phrase)
-		if len(phrase) < 3 {
-			continue
-		}
-
-		// Try the full phrase first for a targeted match.
-		nodes, err := uc.graphStore.FindByTitle(ctx, phrase)
-		if err != nil || len(nodes) == 0 {
-			// Fallback: try the longest word (≥4 chars) in the phrase.
-			for _, word := range strings.Fields(phrase) {
-				if len([]rune(word)) >= 4 {
-					nodes, err = uc.graphStore.FindByTitle(ctx, word)
-					if err == nil && len(nodes) > 0 {
-						break
-					}
-				}
-			}
-		}
-		if len(nodes) == 0 {
-			continue
-		}
-
-		// Take only the best match per phrase.
-		node := nodes[0]
-		related, err := uc.graphStore.GetRelated(ctx, node.ID, 1, 2)
-		if err != nil {
-			continue
-		}
-		for _, rel := range related {
-			targetID := rel.TargetID
-			if targetID == node.ID {
-				targetID = rel.SourceID
-			}
-			targetNode, err := uc.graphStore.FindByID(ctx, targetID)
-			if err != nil || targetNode == nil {
-				continue
-			}
-			title := targetNode.Title
-			if title != "" && !seen[title] {
+	var expansions []string
+	for _, r := range results {
+		for _, title := range r.titles {
+			if !seen[title] {
 				seen[title] = true
 				expansions = append(expansions, title)
 			}
@@ -1107,6 +1107,49 @@ func (uc *AgentChatUseCase) expandQueryWithGraph(ctx context.Context, query stri
 		slog.Info("graph_query_expansion", "expansions", expansions)
 	}
 	return strings.Join(expansions, " ")
+}
+
+// graphExpandPhrase finds graph-related titles for a single phrase.
+func (uc *AgentChatUseCase) graphExpandPhrase(ctx context.Context, phrase string) []string {
+	// Try the full phrase first for a targeted match.
+	nodes, err := uc.graphStore.FindByTitle(ctx, phrase)
+	if err != nil || len(nodes) == 0 {
+		// Fallback: try the longest word (≥4 chars) in the phrase.
+		for _, word := range strings.Fields(phrase) {
+			if len([]rune(word)) >= 4 {
+				nodes, err = uc.graphStore.FindByTitle(ctx, word)
+				if err == nil && len(nodes) > 0 {
+					break
+				}
+			}
+		}
+	}
+	if len(nodes) == 0 {
+		return nil
+	}
+
+	// Take only the best match per phrase.
+	node := nodes[0]
+	related, err := uc.graphStore.GetRelated(ctx, node.ID, 1, 2)
+	if err != nil {
+		return nil
+	}
+
+	var titles []string
+	for _, rel := range related {
+		targetID := rel.TargetID
+		if targetID == node.ID {
+			targetID = rel.SourceID
+		}
+		targetNode, err := uc.graphStore.FindByID(ctx, targetID)
+		if err != nil || targetNode == nil {
+			continue
+		}
+		if targetNode.Title != "" {
+			titles = append(titles, targetNode.Title)
+		}
+	}
+	return titles
 }
 
 // sanitizeUTF8 strips invalid UTF-8 byte sequences (e.g. truncated multi-byte

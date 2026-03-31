@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
 
 	"github.com/kirillkom/personal-ai-assistant/internal/core/domain"
 	"github.com/kirillkom/personal-ai-assistant/internal/core/ports"
@@ -182,22 +183,57 @@ func (uc *QueryUseCase) retrieveChunks(
 			candidateLimit = limit
 		}
 
+		// Run all queries concurrently; for each query, semantic and lexical
+		// searches run in parallel too.
+		type queryResult struct {
+			semantic []domain.RetrievedChunk
+			lexical  []domain.RetrievedChunk
+			err      error
+		}
+		results := make([]queryResult, len(queries))
+		var wg sync.WaitGroup
+		for i, q := range queries {
+			wg.Add(1)
+			go func(idx int, query string) {
+				defer wg.Done()
+				queryVector, err := uc.embedder.EmbedQuery(ctx, query)
+				if err != nil {
+					results[idx].err = fmt.Errorf("embed query: %w", err)
+					return
+				}
+				// Semantic and lexical in parallel
+				var innerWg sync.WaitGroup
+				innerWg.Add(2)
+				go func() {
+					defer innerWg.Done()
+					sem, err := uc.vectorDB.Search(ctx, queryVector, candidateLimit, filter)
+					if err != nil {
+						results[idx].err = fmt.Errorf("search semantic candidates: %w", err)
+						return
+					}
+					results[idx].semantic = sem
+				}()
+				go func() {
+					defer innerWg.Done()
+					lex, err := uc.vectorDB.SearchLexical(ctx, query, candidateLimit, filter)
+					if err != nil {
+						results[idx].err = fmt.Errorf("search lexical candidates: %w", err)
+						return
+					}
+					results[idx].lexical = lex
+				}()
+				innerWg.Wait()
+			}(i, q)
+		}
+		wg.Wait()
+
 		var allSemantic, allLexical []domain.RetrievedChunk
-		for _, q := range queries {
-			queryVector, err := uc.embedder.EmbedQuery(ctx, q)
-			if err != nil {
-				return nil, domain.RetrievalMeta{}, fmt.Errorf("embed query: %w", err)
+		for _, r := range results {
+			if r.err != nil {
+				return nil, domain.RetrievalMeta{}, r.err
 			}
-			sem, err := uc.vectorDB.Search(ctx, queryVector, candidateLimit, filter)
-			if err != nil {
-				return nil, domain.RetrievalMeta{}, fmt.Errorf("search semantic candidates: %w", err)
-			}
-			lex, err := uc.vectorDB.SearchLexical(ctx, q, candidateLimit, filter)
-			if err != nil {
-				return nil, domain.RetrievalMeta{}, fmt.Errorf("search lexical candidates: %w", err)
-			}
-			allSemantic = append(allSemantic, sem...)
-			allLexical = append(allLexical, lex...)
+			allSemantic = append(allSemantic, r.semantic...)
+			allLexical = append(allLexical, r.lexical...)
 		}
 
 		var fused []domain.RetrievedChunk
@@ -234,7 +270,7 @@ func (uc *QueryUseCase) retrieveChunks(
 	}
 }
 
-// searchSemanticMulti runs semantic search for multiple queries and fuses via RRF.
+// searchSemanticMulti runs semantic search for multiple queries concurrently and fuses via RRF.
 func (uc *QueryUseCase) searchSemanticMulti(
 	ctx context.Context,
 	queries []string,
@@ -245,13 +281,28 @@ func (uc *QueryUseCase) searchSemanticMulti(
 		return uc.searchSemantic(ctx, queries[0], limit, filter)
 	}
 
+	type searchResult struct {
+		chunks []domain.RetrievedChunk
+		err    error
+	}
+	results := make([]searchResult, len(queries))
+	var wg sync.WaitGroup
+	for i, q := range queries {
+		wg.Add(1)
+		go func(idx int, query string) {
+			defer wg.Done()
+			chunks, err := uc.searchSemantic(ctx, query, limit*2, filter)
+			results[idx] = searchResult{chunks: chunks, err: err}
+		}(i, q)
+	}
+	wg.Wait()
+
 	var allChunks []domain.RetrievedChunk
-	for _, q := range queries {
-		chunks, err := uc.searchSemantic(ctx, q, limit*2, filter)
-		if err != nil {
-			return nil, err
+	for _, r := range results {
+		if r.err != nil {
+			return nil, r.err
 		}
-		allChunks = append(allChunks, chunks...)
+		allChunks = append(allChunks, r.chunks...)
 	}
 	fused := fuseCandidatesRRF(allChunks, nil, uc.fusionRRFK)
 	return trimCandidates(fused, limit), nil

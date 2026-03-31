@@ -72,3 +72,30 @@ func TestAutoAssignTiers_Empty(t *testing.T) {
 		t.Errorf("empty models should use default, got %+v", routing)
 	}
 }
+
+func TestShouldOrchestrate(t *testing.T) {
+	tests := []struct {
+		name       string
+		intent     Intent
+		complexity domain.ComplexityTier
+		message    string
+		want       bool
+	}{
+		{name: "complex + keyword RU", intent: IntentKnowledge, complexity: domain.TierComplex, message: "исследуй подробно архитектуру системы", want: true},
+		{name: "complex + keyword EN", intent: IntentKnowledge, complexity: domain.TierComplex, message: "deep research on microservices", want: true},
+		{name: "complex but no keyword", intent: IntentKnowledge, complexity: domain.TierComplex, message: "расскажи про Docker", want: false},
+		{name: "simple tier rejected", intent: IntentKnowledge, complexity: domain.TierSimple, message: "исследуй подробно что-то", want: false},
+		{name: "general intent rejected", intent: IntentGeneral, complexity: domain.TierComplex, message: "исследуй подробно что-то", want: false},
+		{name: "code tier rejected", intent: IntentCode, complexity: domain.TierCode, message: "deep research on algorithms", want: false},
+		{name: "research and write EN", intent: IntentKnowledge, complexity: domain.TierComplex, message: "research and write a summary about RAG", want: true},
+		{name: "detailed analysis RU", intent: IntentKnowledge, complexity: domain.TierComplex, message: "проанализируй детально производительность", want: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := shouldOrchestrate(tt.intent, tt.complexity, tt.message)
+			if got != tt.want {
+				t.Errorf("shouldOrchestrate(%q, %q, %q) = %v, want %v", tt.intent, tt.complexity, tt.message, got, tt.want)
+			}
+		})
+	}
+}
