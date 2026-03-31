@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/kirillkom/personal-ai-assistant/internal/core/domain"
@@ -48,7 +49,13 @@ func (c *Client) chatWithTools(ctx context.Context, messages []domain.ChatMessag
 	useStreaming := c.thinkEnabled && onThinking != nil
 
 	if useStreaming {
-		return c.chatWithToolsStreaming(ctx, model, ollamaMessages, ollamaTools, onThinking)
+		result, err := c.chatWithToolsStreaming(ctx, model, ollamaMessages, ollamaTools, onThinking)
+		if err != nil {
+			// Fallback to sync if streaming fails (e.g. model doesn't support thinking)
+			slog.Warn("chat_stream_fallback", "error", err)
+			return c.chatWithToolsSync(ctx, model, ollamaMessages, ollamaTools)
+		}
+		return result, nil
 	}
 	return c.chatWithToolsSync(ctx, model, ollamaMessages, ollamaTools)
 }
@@ -59,7 +66,9 @@ func (c *Client) chatWithToolsSync(ctx context.Context, model string, messages, 
 		"model":    model,
 		"messages": messages,
 		"stream":   false,
-		"think":    c.thinkEnabled,
+	}
+	if c.thinkEnabled {
+		reqBody["think"] = true
 	}
 	if len(tools) > 0 {
 		reqBody["tools"] = tools
@@ -80,7 +89,16 @@ func (c *Client) chatWithToolsSync(ctx context.Context, model string, messages, 
 	}
 
 	if err := c.postJSON(ctx, "/api/chat", reqBody, &response, "chat"); err != nil {
-		return nil, fmt.Errorf("ollama chat: %w", err)
+		// Retry without think if model doesn't support it
+		if c.thinkEnabled {
+			delete(reqBody, "think")
+			if err2 := c.postJSON(ctx, "/api/chat", reqBody, &response, "chat"); err2 != nil {
+				return nil, fmt.Errorf("ollama chat: %w", err)
+			}
+			slog.Warn("think_not_supported_fallback", "model", reqBody["model"])
+		} else {
+			return nil, fmt.Errorf("ollama chat: %w", err)
+		}
 	}
 
 	content := strings.TrimSpace(response.Message.Content)
